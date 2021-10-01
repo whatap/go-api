@@ -2,7 +2,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -12,21 +11,7 @@ import (
 	"github.com/whatap/go-api/common/util/stringutil"
 )
 
-const (
-	// Infra
-	TCPCheck      = "tcp.check."
-	LogFileWatch  = "log.file."
-	EventLogWatch = "log.event."
-
-	REFERER_FORMAT_ALL         int32 = 0
-	REFERER_FORMAT_DOMAIN      int32 = 1
-	REFERER_FORMAT_DOMAIN_PATH int32 = 2
-	REFERER_FORMAT_PATH        int32 = 3
-
-	DEFAULT_IGNORE_HEADER = "host,accept,user-agent,referer, accept-language, connection"
-
-	APP_NAME_MAX_SIZE = 50
-)
+const ()
 
 type Config struct {
 	m map[string]string
@@ -38,8 +23,12 @@ type Config struct {
 	ONODE      int32
 	ONODE_NAME string
 
-	AppType            int16 // private
-	Enabled            bool
+	AppType int16 // private
+	Enabled bool
+
+	NetUdpHost string
+	NetUdpPort int32
+
 	TransactionEnabled bool
 	//profile
 	ProfileHttpHeaderEnabled   bool   // 수집 유무(HTTP-HEADERS)
@@ -72,6 +61,8 @@ type Config struct {
 	MtraceSendUrlLength int32
 	MtraceSpec          string
 	MtraceSpecHash      int32
+
+	Debug bool
 }
 
 var conf *Config = nil
@@ -99,6 +90,7 @@ func GetWhatapHome() string {
 func (conf *Config) ApplyDefault() {
 	m := make(map[string]string)
 	m["enabled"] = "true"
+	m["net_udp_port"] = "6600"
 	m["transaction_enabled"] = "true"
 	m["profile_http_header_enabled"] = "false"
 	m["profile_http_header_url_prefix"] = "/"
@@ -125,10 +117,11 @@ func (conf *Config) ApplyDefault() {
 	m["mtrace_spec"] = "ver1.0"
 	m["mtrace_rate"] = "100"
 
+	m["debug"] = "false"
+
 	conf.ApplyConfig(m)
 }
 func (conf *Config) ApplyConfig(m map[string]string) {
-	fmt.Println("APP_TYPE", conf.AppType)
 	if conf.m == nil {
 		conf.m = m
 	} else {
@@ -145,6 +138,9 @@ func (conf *Config) ApplyConfig(m map[string]string) {
 	conf.ONODE_NAME = conf.getValueDef("onode_name", "")
 
 	conf.Enabled = conf.getBoolean("enabled", true)
+	conf.NetUdpHost = conf.getValueDef("net_udp_host", "127.0.0.1")
+	conf.NetUdpPort = conf.getInt("net_udp_port", 6600)
+
 	conf.TransactionEnabled = conf.Enabled && conf.getBoolean("transaction_enabled", true)
 
 	conf.ProfileHttpHeaderEnabled = conf.getBoolean("profile_http_header_enabled", false)

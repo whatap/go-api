@@ -25,28 +25,40 @@ func MTrace(httpcCtx *HttpcCtx) http.Header {
 	return rt
 }
 func Start(ctx context.Context, url string) (*HttpcCtx, error) {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return NewHttpcCtx(), nil
+	}
 	if v := ctx.Value("whatap"); v != nil {
 		wCtx := v.(*trace.TraceCtx)
 		httpcCtx := NewHttpcCtx()
+		httpcCtx.ctx = wCtx
+
 		// multi trace info
 		httpcCtx.TraceMtraceCallerValue = wCtx.TraceMtraceCallerValue
 		httpcCtx.TraceMtracePoidValue = wCtx.TraceMtracePoidValue
 		httpcCtx.TraceMtraceSpecValue = wCtx.TraceMtraceSpecValue
 
-		p := udp.NewUdpTxHttpcPack()
-		p.Txid = wCtx.Txid
-		p.Time = dateutil.SystemNow()
-		p.Url = url
-		httpcCtx.ctx = wCtx
-		httpcCtx.step = p
+		if pack := udp.CreatePack(udp.TX_HTTPC, udp.UDP_PACK_VERSION); pack != nil {
+			p := pack.(*udp.UdpTxHttpcPack)
+			p.Txid = wCtx.Txid
+			p.Time = dateutil.SystemNow()
+			p.Url = url
+			httpcCtx.step = p
+		}
+
 		return httpcCtx, nil
 	}
 
 	return nil, fmt.Errorf("Not found Txid ")
 }
 func End(httpcCtx *HttpcCtx, status int, reason string, err error) error {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return nil
+	}
 	udpClient := whatapnet.GetUdpClient()
-	if httpcCtx != nil {
+	if httpcCtx != nil && httpcCtx.step != nil {
 		p := httpcCtx.step
 		p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 		if err != nil {
@@ -60,15 +72,21 @@ func End(httpcCtx *HttpcCtx, status int, reason string, err error) error {
 	return fmt.Errorf("HttpcCtx is nil")
 }
 func Trace(ctx context.Context, host string, port int, url string, elapsed int, status int, reason string, err error) error {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return nil
+	}
 	udpClient := whatapnet.GetUdpClient()
 	if v := ctx.Value("whatap"); v != nil {
 		wCtx := v.(*trace.TraceCtx)
-		p := udp.NewUdpTxHttpcPack()
-		p.Txid = wCtx.Txid
-		p.Time = dateutil.SystemNow()
-		p.Elapsed = int32(elapsed)
-		p.Url = url
-		udpClient.Send(p)
+		if pack := udp.CreatePack(udp.TX_HTTPC, udp.UDP_PACK_VERSION); pack != nil {
+			p := pack.(*udp.UdpTxHttpcPack)
+			p.Txid = wCtx.Txid
+			p.Time = dateutil.SystemNow()
+			p.Elapsed = int32(elapsed)
+			p.Url = url
+			udpClient.Send(p)
+		}
 	}
 
 	return fmt.Errorf("Not found Txid ")

@@ -5,24 +5,32 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/whatap/go-api/common/lang/pack/udp"
 	whatapnet "github.com/whatap/go-api/common/net"
 	"github.com/whatap/go-api/common/util/dateutil"
+	"github.com/whatap/go-api/config"
 	"github.com/whatap/go-api/trace"
 )
 
 func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return NewSqlCtx(), nil
+	}
 	if v := ctx.Value("whatap"); v != nil {
 		wCtx := v.(*trace.TraceCtx)
 		sqlCtx := NewSqlCtx()
-		p := udp.NewUdpTxSqlPack()
-		p.Txid = wCtx.Txid
-		p.Time = dateutil.SystemNow()
-		p.Dbc = dbhost
-		p.Sql = sql
 		sqlCtx.ctx = wCtx
-		sqlCtx.step = p
+		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
+			p := pack.(*udp.UdpTxSqlPack)
+			p.Txid = wCtx.Txid
+			p.Time = dateutil.SystemNow()
+			p.Dbc = hidePwd(dbhost)
+			p.Sql = sql
+			sqlCtx.step = p
+		}
 		return sqlCtx, nil
 	}
 
@@ -30,15 +38,21 @@ func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
 }
 
 func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return NewSqlCtx(), nil
+	}
 	if v := ctx.Value("whatap"); v != nil {
 		wCtx := v.(*trace.TraceCtx)
 		sqlCtx := NewSqlCtx()
-		p := udp.NewUdpTxDbcPack()
-		p.Txid = wCtx.Txid
-		p.Time = dateutil.SystemNow()
-		p.Dbc = dbhost
 		sqlCtx.ctx = wCtx
-		sqlCtx.step = p
+		if pack := udp.CreatePack(udp.TX_DB_CONN, udp.UDP_PACK_VERSION); pack != nil {
+			p := pack.(*udp.UdpTxDbcPack)
+			p.Txid = wCtx.Txid
+			p.Time = dateutil.SystemNow()
+			p.Dbc = hidePwd(dbhost)
+			sqlCtx.step = p
+		}
 		return sqlCtx, nil
 	}
 
@@ -46,17 +60,23 @@ func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
 }
 
 func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{}) (*SqlCtx, error) {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return NewSqlCtx(), nil
+	}
 	if v := ctx.Value("whatap"); v != nil {
 		wCtx := v.(*trace.TraceCtx)
 		sqlCtx := NewSqlCtx()
-		p := udp.NewUdpTxSqlParamPack()
-		p.Txid = wCtx.Txid
-		p.Time = dateutil.SystemNow()
-		p.Dbc = dbhost
-		p.Sql = sql
-		p.Param = paramsToString(param...)
 		sqlCtx.ctx = wCtx
-		sqlCtx.step = p
+		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
+			p := pack.(*udp.UdpTxSqlParamPack)
+			p.Txid = wCtx.Txid
+			p.Time = dateutil.SystemNow()
+			p.Dbc = hidePwd(dbhost)
+			p.Sql = sql
+			p.Param = paramsToString(param...)
+			sqlCtx.step = p
+		}
 		return sqlCtx, nil
 	}
 
@@ -64,17 +84,22 @@ func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{
 }
 
 func StartWithParamArray(ctx context.Context, dbhost, sql string, param []interface{}) (*SqlCtx, error) {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return NewSqlCtx(), nil
+	}
 	if v := ctx.Value("whatap"); v != nil {
 		wCtx := v.(*trace.TraceCtx)
 		sqlCtx := NewSqlCtx()
-		p := udp.NewUdpTxSqlParamPack()
-		p.Txid = wCtx.Txid
-		p.Time = dateutil.SystemNow()
-		p.Dbc = dbhost
-		p.Sql = sql
-		p.Param = paramsToString(param...)
 		sqlCtx.ctx = wCtx
-		sqlCtx.step = p
+		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
+			p := pack.(*udp.UdpTxSqlParamPack)
+			p.Time = dateutil.SystemNow()
+			p.Dbc = hidePwd(dbhost)
+			p.Sql = sql
+			p.Param = paramsToString(param...)
+			sqlCtx.step = p
+		}
 		return sqlCtx, nil
 	}
 
@@ -82,8 +107,12 @@ func StartWithParamArray(ctx context.Context, dbhost, sql string, param []interf
 }
 
 func End(sqlCtx *SqlCtx, err error) error {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return nil
+	}
 	udpClient := whatapnet.GetUdpClient()
-	if sqlCtx != nil {
+	if sqlCtx != nil && sqlCtx.step != nil {
 		up := sqlCtx.step
 		switch up.GetPackType() {
 		case udp.TX_DB_CONN:
@@ -122,18 +151,24 @@ func End(sqlCtx *SqlCtx, err error) error {
 }
 
 func Trace(ctx context.Context, dbhost, sql, param string, elapsed int, err error) error {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return nil
+	}
 	udpClient := whatapnet.GetUdpClient()
 	if v := ctx.Value("whatap"); v != nil {
 		wCtx := v.(*trace.TraceCtx)
-		p := udp.NewUdpTxSqlPack()
-		p.Txid = wCtx.Txid
-		p.Time = dateutil.SystemNow()
-		p.Elapsed = int32(elapsed)
-		p.Dbc = dbhost
-		p.Sql = sql
-		//TO-DO
-		//p.Param = param
-		udpClient.Send(p)
+		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
+			p := pack.(*udp.UdpTxSqlPack)
+			p.Txid = wCtx.Txid
+			p.Time = dateutil.SystemNow()
+			p.Elapsed = int32(elapsed)
+			p.Dbc = hidePwd(dbhost)
+			p.Sql = sql
+			//TO-DO
+			//p.Param = param
+			udpClient.Send(p)
+		}
 		return nil
 	}
 
@@ -150,4 +185,13 @@ func paramsToString(params ...interface{}) string {
 		}
 	}
 	return string(buffer.Bytes())
+}
+
+func hidePwd(connStr string) string {
+	first := strings.Index(connStr, ".")
+	last := strings.Index(connStr, "@")
+	if first > -1 && last > -1 && first < last {
+		return fmt.Sprintf("%s:#@%s", connStr[0:first], connStr[last+1:])
+	}
+	return connStr
 }
