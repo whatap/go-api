@@ -131,16 +131,3 @@ func ToPair(s string, sep string) (k, v string) {
 
 	return strings.TrimSpace(k), strings.TrimSpace(v)
 }
-
-//func main() {
-//
-//	//fmt.Println("ddd")
-//	param := "sdafasdfsdlfkjl\r\nekfjle sdlfksjldkfjwlekfj sldfksjdlfkjsdf host=127.0.0.1 dbname=webhard user=postgres password=postgres aaa=bbb"
-//	p := NewParamKV(param)
-//
-//	fmt.Println(p.ToStringMap(map[string]string{"password": "#", "dbname": "aaa"}))
-//
-//	p = NewParamKVSeperate(param, " ", "=")
-//	fmt.Println(p.ToStringStr("password", "#"))
-//
-//}

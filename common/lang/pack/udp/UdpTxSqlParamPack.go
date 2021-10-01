@@ -61,20 +61,10 @@ func (this *UdpTxSqlParamPack) Write(dout *io.DataOutputX) {
 	dout.WriteTextShortLength(this.Sql)
 	dout.WriteTextShortLength(this.Param)
 
-	if this.Ver > 40000 {
-		// Batch
-	} else if this.Ver > 30000 {
-		// Dotnet
-	} else if this.Ver > 20000 {
-		// Python
-	} else {
-		// PHP
-		if this.Ver >= 10105 {
-			dout.WriteTextShortLength(this.ErrorType)
-			dout.WriteTextShortLength(this.ErrorMessage)
-			dout.WriteTextShortLength(this.Stack)
-		}
-	}
+	dout.WriteTextShortLength(this.ErrorType)
+	dout.WriteTextShortLength(this.ErrorMessage)
+	dout.WriteTextShortLength(this.Stack)
+
 }
 
 func (this *UdpTxSqlParamPack) Read(din *io.DataInputX) {
@@ -84,39 +74,20 @@ func (this *UdpTxSqlParamPack) Read(din *io.DataInputX) {
 	this.Sql = din.ReadTextShortLength()
 	this.Param = din.ReadTextShortLength()
 
-	if this.Ver > 40000 {
-		// Batch
-	} else if this.Ver > 30000 {
-		// Dotnet
-	} else if this.Ver > 20000 {
-		// Python
-	} else {
-		// PHP
-		if this.Ver >= 10105 {
-			this.ErrorType = din.ReadTextShortLength()
-			this.ErrorMessage = din.ReadTextShortLength()
-			this.Stack = din.ReadTextShortLength()
-		}
-	}
+	this.ErrorType = din.ReadTextShortLength()
+	this.ErrorMessage = din.ReadTextShortLength()
+	this.Stack = din.ReadTextShortLength()
 }
 
 func (this *UdpTxSqlParamPack) Process() {
-	if this.Ver > 40000 {
-		// Batch
-	} else if this.Ver > 30000 {
-		// Dotnet
-	} else if this.Ver > 20000 {
-		// Python
-	} else {
-		// PHP
-		if this.Dbc != "" {
-			p := paramtext.NewParamKVSeperate(this.Dbc, " ", "=")
-			this.Dbc = p.ToStringStr("password", "#")
-			p = paramtext.NewParamKVSeperate(this.Dbc, ";", "=")
-			this.Dbc = p.ToStringStr("password", "#")
-		}
-		if len(this.Sql) >= UDP_PACKET_SQL_MAX_SIZE {
-			this.Sql = "[QUERY TOO LONG]\r\n" + this.Sql
-		}
+	// PHP
+	if this.Dbc != "" {
+		p := paramtext.NewParamKVSeperate(this.Dbc, " ", "=")
+		this.Dbc = p.ToStringStr("password", "#")
+		p = paramtext.NewParamKVSeperate(this.Dbc, ";", "=")
+		this.Dbc = p.ToStringStr("password", "#")
+	}
+	if len(this.Sql) >= UDP_PACKET_SQL_MAX_SIZE {
+		this.Sql = "[QUERY TOO LONG]\r\n" + this.Sql
 	}
 }

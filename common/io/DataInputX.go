@@ -55,21 +55,6 @@ func (in *DataInputX) ReadBytes(sz int32) []byte {
 			nbytesleft -= nbytethistime
 			nbytesuntilnow += nbytethistime
 		}
-
-		//		if _, err := in.tcp.Read(buff); err != nil {
-		//			// Read Error 시 Panic 발생 후 TCPSession Read 에서 Close 처리
-		//			//fmt.Println("WA003 Read Error err=%s, ", err.Error())
-		//			panic(fmt.Sprintf("WA003 Read Error err=%s, ", err.Error()))
-		//			// TODO 테스트 후 필요하면  적용  , io.EOF catch 안됨 ??
-		//			//if err == io.EOF {
-		//			// read error 나도 계속 루프 돌면서 에러가 나오다가 write 하는 시점에 broken io 오류로 소켓 close 호출
-		//			// 이것을 막기 위해 read err 시 panic 발생 . TCPSession 에서 Close 처리
-		//			//
-		//			//	panic(fmt.Sprintf("WA003 Read Error err=%s, ", err.Error()))
-		//			//}
-		//
-		//			return nil
-		//		}
 	} else {
 		if _, err := in.buffer.Read(buff); err != nil {
 			panic(fmt.Sprintf("WA003-01 Read Error err=%s, ", err.Error()))

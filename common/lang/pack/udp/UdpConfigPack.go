@@ -69,14 +69,4 @@ func (this *UdpConfigPack) Process() {
 			this.MapData[line[0:pos]] = line[pos+1:]
 		}
 	}
-
-	if this.Ver > 40000 {
-		// Batch
-	} else if this.Ver > 30000 {
-		// Dotnet
-	} else if this.Ver > 20000 {
-		// Python
-	} else {
-		// PHP
-	}
 }

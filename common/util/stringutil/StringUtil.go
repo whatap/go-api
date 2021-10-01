@@ -126,10 +126,7 @@ func Substring(s string, from string, to string) string {
 // substring
 func SubstringN(s string, from string, to string, n int) []string {
 	defer func() {
-		// recover
-		if r := recover(); r != nil {
-			//fmt.Println("recover:", r, string(debug.Stack()))
-		}
+		recover()
 	}()
 	result := make([]string, 0)
 
@@ -138,8 +135,6 @@ func SubstringN(s string, from string, to string, n int) []string {
 	pos1 := 0
 	idx := 0
 	for pos = strings.Index(strings.ToLower(s), strings.ToLower(from)); pos >= 0; pos = strings.Index(strings.ToLower(s[lastPos:]), strings.ToLower(from)) {
-
-		fmt.Println("pos=", pos)
 		if pos < 0 {
 			break
 		}

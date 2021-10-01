@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	UDP_PACK_VERSION = 10105
+	UDP_PACK_VERSION = 50000
 
 	TX_BLANK uint8 = 0
 	TX_START uint8 = 1

@@ -58,25 +58,10 @@ func (this *UdpTxHttpcPack) Clear() {
 func (this *UdpTxHttpcPack) Write(dout *io.DataOutputX) {
 	this.AbstractPack.Write(dout)
 	dout.WriteTextShortLength(this.Url)
-
-	if this.Ver > 40000 {
-		// Batch
-	} else if this.Ver > 30000 {
-		// Dotnet
-		dout.WriteTextShortLength(stringutil.ParseStringZeroToEmpty(this.Mcallee))
-	} else if this.Ver > 20000 {
-		// Python
-		dout.WriteTextShortLength(stringutil.ParseStringZeroToEmpty(this.Mcallee))
-	} else {
-		if this.Ver >= 10105 {
-			dout.WriteTextShortLength(stringutil.ParseStringZeroToEmpty(this.Mcallee))
-			dout.WriteTextShortLength(this.ErrorType)
-			dout.WriteTextShortLength(this.ErrorMessage)
-			dout.WriteTextShortLength(this.Stack)
-		} else if this.Ver >= 10102 {
-			dout.WriteTextShortLength(stringutil.ParseStringZeroToEmpty(this.Mcallee))
-		}
-	}
+	dout.WriteTextShortLength(stringutil.ParseStringZeroToEmpty(this.Mcallee))
+	dout.WriteTextShortLength(this.ErrorType)
+	dout.WriteTextShortLength(this.ErrorMessage)
+	dout.WriteTextShortLength(this.Stack)
 }
 
 func (this *UdpTxHttpcPack) Read(din *io.DataInputX) {
@@ -84,36 +69,12 @@ func (this *UdpTxHttpcPack) Read(din *io.DataInputX) {
 
 	this.Url = din.ReadTextShortLength()
 
-	if this.Ver > 40000 {
-		// Batch
-	} else if this.Ver > 30000 {
-		// Dotnet
-		this.Mcallee = stringutil.ParseInt64(din.ReadTextShortLength())
-	} else if this.Ver > 20000 {
-		// Python
-		this.Mcallee = stringutil.ParseInt64(din.ReadTextShortLength())
-	} else {
-		// PHP
-		if this.Ver >= 10105 {
-			this.Mcallee = stringutil.ParseInt64(din.ReadTextShortLength())
-			this.ErrorType = din.ReadTextShortLength()
-			this.ErrorMessage = din.ReadTextShortLength()
-			this.Stack = din.ReadTextShortLength()
-		} else if this.Ver >= 10102 {
-			this.Mcallee = stringutil.ParseInt64(din.ReadTextShortLength())
-		}
-	}
+	this.Mcallee = stringutil.ParseInt64(din.ReadTextShortLength())
+	this.ErrorType = din.ReadTextShortLength()
+	this.ErrorMessage = din.ReadTextShortLength()
+	this.Stack = din.ReadTextShortLength()
 }
 
 func (this *UdpTxHttpcPack) Process() {
 	this.HttpcURL = urlutil.NewURL(this.Url)
-	if this.Ver > 40000 {
-		// Batch
-	} else if this.Ver > 30000 {
-		// Dotnet
-	} else if this.Ver > 20000 {
-		// Python
-	} else {
-		// PHP
-	}
 }

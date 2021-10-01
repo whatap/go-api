@@ -54,10 +54,7 @@ func (this *URL) process() {
 		pos = strings.Index(this.Host, ":")
 		if pos > -1 {
 			this.RawPort = this.Host[pos+1:]
-			this.Port, err = strconv.Atoi(this.Host[pos+1:])
-			if err != nil {
-				//fmt.Println("WA871", "Port ParseInt Error:", err)
-			}
+			this.Port, _ = strconv.Atoi(this.Host[pos+1:])
 			this.Host = this.Host[0:pos]
 		} else {
 			this.Port = 80
@@ -140,36 +137,4 @@ func (this *URL) DomainPath() string {
 
 	rt = rt + this.Path
 	return rt
-}
-
-func MainURL() {
-	//p := NewURL("http://www.naver.com")
-	////fmt.Println("url=", p.Url , "\r\n", p.Protocol, ", ", p.Host, ", ", p.Port , ", ", p.Path , ", ", p.File, ", ", p.Query)
-	//
-	//p = NewURL("https://www.naver.com/")
-	////fmt.Println("url=", p.Url , "\r\n", p.Protocol, ", ", p.Host, ", ", p.Port , ", ", p.Path , ", ", p.File, ", ", p.Query)
-	//
-	//p = NewURL("https://www.naver.com/a/b/c/")
-	////fmt.Println("url=", p.Url , "\r\n", p.Protocol, ", ", p.Host, ", ", p.Port , ", ", p.Path , ", ", p.File, ", ", p.Query)
-	//
-	//p = NewURL("http://www.naver.com/a/b/c/index.php")
-	////fmt.Println("url=", p.Url , "\r\n", p.Protocol, ", ", p.Host, ", ", p.Port , ", ", p.Path , ", ", p.File, ", ", p.Query)
-	//
-	//p = NewURL("http://www.naver.com/a/b/c/d/index.php?aal=3&bbb=3")
-	////fmt.Println("url=", p.Url , "\r\n", p.Protocol, ", ", p.Host, ", ", p.Port , ", ", p.Path , ", ", p.File, ", ", p.Query)
-	//
-	//p = NewURL("https://www.naver.com:80")
-	////fmt.Println("url=", p.Url , "\r\n", p.Protocol, ", ", p.Host, ", ", p.Port , ", ", p.Path , ", ", p.File, ", ", p.Query)
-	//
-	//p = NewURL("https://www.naver.com:80/")
-	////fmt.Println("url=", p.Url , "\r\n", p.Protocol, ", ", p.Host, ", ", p.Port , ", ", p.Path , ", ", p.File, ", ", p.Query)
-	//
-	//p = NewURL("https://www.naver.com:80/a/b/c/")
-	////fmt.Println("url=", p.Url , "\r\n", p.Protocol, ", ", p.Host, ", ", p.Port , ", ", p.Path , ", ", p.File, ", ", p.Query)
-	//
-	//p = NewURL("http://www.naver.com:80/a/b/c/index.php")
-	////fmt.Println("url=", p.Url , "\r\n", p.Protocol, ", ", p.Host, ", ", p.Port , ", ", p.Path , ", ", p.File, ", ", p.Query)
-	//
-	//p = NewURL("http://www.naver.com:80/a/b/c/d/index.php?aal=3&bbb=3")
-	////fmt.Println("url=", p.Url , "\r\n", p.Protocol, ", ", p.Host, ", ", p.Port , ", ", p.Path , ", ", p.File, ", ", p.Query)
 }

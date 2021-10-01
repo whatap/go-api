@@ -77,8 +77,8 @@ func NewParamTextBrace(plainText string, startBrace string, endBrace string) *Pa
 	p.startBrace = startBrace
 	p.endBrace = endBrace
 	p.keyList = []string{}
-    	p.origin = plainText
-    
+	p.origin = plainText
+
 	for len(plainText) > 0 {
 		pos := strings.Index(plainText, startBrace)
 		if pos < 0 {
@@ -104,8 +104,4 @@ func NewParamTextBrace(plainText string, startBrace string, endBrace string) *Pa
 	}
 
 	return p
-}
-
-func main() {
-	//fmt.Println("ddd")
 }

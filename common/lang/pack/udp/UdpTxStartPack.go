@@ -84,20 +84,7 @@ func (this *UdpTxStartPack) Write(dout *io.DataOutputX) {
 	dout.WriteTextShortLength(this.UAgent)
 	dout.WriteTextShortLength(this.Ref)
 	dout.WriteTextShortLength(this.WClientId)
-	if this.Ver > 40000 {
-		// Batch
-	} else if this.Ver > 30000 {
-		// Dotnet
-		dout.WriteTextShortLength(this.IsStaticContents)
-	} else if this.Ver > 20000 {
-		// Python
-		dout.WriteTextShortLength(this.IsStaticContents)
-	} else {
-		// PHP
-		if this.Ver >= 10103 {
-			dout.WriteTextShortLength(this.HttpMethod)
-		}
-	}
+	dout.WriteTextShortLength(this.HttpMethod)
 }
 
 func (this *UdpTxStartPack) Read(din *io.DataInputX) {
@@ -110,20 +97,7 @@ func (this *UdpTxStartPack) Read(din *io.DataInputX) {
 	this.Ref = din.ReadTextShortLength()
 	this.WClientId = din.ReadTextShortLength()
 
-	if this.Ver > 40000 {
-		// Batch
-	} else if this.Ver > 30000 {
-		// Dotnet
-		this.IsStaticContents = din.ReadTextShortLength()
-	} else if this.Ver > 20000 {
-		// Python
-		this.IsStaticContents = din.ReadTextShortLength()
-	} else {
-		// PHP
-		if this.Ver >= 10103 {
-			this.HttpMethod = din.ReadTextShortLength()
-		}
-	}
+	this.HttpMethod = din.ReadTextShortLength()
 }
 
 func (this *UdpTxStartPack) Process() {
