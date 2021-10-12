@@ -185,6 +185,8 @@ func (conf *Config) ApplyConfig(m map[string]string) {
 		conf.MtraceSpecHash = hash.HashStr(conf.MtraceSpec)
 	}
 
+	conf.Debug = conf.GetBoolean("debug", false)
+
 }
 func (conf *Config) GetValue(key string) string { return conf.getValue(key) }
 func (conf *Config) getValue(key string) string {
