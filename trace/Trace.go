@@ -18,6 +18,37 @@ import (
 	"github.com/whatap/go-api/config"
 )
 
+const (
+	PACKET_DB_MAX_SIZE           = 4 * 1024  // max size of sql
+	PACKET_SQL_MAX_SIZE          = 32 * 1024 // max size of sql
+	PACKET_HTTPC_MAX_SIZE        = 32 * 1024 // max size of sql
+	PACKET_MESSAGE_MAX_SIZE      = 32 * 1024 // max size of message
+	PACKET_METHOD_STACK_MAX_SIZE = 32 * 1024 // max size of message
+
+	COMPILE_FILE_MAX_SIZE = 2 * 1024 // max size of filename
+
+	HTTP_HOST_MAX_SIZE   = 2 * 1024 // max size of host
+	HTTP_URI_MAX_SIZE    = 2 * 1024 // max size of uri
+	HTTP_METHOD_MAX_SIZE = 256      // max size of method
+	HTTP_IP_MAX_SIZE     = 256      // max size of ip(request_addr)
+	HTTP_UA_MAX_SIZE     = 2 * 1024 // max size of user agent
+	HTTP_REF_MAX_SIZE    = 2 * 1024 // max size of referer
+	HTTP_USERID_MAX_SIZE = 2 * 1024 // max size of userid
+
+	HTTP_PARAM_MAX_COUNT      = 20
+	HTTP_PARAM_KEY_MAX_SIZE   = 255 // = 을 빼고 255 byte
+	HTTP_PARAM_VALUE_MAX_SIZE = 256
+
+	HTTP_HEADER_MAX_COUNT      = 20
+	HTTP_HEADER_KEY_MAX_SIZE   = 255 // = 을 빼고 255 byte
+	HTTP_HEADER_VALUE_MAX_SIZE = 256
+
+	SQL_PARAM_MAX_COUNT      = 20
+	SQL_PARAM_VALUE_MAX_SIZE = 256
+
+	STEP_ERROR_MESSAGE_MAX_SIZE = 4 * 1024
+)
+
 func Init(m map[string]string) {
 	// TO-DO
 	if m != nil {
@@ -45,7 +76,7 @@ func Start(ctx context.Context, name string) (context.Context, error) {
 		wCtx.Txid = keygen.Next()
 		ctx = context.WithValue(ctx, "whatap", wCtx)
 	}
-	wCtx.Name = name
+	wCtx.Name = stringutil.Truncate(name, HTTP_URI_MAX_SIZE)
 	wCtx.StartTime = dateutil.SystemNow()
 
 	if pack := udp.CreatePack(udp.TX_START, udp.UDP_PACK_VERSION); pack != nil {
@@ -53,7 +84,7 @@ func Start(ctx context.Context, name string) (context.Context, error) {
 		p.Txid = wCtx.Txid
 		p.Time = wCtx.StartTime
 		p.Host = ""
-		p.Uri = name
+		p.Uri = stringutil.Truncate(name, HTTP_URI_MAX_SIZE)
 		p.Ipaddr = ""
 		p.HttpMethod = ""
 		p.Ref = ""
@@ -80,8 +111,8 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 		ctx = context.WithValue(ctx, "whatap", wCtx)
 	}
 
-	wCtx.Name = r.RequestURI
-	wCtx.Host = r.Host
+	wCtx.Name = stringutil.Truncate(r.RequestURI, HTTP_URI_MAX_SIZE)
+	wCtx.Host = stringutil.Truncate(r.Host, HTTP_HOST_MAX_SIZE)
 	wCtx.StartTime = dateutil.SystemNow()
 
 	// update multi trace info
@@ -92,12 +123,12 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 
 		p.Txid = wCtx.Txid
 		p.Time = wCtx.StartTime
-		p.Host = r.Host
-		p.Uri = r.RequestURI
-		p.Ipaddr = r.RemoteAddr
-		p.HttpMethod = r.Method
-		p.Ref = r.Referer()
-		p.UAgent = r.UserAgent()
+		p.Host = stringutil.Truncate(r.Host, HTTP_HOST_MAX_SIZE)
+		p.Uri = stringutil.Truncate(r.RequestURI, HTTP_URI_MAX_SIZE)
+		p.Ipaddr = stringutil.Truncate(r.RemoteAddr, HTTP_IP_MAX_SIZE)
+		p.HttpMethod = stringutil.Truncate(r.Method, HTTP_METHOD_MAX_SIZE)
+		p.Ref = stringutil.Truncate(r.Referer(), HTTP_REF_MAX_SIZE)
+		p.UAgent = stringutil.Truncate(r.UserAgent(), HTTP_UA_MAX_SIZE)
 		udpClient.Send(p)
 	}
 	// Parse form
@@ -105,11 +136,17 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 		r.ParseForm()
 		sb := stringutil.NewStringBuffer()
 		if len(r.Form) > 0 {
+			idx := 0
 			for k, v := range r.Form {
-				sb.Append(k).Append("=")
-				if len(v) > 0 {
-					sb.AppendLine(v[0])
+				if idx > HTTP_PARAM_MAX_COUNT {
+					break
 				}
+				sb.Append(stringutil.Truncate(k, HTTP_PARAM_KEY_MAX_SIZE)).Append("=")
+				if len(v) > 0 {
+					sb.AppendLine(stringutil.Truncate(v[0], HTTP_PARAM_VALUE_MAX_SIZE))
+				}
+				idx += 1
+
 			}
 			if pack := udp.CreatePack(udp.TX_SECURE_MSG, udp.UDP_PACK_VERSION); pack != nil {
 				p := pack.(*udp.UdpTxSecureMessagePack)
@@ -127,10 +164,14 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 	if conf.ProfileHttpHeaderEnabled && strings.HasPrefix(wCtx.Name, conf.ProfileHttpHeaderUrlPrefix) {
 		sb := stringutil.NewStringBuffer()
 		if len(r.Header) > 0 {
+			idx := 0
 			for k, v := range r.Header {
-				sb.Append(k).Append("=")
+				if idx > HTTP_HEADER_MAX_COUNT {
+					break
+				}
+				sb.Append(stringutil.Truncate(k, HTTP_HEADER_KEY_MAX_SIZE)).Append("=")
 				if len(v) > 0 {
-					sb.AppendLine(v[0])
+					sb.AppendLine(stringutil.Truncate(v[0], HTTP_HEADER_VALUE_MAX_SIZE))
 				}
 			}
 			if pack := udp.CreatePack(udp.TX_MSG, udp.UDP_PACK_VERSION); pack != nil {
@@ -159,8 +200,8 @@ func Step(ctx context.Context, title, message string, elapsed, value int) error 
 			p := pack.(*udp.UdpTxMessagePack)
 			p.Txid = wCtx.Txid
 			p.Time = dateutil.SystemNow()
-			p.Hash = title
-			p.Desc = message
+			p.Hash = stringutil.Truncate(title, HTTP_URI_MAX_SIZE)
+			p.Desc = stringutil.Truncate(message, PACKET_MESSAGE_MAX_SIZE)
 			//p.Value = value
 			udpClient.Send(p)
 		}

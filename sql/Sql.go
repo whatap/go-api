@@ -10,8 +10,40 @@ import (
 	"github.com/whatap/go-api/common/lang/pack/udp"
 	whatapnet "github.com/whatap/go-api/common/net"
 	"github.com/whatap/go-api/common/util/dateutil"
+	"github.com/whatap/go-api/common/util/stringutil"
 	"github.com/whatap/go-api/config"
 	"github.com/whatap/go-api/trace"
+)
+
+const (
+	PACKET_DB_MAX_SIZE           = 4 * 1024  // max size of sql
+	PACKET_SQL_MAX_SIZE          = 32 * 1024 // max size of sql
+	PACKET_HTTPC_MAX_SIZE        = 32 * 1024 // max size of sql
+	PACKET_MESSAGE_MAX_SIZE      = 32 * 1024 // max size of message
+	PACKET_METHOD_STACK_MAX_SIZE = 32 * 1024 // max size of message
+
+	COMPILE_FILE_MAX_SIZE = 2 * 1024 // max size of filename
+
+	HTTP_HOST_MAX_SIZE   = 2 * 1024 // max size of host
+	HTTP_URI_MAX_SIZE    = 2 * 1024 // max size of uri
+	HTTP_METHOD_MAX_SIZE = 256      // max size of method
+	HTTP_IP_MAX_SIZE     = 256      // max size of ip(request_addr)
+	HTTP_UA_MAX_SIZE     = 2 * 1024 // max size of user agent
+	HTTP_REF_MAX_SIZE    = 2 * 1024 // max size of referer
+	HTTP_USERID_MAX_SIZE = 2 * 1024 // max size of userid
+
+	HTTP_PARAM_MAX_COUNT      = 20
+	HTTP_PARAM_KEY_MAX_SIZE   = 255 // = 을 빼고 255 byte
+	HTTP_PARAM_VALUE_MAX_SIZE = 256
+
+	HTTP_HEADER_MAX_COUNT      = 20
+	HTTP_HEADER_KEY_MAX_SIZE   = 255 // = 을 빼고 255 byte
+	HTTP_HEADER_VALUE_MAX_SIZE = 256
+
+	SQL_PARAM_MAX_COUNT      = 20
+	SQL_PARAM_VALUE_MAX_SIZE = 256
+
+	STEP_ERROR_MESSAGE_MAX_SIZE = 4 * 1024
 )
 
 func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
@@ -27,8 +59,8 @@ func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
 			p := pack.(*udp.UdpTxSqlPack)
 			p.Txid = wCtx.Txid
 			p.Time = dateutil.SystemNow()
-			p.Dbc = hidePwd(dbhost)
-			p.Sql = sql
+			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
+			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
 			sqlCtx.step = p
 		}
 		return sqlCtx, nil
@@ -50,7 +82,7 @@ func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
 			p := pack.(*udp.UdpTxDbcPack)
 			p.Txid = wCtx.Txid
 			p.Time = dateutil.SystemNow()
-			p.Dbc = hidePwd(dbhost)
+			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
 			sqlCtx.step = p
 		}
 		return sqlCtx, nil
@@ -72,8 +104,8 @@ func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{
 			p := pack.(*udp.UdpTxSqlParamPack)
 			p.Txid = wCtx.Txid
 			p.Time = dateutil.SystemNow()
-			p.Dbc = hidePwd(dbhost)
-			p.Sql = sql
+			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
+			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
 			p.Param = paramsToString(param...)
 			sqlCtx.step = p
 		}
@@ -95,8 +127,8 @@ func StartWithParamArray(ctx context.Context, dbhost, sql string, param []interf
 		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxSqlParamPack)
 			p.Time = dateutil.SystemNow()
-			p.Dbc = hidePwd(dbhost)
-			p.Sql = sql
+			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
+			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
 			p.Param = paramsToString(param...)
 			sqlCtx.step = p
 		}
@@ -119,8 +151,8 @@ func End(sqlCtx *SqlCtx, err error) error {
 			p := up.(*udp.UdpTxDbcPack)
 			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 			if err != nil {
-				p.ErrorMessage = err.Error()
-				p.ErrorType = err.Error()
+				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
 			udpClient.Send(p)
 
@@ -128,8 +160,8 @@ func End(sqlCtx *SqlCtx, err error) error {
 			p := up.(*udp.UdpTxSqlPack)
 			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 			if err != nil {
-				p.ErrorMessage = err.Error()
-				p.ErrorType = err.Error()
+				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
 			udpClient.Send(p)
 
@@ -137,8 +169,8 @@ func End(sqlCtx *SqlCtx, err error) error {
 			p := up.(*udp.UdpTxSqlParamPack)
 			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 			if err != nil {
-				p.ErrorMessage = err.Error()
-				p.ErrorType = err.Error()
+				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
 			udpClient.Send(p)
 
@@ -163,8 +195,8 @@ func Trace(ctx context.Context, dbhost, sql, param string, elapsed int, err erro
 			p.Txid = wCtx.Txid
 			p.Time = dateutil.SystemNow()
 			p.Elapsed = int32(elapsed)
-			p.Dbc = hidePwd(dbhost)
-			p.Sql = sql
+			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
+			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
 			//TO-DO
 			//p.Param = param
 			udpClient.Send(p)
@@ -178,10 +210,23 @@ func Trace(ctx context.Context, dbhost, sql, param string, elapsed int, err erro
 func paramsToString(params ...interface{}) string {
 	var buffer bytes.Buffer
 	for i, v := range params {
-		if i < len(params)-1 {
-			buffer.WriteString(fmt.Sprintf("%v,", v))
-		} else {
-			buffer.WriteString(fmt.Sprintf("%v", v))
+		if i < SQL_PARAM_MAX_COUNT {
+			if i < len(params)-1 || i < SQL_PARAM_MAX_COUNT-1 {
+				switch t := v.(type) {
+				case string:
+					buffer.WriteString(fmt.Sprintf("%v,", stringutil.Truncate(t, SQL_PARAM_VALUE_MAX_SIZE)))
+				default:
+					buffer.WriteString(fmt.Sprintf("%v,", v))
+				}
+
+			} else {
+				switch t := v.(type) {
+				case string:
+					buffer.WriteString(fmt.Sprintf("%v", stringutil.Truncate(t, SQL_PARAM_VALUE_MAX_SIZE)))
+				default:
+					buffer.WriteString(fmt.Sprintf("%v", v))
+				}
+			}
 		}
 	}
 	return string(buffer.Bytes())
