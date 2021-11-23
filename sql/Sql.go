@@ -51,8 +51,7 @@ func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
 	if !conf.Enabled {
 		return NewSqlCtx(), nil
 	}
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx := v.(*trace.TraceCtx)
+	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
 		sqlCtx := NewSqlCtx()
 		sqlCtx.ctx = wCtx
 		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
@@ -74,8 +73,7 @@ func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
 	if !conf.Enabled {
 		return NewSqlCtx(), nil
 	}
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx := v.(*trace.TraceCtx)
+	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
 		sqlCtx := NewSqlCtx()
 		sqlCtx.ctx = wCtx
 		if pack := udp.CreatePack(udp.TX_DB_CONN, udp.UDP_PACK_VERSION); pack != nil {
@@ -96,8 +94,7 @@ func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{
 	if !conf.Enabled {
 		return NewSqlCtx(), nil
 	}
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx := v.(*trace.TraceCtx)
+	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
 		sqlCtx := NewSqlCtx()
 		sqlCtx.ctx = wCtx
 		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
@@ -120,8 +117,7 @@ func StartWithParamArray(ctx context.Context, dbhost, sql string, param []interf
 	if !conf.Enabled {
 		return NewSqlCtx(), nil
 	}
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx := v.(*trace.TraceCtx)
+	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
 		sqlCtx := NewSqlCtx()
 		sqlCtx.ctx = wCtx
 		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
@@ -188,8 +184,7 @@ func Trace(ctx context.Context, dbhost, sql, param string, elapsed int, err erro
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx := v.(*trace.TraceCtx)
+	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
 		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxSqlPack)
 			p.Txid = wCtx.Txid

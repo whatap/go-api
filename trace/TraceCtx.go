@@ -7,9 +7,18 @@ import (
 
 type TraceCtx struct {
 	Txid      int64
-	Host      string
 	Name      string
 	StartTime int64
+
+	// Pack
+	Host             string
+	Uri              string
+	Ipaddr           string
+	UAgent           string
+	Ref              string
+	WClientId        string
+	HttpMethod       string
+	IsStaticContents string
 
 	MTid        int64
 	MDepth      int32

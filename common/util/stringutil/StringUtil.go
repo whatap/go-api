@@ -380,3 +380,23 @@ func Concat(v ...interface{}) string {
 	}
 	return b.String()
 }
+
+func ParseMapSASToString(m map[string][]string, maxCount, keyMaxSize, valueMaxSize int) string {
+	var rt string
+	sb := NewStringBuffer()
+	if m != nil && len(m) > 0 {
+		idx := 0
+		for k, v := range m {
+			if idx > maxCount {
+				break
+			}
+			sb.Append(Truncate(k, keyMaxSize)).Append("=")
+			if len(v) > 0 {
+				sb.AppendLine(Truncate(v[0], valueMaxSize))
+			}
+		}
+		rt = sb.ToString()
+		sb.Clear()
+	}
+	return rt
+}

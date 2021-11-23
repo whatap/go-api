@@ -4,6 +4,7 @@ package trace
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -18,37 +19,6 @@ import (
 	"github.com/whatap/go-api/config"
 )
 
-const (
-	PACKET_DB_MAX_SIZE           = 4 * 1024  // max size of sql
-	PACKET_SQL_MAX_SIZE          = 32 * 1024 // max size of sql
-	PACKET_HTTPC_MAX_SIZE        = 32 * 1024 // max size of sql
-	PACKET_MESSAGE_MAX_SIZE      = 32 * 1024 // max size of message
-	PACKET_METHOD_STACK_MAX_SIZE = 32 * 1024 // max size of message
-
-	COMPILE_FILE_MAX_SIZE = 2 * 1024 // max size of filename
-
-	HTTP_HOST_MAX_SIZE   = 2 * 1024 // max size of host
-	HTTP_URI_MAX_SIZE    = 2 * 1024 // max size of uri
-	HTTP_METHOD_MAX_SIZE = 256      // max size of method
-	HTTP_IP_MAX_SIZE     = 256      // max size of ip(request_addr)
-	HTTP_UA_MAX_SIZE     = 2 * 1024 // max size of user agent
-	HTTP_REF_MAX_SIZE    = 2 * 1024 // max size of referer
-	HTTP_USERID_MAX_SIZE = 2 * 1024 // max size of userid
-
-	HTTP_PARAM_MAX_COUNT      = 20
-	HTTP_PARAM_KEY_MAX_SIZE   = 255 // = 을 빼고 255 byte
-	HTTP_PARAM_VALUE_MAX_SIZE = 256
-
-	HTTP_HEADER_MAX_COUNT      = 20
-	HTTP_HEADER_KEY_MAX_SIZE   = 255 // = 을 빼고 255 byte
-	HTTP_HEADER_VALUE_MAX_SIZE = 256
-
-	SQL_PARAM_MAX_COUNT      = 20
-	SQL_PARAM_VALUE_MAX_SIZE = 256
-
-	STEP_ERROR_MESSAGE_MAX_SIZE = 4 * 1024
-)
-
 func Init(m map[string]string) {
 	// TO-DO
 	if m != nil {
@@ -61,6 +31,28 @@ func Init(m map[string]string) {
 	udpClient.Send(p)
 }
 
+func Shutdown() {
+	whatapnet.UdpShutdown()
+}
+
+func GetTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
+	var wCtx *TraceCtx
+	if v := ctx.Value("whatap"); v != nil {
+		wCtx = v.(*TraceCtx)
+	} else {
+		wCtx = nil
+	}
+	return ctx, wCtx
+}
+
+func NewTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
+	var wCtx *TraceCtx
+	wCtx = new(TraceCtx)
+	wCtx.Txid = keygen.Next()
+	ctx = context.WithValue(ctx, "whatap", wCtx)
+	return ctx, wCtx
+}
+
 func Start(ctx context.Context, name string) (context.Context, error) {
 	conf := config.GetConfig()
 	if !conf.Enabled {
@@ -68,27 +60,22 @@ func Start(ctx context.Context, name string) (context.Context, error) {
 	}
 
 	udpClient := whatapnet.GetUdpClient()
-	var wCtx *TraceCtx
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx = v.(*TraceCtx)
-	} else {
-		wCtx = new(TraceCtx)
-		wCtx.Txid = keygen.Next()
-		ctx = context.WithValue(ctx, "whatap", wCtx)
-	}
-	wCtx.Name = stringutil.Truncate(name, HTTP_URI_MAX_SIZE)
+	ctx, wCtx := NewTraceContext(ctx)
+	wCtx.Name = name
 	wCtx.StartTime = dateutil.SystemNow()
+	// update multi trace info
+	UpdateMtrace(wCtx, http.Header{})
 
 	if pack := udp.CreatePack(udp.TX_START, udp.UDP_PACK_VERSION); pack != nil {
 		p := pack.(*udp.UdpTxStartPack)
 		p.Txid = wCtx.Txid
 		p.Time = wCtx.StartTime
-		p.Host = ""
-		p.Uri = stringutil.Truncate(name, HTTP_URI_MAX_SIZE)
-		p.Ipaddr = ""
-		p.HttpMethod = ""
-		p.Ref = ""
-		p.UAgent = ""
+		p.Host = wCtx.Host
+		p.Uri = name
+		p.Ipaddr = wCtx.Ipaddr
+		p.HttpMethod = wCtx.HttpMethod
+		p.Ref = wCtx.Ref
+		p.UAgent = wCtx.UAgent
 		udpClient.Send(p)
 	}
 	return ctx, nil
@@ -101,18 +88,10 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 	}
 
 	udpClient := whatapnet.GetUdpClient()
-	ctx := r.Context()
-	var wCtx *TraceCtx
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx = v.(*TraceCtx)
-	} else {
-		wCtx = new(TraceCtx)
-		wCtx.Txid = keygen.Next()
-		ctx = context.WithValue(ctx, "whatap", wCtx)
-	}
+	ctx, wCtx := NewTraceContext(r.Context())
 
-	wCtx.Name = stringutil.Truncate(r.RequestURI, HTTP_URI_MAX_SIZE)
-	wCtx.Host = stringutil.Truncate(r.Host, HTTP_HOST_MAX_SIZE)
+	wCtx.Name = r.RequestURI
+	wCtx.Host = r.Host
 	wCtx.StartTime = dateutil.SystemNow()
 
 	// update multi trace info
@@ -123,85 +102,106 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 
 		p.Txid = wCtx.Txid
 		p.Time = wCtx.StartTime
-		p.Host = stringutil.Truncate(r.Host, HTTP_HOST_MAX_SIZE)
-		p.Uri = stringutil.Truncate(r.RequestURI, HTTP_URI_MAX_SIZE)
-		p.Ipaddr = stringutil.Truncate(r.RemoteAddr, HTTP_IP_MAX_SIZE)
-		p.HttpMethod = stringutil.Truncate(r.Method, HTTP_METHOD_MAX_SIZE)
-		p.Ref = stringutil.Truncate(r.Referer(), HTTP_REF_MAX_SIZE)
-		p.UAgent = stringutil.Truncate(r.UserAgent(), HTTP_UA_MAX_SIZE)
+		p.Host = r.Host
+		p.Uri = r.RequestURI
+		p.Ipaddr = r.RemoteAddr
+		p.HttpMethod = r.Method
+		p.Ref = r.Referer()
+		p.UAgent = r.UserAgent()
 		udpClient.Send(p)
 	}
 	// Parse form
-	if conf.ProfileHttpParameterEnabled && strings.HasPrefix(wCtx.Name, conf.ProfileHttpParameterUrlPrefix) {
-		r.ParseForm()
-		sb := stringutil.NewStringBuffer()
-		if len(r.Form) > 0 {
-			idx := 0
-			for k, v := range r.Form {
-				if idx > HTTP_PARAM_MAX_COUNT {
-					break
-				}
-				sb.Append(stringutil.Truncate(k, HTTP_PARAM_KEY_MAX_SIZE)).Append("=")
-				if len(v) > 0 {
-					sb.AppendLine(stringutil.Truncate(v[0], HTTP_PARAM_VALUE_MAX_SIZE))
-				}
-				idx += 1
-
-			}
-			if pack := udp.CreatePack(udp.TX_SECURE_MSG, udp.UDP_PACK_VERSION); pack != nil {
-				p := pack.(*udp.UdpTxSecureMessagePack)
-				p.Time = dateutil.SystemNow()
-				p.Hash = "HTTP-PARAMS"
-				p.Desc = sb.ToString()
-				udpClient.Send(p)
-			}
-			sb.Clear()
-		}
-
-	}
-
 	// r.Form -> url.Values -> map[string][]string
-	if conf.ProfileHttpHeaderEnabled && strings.HasPrefix(wCtx.Name, conf.ProfileHttpHeaderUrlPrefix) {
-		sb := stringutil.NewStringBuffer()
-		if len(r.Header) > 0 {
-			idx := 0
-			for k, v := range r.Header {
-				if idx > HTTP_HEADER_MAX_COUNT {
-					break
-				}
-				sb.Append(stringutil.Truncate(k, HTTP_HEADER_KEY_MAX_SIZE)).Append("=")
-				if len(v) > 0 {
-					sb.AppendLine(stringutil.Truncate(v[0], HTTP_HEADER_VALUE_MAX_SIZE))
-				}
-			}
+	r.ParseForm()
+	SetParameter(ctx, r.Form)
+	// http.Header -> map[string][]string
+	SetHeader(ctx, r.Header)
+
+	return ctx, nil
+}
+
+func StartWithContext(ctx context.Context, name string) (context.Context, error) {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return ctx, nil
+	}
+	udpClient := whatapnet.GetUdpClient()
+	if ctx, wCtx := GetTraceContext(ctx); wCtx != nil {
+		wCtx.Name = name
+		wCtx.StartTime = dateutil.SystemNow()
+		// update multi trace info
+		UpdateMtrace(wCtx, http.Header{})
+
+		if pack := udp.CreatePack(udp.TX_START, udp.UDP_PACK_VERSION); pack != nil {
+			p := pack.(*udp.UdpTxStartPack)
+			p.Txid = wCtx.Txid
+			p.Time = wCtx.StartTime
+			p.Host = wCtx.Host
+			p.Uri = name
+			p.Ipaddr = wCtx.Ipaddr
+			p.HttpMethod = wCtx.HttpMethod
+			p.Ref = wCtx.Ref
+			p.UAgent = wCtx.UAgent
+			udpClient.Send(p)
+		}
+	} else {
+		return ctx, fmt.Errorf("Not found trace context ")
+	}
+	return ctx, nil
+}
+
+func SetHeader(ctx context.Context, m map[string][]string) {
+	conf := config.GetConfig()
+	if !conf.ProfileHttpHeaderEnabled {
+		return
+	}
+	udpClient := whatapnet.GetUdpClient()
+	if _, wCtx := GetTraceContext(ctx); wCtx != nil {
+		// http.Header -> map[string][]string
+		if strings.HasPrefix(wCtx.Name, conf.ProfileHttpHeaderUrlPrefix) {
 			if pack := udp.CreatePack(udp.TX_MSG, udp.UDP_PACK_VERSION); pack != nil {
 				p := pack.(*udp.UdpTxMessagePack)
 				p.Txid = wCtx.Txid
 				p.Time = dateutil.SystemNow()
 				p.Hash = "HTTP-HEADERS"
-				p.Desc = sb.ToString()
+				p.SetHeader(map[string][]string(m))
 				udpClient.Send(p)
 			}
-			sb.Clear()
 		}
 	}
-	return ctx, nil
 }
 
+func SetParameter(ctx context.Context, m map[string][]string) {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return
+	}
+	udpClient := whatapnet.GetUdpClient()
+	if _, wCtx := GetTraceContext(ctx); wCtx != nil {
+		if conf.ProfileHttpParameterEnabled && strings.HasPrefix(wCtx.Name, conf.ProfileHttpParameterUrlPrefix) {
+			if pack := udp.CreatePack(udp.TX_SECURE_MSG, udp.UDP_PACK_VERSION); pack != nil {
+				p := pack.(*udp.UdpTxSecureMessagePack)
+				p.Time = dateutil.SystemNow()
+				p.Hash = "HTTP-PARAMS"
+				p.SetParameter(map[string][]string(m))
+				udpClient.Send(p)
+			}
+		}
+	}
+}
 func Step(ctx context.Context, title, message string, elapsed, value int) error {
 	conf := config.GetConfig()
 	if !conf.Enabled {
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx := v.(*TraceCtx)
+	if _, wCtx := GetTraceContext(ctx); wCtx != nil {
 		if pack := udp.CreatePack(udp.TX_MSG, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxMessagePack)
 			p.Txid = wCtx.Txid
 			p.Time = dateutil.SystemNow()
-			p.Hash = stringutil.Truncate(title, HTTP_URI_MAX_SIZE)
-			p.Desc = stringutil.Truncate(message, PACKET_MESSAGE_MAX_SIZE)
+			p.Hash = title
+			p.Desc = message
 			//p.Value = value
 			udpClient.Send(p)
 		}
@@ -217,8 +217,7 @@ func End(ctx context.Context, err error) error {
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx := v.(*TraceCtx)
+	if _, wCtx := GetTraceContext(ctx); wCtx != nil {
 		if pack := udp.CreatePack(udp.TX_END, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxEndPack)
 			p.Txid = wCtx.Txid
@@ -242,114 +241,83 @@ func End(ctx context.Context, err error) error {
 	return fmt.Errorf("Not found Txid ")
 }
 
+func UpdateMtraceWithContext(ctx context.Context, header http.Header) {
+	if _, wCtx := GetTraceContext(ctx); wCtx != nil {
+		UpdateMtrace(wCtx, header)
+	}
+}
+func GetMTrace(ctx context.Context) http.Header {
+	rt := make(http.Header)
+	conf := config.GetConfig()
+	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
+		rt.Set(conf.TraceMtraceCallerKey, traceCtx.TraceMtraceCallerValue)
+		rt.Set(conf.TraceMtracePoidKey, traceCtx.TraceMtracePoidValue)
+		rt.Set(conf.TraceMtraceSpecKey1, traceCtx.TraceMtraceSpecValue)
+	}
+	return rt
+}
 func UpdateMtrace(wCtx *TraceCtx, header http.Header) {
 	conf := config.GetConfig()
-	if !conf.Enabled || !conf.MtraceEnabled {
+	if !conf.MtraceEnabled {
 		return
 	}
-	for k, _ := range header {
-		v := strings.TrimSpace(header.Get(k))
-		switch strings.ToLower(strings.TrimSpace(k)) {
-		case conf.TraceMtraceCallerKey:
-			arr := stringutil.Split(v, ",")
-			if len(arr) >= 3 {
-				wCtx.MTid = hexa32.ToLong32(arr[0])
+	for k, val := range header {
+		if len(val) > 0 {
+			v := strings.TrimSpace(val[0])
+			switch strings.ToLower(strings.TrimSpace(k)) {
+			case conf.TraceMtraceCallerKey:
+				arr := stringutil.Split(v, ",")
+				if len(arr) >= 3 {
+					wCtx.MTid = hexa32.ToLong32(arr[0])
 
-				if val, err := strconv.Atoi(arr[1]); err == nil {
-					wCtx.MDepth = int32(val)
+					if val, err := strconv.Atoi(arr[1]); err == nil {
+						wCtx.MDepth = int32(val)
+					}
+					wCtx.MCallerTxid = hexa32.ToLong32(arr[2])
 				}
-				wCtx.MCallerTxid = hexa32.ToLong32(arr[2])
-			}
-		case conf.TraceMtraceCalleeKey:
-			wCtx.MCallee = hexa32.ToLong32(v)
-			if wCtx.MCallee != 0 {
-				wCtx.Txid = wCtx.MCallee
-			}
+			case conf.TraceMtraceCalleeKey:
+				wCtx.MCallee = hexa32.ToLong32(v)
+				if wCtx.MCallee != 0 {
+					wCtx.Txid = wCtx.MCallee
+				}
 
-		case conf.TraceMtraceSpecKey1:
-			arr := stringutil.Split(v, ",")
-			if len(arr) >= 2 {
-				wCtx.MCallerSpec = arr[0]
-				wCtx.MCallerUrl = arr[1]
+			case conf.TraceMtraceSpecKey1:
+				arr := stringutil.Split(v, ",")
+				if len(arr) >= 2 {
+					wCtx.MCallerSpec = arr[0]
+					wCtx.MCallerUrl = arr[1]
+				}
+			case conf.TraceMtracePoidKey:
+				wCtx.MCallerPoidKey = v
 			}
-		case conf.TraceMtracePoidKey:
-			wCtx.MCallerPoidKey = v
 		}
 	}
 
 	if wCtx.MTid == 0 {
 		checkSeq := keygen.Next()
-		checkFlag := false
-		x := conf.MtraceRate / 10
-
-		switch x {
-		case 10:
-			checkFlag = true
-		case 9:
-			if checkSeq%10 != 0 {
-				checkFlag = true
-			}
-		case 8:
-			if checkSeq%5 != 0 {
-				checkFlag = true
-			}
-		case 7:
-			if checkSeq%4 != 0 {
-				checkFlag = true
-			}
-		case 6:
-			if checkSeq%3 != 0 {
-				checkFlag = true
-			}
-		case 5:
-			if checkSeq%2 != 0 {
-				checkFlag = true
-			}
-		case 4:
-			if checkSeq%3 == 0 || checkSeq%5 == 0 {
-				checkFlag = true
-			}
-		case 3:
-			if checkSeq%4 == 0 || checkSeq%5 == 0 {
-				checkFlag = true
-			}
-		case 2:
-			if checkSeq%5 == 0 {
-				checkFlag = true
-			}
-		case 1:
-			if checkSeq%10 == 0 {
-				checkFlag = true
-			}
-		}
-
-		if checkFlag {
-			wCtx.MTid = keygen.Next()
+		if int32(math.Abs(float64(checkSeq/100%100))) < conf.MtraceRate {
+			wCtx.MTid = checkSeq
 		}
 	}
-
 	wCtx.TraceMtraceCallerValue = fmt.Sprintf("%s,%s,%s", hexa32.ToString32(wCtx.MTid), strconv.Itoa(int(wCtx.MDepth)+1), hexa32.ToString32(wCtx.Txid))
 	wCtx.TraceMtraceSpecValue = fmt.Sprintf("%s, %s", conf.MtraceSpec, strconv.Itoa(int(hash.HashStr(wCtx.Name))))
 	wCtx.TraceMtracePoidValue = fmt.Sprintf("%s, %s, %s", hexa32.ToString32(conf.PCODE), hexa32.ToString32(int64(conf.OKIND)), hexa32.ToString32(conf.OID))
-}
-func Shutdown() {
-	whatapnet.UdpShutdown()
 }
 
 // wrapping type of http.HanderFunc, example : http.Handle(pattern, http.HandlerFunc)
 func HandlerFunc(handler func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		wCtx, _ := StartWithRequest(r)
-		defer End(wCtx, nil)
-		handler(w, r.WithContext(wCtx))
+		ctx, _ := StartWithRequest(r)
+		defer End(ctx, nil)
+		handler(w, r.WithContext(ctx))
 	})
 }
 
 // wrapping handler function, example : http.HandleFunc(func(http.ResponseWriter, *http.Request))
 func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		wCtx, _ := StartWithRequest(r)
-		defer End(wCtx, nil)
-		handler(w, r.WithContext(wCtx))
+		ctx, _ := StartWithRequest(r)
+		defer End(ctx, nil)
+		handler(w, r.WithContext(ctx))
 	}
 }

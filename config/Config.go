@@ -2,6 +2,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -31,6 +32,9 @@ type Config struct {
 
 	TransactionEnabled bool
 	//profile
+	ProfileMethodEnabled      bool
+	ProfileMethodStackEnabled bool
+
 	ProfileHttpHeaderEnabled   bool   // 수집 유무(HTTP-HEADERS)
 	ProfileHttpHeaderUrlPrefix string // 수집 url prefix
 
@@ -63,6 +67,8 @@ type Config struct {
 	MtraceSpecHash      int32
 
 	Debug bool
+
+	ConfGrpc
 }
 
 var conf *Config = nil
@@ -76,7 +82,7 @@ func GetConfig() *Config {
 		return conf
 	}
 	conf = new(Config)
-	conf.ApplyDefault()
+	//conf.ApplyDefault()
 	return conf
 }
 
@@ -87,6 +93,7 @@ func GetWhatapHome() string {
 	}
 	return home
 }
+
 func (conf *Config) ApplyDefault() {
 	m := make(map[string]string)
 	m["enabled"] = "true"
@@ -119,6 +126,7 @@ func (conf *Config) ApplyDefault() {
 
 	m["debug"] = "false"
 
+	conf.ConfGrpc.ApplyDefault(m)
 	conf.ApplyConfig(m)
 }
 func (conf *Config) ApplyConfig(m map[string]string) {
@@ -143,7 +151,10 @@ func (conf *Config) ApplyConfig(m map[string]string) {
 
 	conf.TransactionEnabled = conf.Enabled && conf.getBoolean("transaction_enabled", true)
 
-	conf.ProfileHttpHeaderEnabled = conf.getBoolean("profile_http_header_enabled", false)
+	conf.ProfileMethodEnabled = conf.Enabled && conf.getBoolean("profile_method_enabled", true)
+	conf.ProfileMethodStackEnabled = conf.Enabled && conf.getBoolean("profile_method_stack_enabled", false)
+
+	conf.ProfileHttpHeaderEnabled = conf.Enabled && conf.getBoolean("profile_http_header_enabled", false)
 	conf.ProfileHttpHeaderUrlPrefix = conf.getValueDef("profile_http_header_url_prefix", "/")
 
 	conf.ProfileHttpParameterEnabled = conf.getBoolean("profile_http_parameter_enabled", false)
@@ -168,7 +179,7 @@ func (conf *Config) ApplyConfig(m map[string]string) {
 
 	conf.TraceHttpClientIpHeaderKeyEnabled = conf.getBoolean("trace_http_client_ip_header_key_enabled", true)
 	conf.TraceHttpClientIpHeaderKey = conf.getValue("trace_http_client_ip_header_key")
-	conf.MtraceEnabled = conf.getBoolean("mtrace_enabled", false)
+	conf.MtraceEnabled = conf.Enabled && conf.getBoolean("mtrace_enabled", false)
 	conf.MtraceRate = conf.getInt("mtrace_rate", 10)
 	conf.TraceMtraceCallerKey = conf.getValueDef("mtrace_caller_key", "x-wtap-mst")
 	conf.TraceMtraceCalleeKey = conf.getValueDef("mtrace_callee_key", "x-wtap-tx")
@@ -186,6 +197,14 @@ func (conf *Config) ApplyConfig(m map[string]string) {
 	}
 
 	conf.Debug = conf.GetBoolean("debug", false)
+
+	conf.ConfGrpc.Apply(conf)
+
+	if conf.Debug {
+		for k, v := range conf.m {
+			log.Println("k=", k, ",v=", v)
+		}
+	}
 
 }
 func (conf *Config) GetValue(key string) string { return conf.getValue(key) }
@@ -327,6 +346,15 @@ func (conf *Config) getFloat(key string, def float32) float32 {
 		return float32(def)
 	}
 	return float32(value)
+}
+
+func (conf *Config) InArray(str string, list []string) bool {
+	for _, it := range list {
+		if str == it {
+			return true
+		}
+	}
+	return false
 }
 
 // func SetValues(keyValues *map[string]string) {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/whatap/go-api/common/io"
+	"github.com/whatap/go-api/common/util/stringutil"
 	"github.com/whatap/go-api/common/util/urlutil"
 )
 
@@ -78,13 +79,13 @@ func (this *UdpTxStartPack) SetStaticContents(b bool) {
 
 func (this *UdpTxStartPack) Write(dout *io.DataOutputX) {
 	this.AbstractPack.Write(dout)
-	dout.WriteTextShortLength(this.Host)
-	dout.WriteTextShortLength(this.Uri)
-	dout.WriteTextShortLength(this.Ipaddr)
-	dout.WriteTextShortLength(this.UAgent)
-	dout.WriteTextShortLength(this.Ref)
-	dout.WriteTextShortLength(this.WClientId)
-	dout.WriteTextShortLength(this.HttpMethod)
+	dout.WriteTextShortLength(stringutil.Truncate(this.Host, HTTP_HOST_MAX_SIZE))
+	dout.WriteTextShortLength(stringutil.Truncate(this.Uri, HTTP_URI_MAX_SIZE))
+	dout.WriteTextShortLength(stringutil.Truncate(this.Ipaddr, HTTP_IP_MAX_SIZE))
+	dout.WriteTextShortLength(stringutil.Truncate(this.UAgent, HTTP_UA_MAX_SIZE))
+	dout.WriteTextShortLength(stringutil.Truncate(this.Ref, HTTP_REF_MAX_SIZE))
+	dout.WriteTextShortLength(stringutil.Truncate(this.WClientId, HTTP_URI_MAX_SIZE))
+	dout.WriteTextShortLength(stringutil.Truncate(this.HttpMethod, HTTP_METHOD_MAX_SIZE))
 }
 
 func (this *UdpTxStartPack) Read(din *io.DataInputX) {

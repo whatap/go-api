@@ -46,11 +46,10 @@ const (
 
 func Start(ctx context.Context, name string) (*MethodCtx, error) {
 	conf := config.GetConfig()
-	if !conf.Enabled {
+	if !conf.ProfileMethodEnabled {
 		return NewMethodCtx(), nil
 	}
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx := v.(*trace.TraceCtx)
+	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
 		methodCtx := NewMethodCtx()
 		methodCtx.ctx = wCtx
 		if pack := udp.CreatePack(udp.TX_METHOD, udp.UDP_PACK_VERSION); pack != nil {
@@ -67,7 +66,7 @@ func Start(ctx context.Context, name string) (*MethodCtx, error) {
 }
 func End(methodCtx *MethodCtx, err error) error {
 	conf := config.GetConfig()
-	if !conf.Enabled {
+	if !conf.ProfileMethodEnabled {
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
@@ -78,7 +77,9 @@ func End(methodCtx *MethodCtx, err error) error {
 		// 	p.ErrorMessage = err.Error()
 		// 	p.ErrorType = fmt.Sprintf("%d:%s", status, reason)
 		// }
-		p.Stack = stringutil.Truncate(string(debug.Stack()), PACKET_METHOD_STACK_MAX_SIZE)
+		if conf.ProfileMethodStackEnabled {
+			p.Stack = stringutil.Truncate(string(debug.Stack()), PACKET_METHOD_STACK_MAX_SIZE)
+		}
 		udpClient.Send(p)
 		return nil
 	}
@@ -87,18 +88,20 @@ func End(methodCtx *MethodCtx, err error) error {
 }
 func Trace(ctx context.Context, name string, elapsed int, err error) error {
 	conf := config.GetConfig()
-	if !conf.Enabled {
+	if !conf.ProfileMethodEnabled {
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx := v.(*trace.TraceCtx)
+	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
 		if pack := udp.CreatePack(udp.TX_METHOD, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxMethodPack)
 			p.Txid = wCtx.Txid
 			p.Time = dateutil.SystemNow()
 			p.Elapsed = int32(elapsed)
 			p.Method = stringutil.Truncate(name, HTTP_URI_MAX_SIZE)
+			if conf.ProfileMethodStackEnabled {
+				p.Stack = stringutil.Truncate(string(debug.Stack()), PACKET_METHOD_STACK_MAX_SIZE)
+			}
 			udpClient.Send(p)
 		}
 	}

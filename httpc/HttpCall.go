@@ -47,7 +47,7 @@ const (
 	STEP_ERROR_MESSAGE_MAX_SIZE = 4 * 1024
 )
 
-func MTrace(httpcCtx *HttpcCtx) http.Header {
+func GetMTrace(httpcCtx *HttpcCtx) http.Header {
 	rt := make(http.Header)
 	conf := config.GetConfig()
 	rt.Set(conf.TraceMtraceCallerKey, httpcCtx.TraceMtraceCallerValue)
@@ -56,13 +56,13 @@ func MTrace(httpcCtx *HttpcCtx) http.Header {
 
 	return rt
 }
+
 func Start(ctx context.Context, url string) (*HttpcCtx, error) {
 	conf := config.GetConfig()
 	if !conf.Enabled {
 		return NewHttpcCtx(), nil
 	}
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx := v.(*trace.TraceCtx)
+	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
 		httpcCtx := NewHttpcCtx()
 		httpcCtx.ctx = wCtx
 
@@ -109,8 +109,7 @@ func Trace(ctx context.Context, host string, port int, url string, elapsed int, 
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if v := ctx.Value("whatap"); v != nil {
-		wCtx := v.(*trace.TraceCtx)
+	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
 		if pack := udp.CreatePack(udp.TX_HTTPC, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxHttpcPack)
 			p.Txid = wCtx.Txid
