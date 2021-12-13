@@ -4,3 +4,4 @@ config/go.sum
 trace/go.sum
 method/go.sum
 sql/go.sum
+*.exe
