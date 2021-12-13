@@ -9,7 +9,8 @@ import (
 func Middleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			ctx, _ := whataptrace.StartWithRequest(c.Request())
+			r := c.Request()
+			ctx, _ := whataptrace.StartWithRequest(r)
 			c.SetRequest(r.WithContext(ctx))
 			err := next(c)
 			whataptrace.End(ctx, err)
