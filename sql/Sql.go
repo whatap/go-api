@@ -4,7 +4,13 @@ package sql
 import (
 	"bytes"
 	"context"
+	"database/sql/driver"
 	"fmt"
+
+	"log"
+
+	// "reflect"
+	//"runtime/debug"
 	"strings"
 
 	"github.com/whatap/go-api/common/lang/pack/udp"
@@ -113,30 +119,19 @@ func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{
 }
 
 func StartWithParamArray(ctx context.Context, dbhost, sql string, param []interface{}) (*SqlCtx, error) {
-	conf := config.GetConfig()
-	if !conf.Enabled {
-		return NewSqlCtx(), nil
-	}
-	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
-		sqlCtx := NewSqlCtx()
-		sqlCtx.ctx = wCtx
-		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxSqlParamPack)
-			p.Time = dateutil.SystemNow()
-			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
-			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
-			p.Param = paramsToString(param...)
-			sqlCtx.step = p
-		}
-		return sqlCtx, nil
-	}
-
-	return nil, fmt.Errorf("Not found Txid ")
+	return StartWithParam(ctx, dbhost, sql, param...)
 }
 
 func End(sqlCtx *SqlCtx, err error) error {
 	conf := config.GetConfig()
 	if !conf.Enabled {
+		return nil
+	}
+	// driver.ErrSkip is not collected.
+	if err == driver.ErrSkip {
+		if conf.Debug {
+			log.Println("Error Skip err=", err)
+		}
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
@@ -204,22 +199,30 @@ func Trace(ctx context.Context, dbhost, sql, param string, elapsed int, err erro
 
 func paramsToString(params ...interface{}) string {
 	var buffer bytes.Buffer
+	var val interface{}
 	for i, v := range params {
+		p, ok := v.(driver.NamedValue)
+		if ok {
+			val = p.Value
+			log.Println("NamedValue")
+		} else {
+			val = v
+		}
 		if i < SQL_PARAM_MAX_COUNT {
 			if i < len(params)-1 || i < SQL_PARAM_MAX_COUNT-1 {
-				switch t := v.(type) {
+				switch t := val.(type) {
 				case string:
 					buffer.WriteString(fmt.Sprintf("%v,", stringutil.Truncate(t, SQL_PARAM_VALUE_MAX_SIZE)))
 				default:
-					buffer.WriteString(fmt.Sprintf("%v,", v))
+					buffer.WriteString(fmt.Sprintf("%v,", val))
 				}
 
 			} else {
-				switch t := v.(type) {
+				switch t := val.(type) {
 				case string:
 					buffer.WriteString(fmt.Sprintf("%v", stringutil.Truncate(t, SQL_PARAM_VALUE_MAX_SIZE)))
 				default:
-					buffer.WriteString(fmt.Sprintf("%v", v))
+					buffer.WriteString(fmt.Sprintf("%v", val))
 				}
 			}
 		}

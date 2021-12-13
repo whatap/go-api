@@ -36,6 +36,9 @@ func Shutdown() {
 }
 
 func GetTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
+	if ctx == nil {
+		return ctx, nil
+	}
 	var wCtx *TraceCtx
 	if v := ctx.Value("whatap"); v != nil {
 		wCtx = v.(*TraceCtx)
@@ -46,6 +49,9 @@ func GetTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
 }
 
 func NewTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var wCtx *TraceCtx
 	wCtx = new(TraceCtx)
 	wCtx.Txid = keygen.Next()
@@ -211,6 +217,30 @@ func Step(ctx context.Context, title, message string, elapsed, value int) error 
 	return fmt.Errorf("Not found Txid ")
 }
 
+func Error(ctx context.Context, err error) error {
+	conf := config.GetConfig()
+	if !conf.Enabled {
+		return nil
+	}
+	udpClient := whatapnet.GetUdpClient()
+	if err != nil {
+		if _, wCtx := GetTraceContext(ctx); wCtx != nil {
+			if pack := udp.CreatePack(udp.TX_ERROR, udp.UDP_PACK_VERSION); pack != nil {
+				p := pack.(*udp.UdpTxErrorPack)
+				p.Txid = wCtx.Txid
+				p.Time = dateutil.SystemNow()
+				p.ErrorType = err.Error()
+				p.ErrorMessage = err.Error()
+
+				udpClient.Send(p)
+			}
+			return nil
+		}
+	}
+
+	return fmt.Errorf("Not found Txid ")
+}
+
 func End(ctx context.Context, err error) error {
 	conf := config.GetConfig()
 	if !conf.Enabled {
@@ -218,6 +248,7 @@ func End(ctx context.Context, err error) error {
 	}
 	udpClient := whatapnet.GetUdpClient()
 	if _, wCtx := GetTraceContext(ctx); wCtx != nil {
+		Error(ctx, err)
 		if pack := udp.CreatePack(udp.TX_END, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxEndPack)
 			p.Txid = wCtx.Txid
