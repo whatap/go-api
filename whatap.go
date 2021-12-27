@@ -1,21 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
-        "context"
 
-        "github.com/whatap/go-api/trace"
-        _ "github.com/whatap/go-api/method"
-        _ "github.com/whatap/go-api/sql"
-        _ "github.com/whatap/go-api/httpc"
-        _ "github.com/whatap/go-api/config"
-
+	_ "github.com/whatap/go-api/config"
+	_ "github.com/whatap/go-api/httpc"
+	_ "github.com/whatap/go-api/method"
+	_ "github.com/whatap/go-api/sql"
+	"github.com/whatap/go-api/trace"
 )
 
-func main(){
+func main() {
 	fmt.Println("Whatap Golang api")
 
-        wCtx,_ := trace.Start(context.Background(),"Test")
-        trace.UpdateMtraceWithContext(wCtx, make(map[string][]string))
+	ctx, _ := trace.Start(context.Background(), "Test")
+	trace.UpdateMtraceWithContext(ctx, make(map[string][]string))
 
 }

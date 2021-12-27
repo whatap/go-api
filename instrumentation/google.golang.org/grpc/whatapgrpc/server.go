@@ -17,7 +17,7 @@ import (
 func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
 		conf := config.GetConfig()
-		if !conf.GrpcProfileEnabled {
+		if !conf.GoGrpcProfileEnabled {
 			// handler
 			return handler(ctx, req)
 		}
@@ -66,14 +66,14 @@ func (w *wrapServerStream) SendMsg(m interface{}) (err error) {
 }
 
 func (w *wrapServerStream) TraceStream(div string, callFunc func() error) (err error) {
-	if !w.conf.GrpcProfileStreamServerEnabled {
+	if !w.conf.GoGrpcProfileStreamServerEnabled {
 		return callFunc()
 	}
-	if w.conf.GrpcProfileStreamIdentify {
+	if w.conf.GoGrpcProfileStreamIdentify {
 		div = fmt.Sprintf("/%s%s", "StreamServer", div)
 	}
 
-	if w.conf.InArray(w.Method, w.conf.GrpcProfileStreamMethod) {
+	if w.conf.InArray(w.Method, w.conf.GoGrpcProfileStreamMethod) {
 		wCtx, _ := trace.Start(w.ServerStream.Context(), path.Join(div, w.Method))
 		err = callFunc()
 		trace.End(wCtx, err)
@@ -99,7 +99,7 @@ func newWrapServerStream(s grpc.ServerStream, ctx context.Context, method string
 func StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 		conf := config.GetConfig()
-		if conf.InArray(info.FullMethod, conf.GrpcProfileStreamMethod) {
+		if conf.InArray(info.FullMethod, conf.GoGrpcProfileStreamMethod) {
 			ctx, _ := StartWithGrpcServerStream(ss.Context(), "/Start", info.FullMethod)
 			trace.End(ctx, nil)
 
@@ -134,7 +134,7 @@ func StartWithGrpcServerStream(ctx context.Context, div string, fullMethod strin
 	}
 	traceCtx.WClientId = traceCtx.Ipaddr
 
-	if conf.GrpcProfileStreamIdentify {
+	if conf.GoGrpcProfileStreamIdentify {
 		div = fmt.Sprintf("/%s%s", "StreamServer", div)
 	}
 

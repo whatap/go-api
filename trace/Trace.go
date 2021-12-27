@@ -39,24 +39,24 @@ func GetTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
 	if ctx == nil {
 		return ctx, nil
 	}
-	var wCtx *TraceCtx
+	var traceCtx *TraceCtx
 	if v := ctx.Value("whatap"); v != nil {
-		wCtx = v.(*TraceCtx)
+		traceCtx = v.(*TraceCtx)
 	} else {
-		wCtx = nil
+		traceCtx = nil
 	}
-	return ctx, wCtx
+	return ctx, traceCtx
 }
 
 func NewTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	var wCtx *TraceCtx
-	wCtx = new(TraceCtx)
-	wCtx.Txid = keygen.Next()
-	ctx = context.WithValue(ctx, "whatap", wCtx)
-	return ctx, wCtx
+	var traceCtx *TraceCtx
+	traceCtx = new(TraceCtx)
+	traceCtx.Txid = keygen.Next()
+	ctx = context.WithValue(ctx, "whatap", traceCtx)
+	return ctx, traceCtx
 }
 
 func Start(ctx context.Context, name string) (context.Context, error) {
@@ -66,22 +66,22 @@ func Start(ctx context.Context, name string) (context.Context, error) {
 	}
 
 	udpClient := whatapnet.GetUdpClient()
-	ctx, wCtx := NewTraceContext(ctx)
-	wCtx.Name = name
-	wCtx.StartTime = dateutil.SystemNow()
+	ctx, traceCtx := NewTraceContext(ctx)
+	traceCtx.Name = name
+	traceCtx.StartTime = dateutil.SystemNow()
 	// update multi trace info
-	UpdateMtrace(wCtx, http.Header{})
+	UpdateMtrace(traceCtx, http.Header{})
 
 	if pack := udp.CreatePack(udp.TX_START, udp.UDP_PACK_VERSION); pack != nil {
 		p := pack.(*udp.UdpTxStartPack)
-		p.Txid = wCtx.Txid
-		p.Time = wCtx.StartTime
-		p.Host = wCtx.Host
+		p.Txid = traceCtx.Txid
+		p.Time = traceCtx.StartTime
+		p.Host = traceCtx.Host
 		p.Uri = name
-		p.Ipaddr = wCtx.Ipaddr
-		p.HttpMethod = wCtx.HttpMethod
-		p.Ref = wCtx.Ref
-		p.UAgent = wCtx.UAgent
+		p.Ipaddr = traceCtx.Ipaddr
+		p.HttpMethod = traceCtx.HttpMethod
+		p.Ref = traceCtx.Ref
+		p.UAgent = traceCtx.UAgent
 		udpClient.Send(p)
 	}
 	return ctx, nil
@@ -94,20 +94,20 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 	}
 
 	udpClient := whatapnet.GetUdpClient()
-	ctx, wCtx := NewTraceContext(r.Context())
+	ctx, traceCtx := NewTraceContext(r.Context())
 
-	wCtx.Name = r.RequestURI
-	wCtx.Host = r.Host
-	wCtx.StartTime = dateutil.SystemNow()
+	traceCtx.Name = r.RequestURI
+	traceCtx.Host = r.Host
+	traceCtx.StartTime = dateutil.SystemNow()
 
 	// update multi trace info
-	UpdateMtrace(wCtx, r.Header)
+	UpdateMtrace(traceCtx, r.Header)
 
 	if pack := udp.CreatePack(udp.TX_START, udp.UDP_PACK_VERSION); pack != nil {
 		p := pack.(*udp.UdpTxStartPack)
 
-		p.Txid = wCtx.Txid
-		p.Time = wCtx.StartTime
+		p.Txid = traceCtx.Txid
+		p.Time = traceCtx.StartTime
 		p.Host = r.Host
 		p.Uri = r.RequestURI
 		p.Ipaddr = r.RemoteAddr
@@ -132,22 +132,22 @@ func StartWithContext(ctx context.Context, name string) (context.Context, error)
 		return ctx, nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if ctx, wCtx := GetTraceContext(ctx); wCtx != nil {
-		wCtx.Name = name
-		wCtx.StartTime = dateutil.SystemNow()
+	if ctx, traceCtx := GetTraceContext(ctx); traceCtx != nil {
+		traceCtx.Name = name
+		traceCtx.StartTime = dateutil.SystemNow()
 		// update multi trace info
-		UpdateMtrace(wCtx, http.Header{})
+		UpdateMtrace(traceCtx, http.Header{})
 
 		if pack := udp.CreatePack(udp.TX_START, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxStartPack)
-			p.Txid = wCtx.Txid
-			p.Time = wCtx.StartTime
-			p.Host = wCtx.Host
+			p.Txid = traceCtx.Txid
+			p.Time = traceCtx.StartTime
+			p.Host = traceCtx.Host
 			p.Uri = name
-			p.Ipaddr = wCtx.Ipaddr
-			p.HttpMethod = wCtx.HttpMethod
-			p.Ref = wCtx.Ref
-			p.UAgent = wCtx.UAgent
+			p.Ipaddr = traceCtx.Ipaddr
+			p.HttpMethod = traceCtx.HttpMethod
+			p.Ref = traceCtx.Ref
+			p.UAgent = traceCtx.UAgent
 			udpClient.Send(p)
 		}
 	} else {
@@ -162,12 +162,12 @@ func SetHeader(ctx context.Context, m map[string][]string) {
 		return
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if _, wCtx := GetTraceContext(ctx); wCtx != nil {
+	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
 		// http.Header -> map[string][]string
-		if strings.HasPrefix(wCtx.Name, conf.ProfileHttpHeaderUrlPrefix) {
+		if strings.HasPrefix(traceCtx.Name, conf.ProfileHttpHeaderUrlPrefix) {
 			if pack := udp.CreatePack(udp.TX_MSG, udp.UDP_PACK_VERSION); pack != nil {
 				p := pack.(*udp.UdpTxMessagePack)
-				p.Txid = wCtx.Txid
+				p.Txid = traceCtx.Txid
 				p.Time = dateutil.SystemNow()
 				p.Hash = "HTTP-HEADERS"
 				p.SetHeader(map[string][]string(m))
@@ -183,8 +183,8 @@ func SetParameter(ctx context.Context, m map[string][]string) {
 		return
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if _, wCtx := GetTraceContext(ctx); wCtx != nil {
-		if conf.ProfileHttpParameterEnabled && strings.HasPrefix(wCtx.Name, conf.ProfileHttpParameterUrlPrefix) {
+	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
+		if conf.ProfileHttpParameterEnabled && strings.HasPrefix(traceCtx.Name, conf.ProfileHttpParameterUrlPrefix) {
 			if pack := udp.CreatePack(udp.TX_SECURE_MSG, udp.UDP_PACK_VERSION); pack != nil {
 				p := pack.(*udp.UdpTxSecureMessagePack)
 				p.Time = dateutil.SystemNow()
@@ -201,10 +201,10 @@ func Step(ctx context.Context, title, message string, elapsed, value int) error 
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if _, wCtx := GetTraceContext(ctx); wCtx != nil {
+	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
 		if pack := udp.CreatePack(udp.TX_MSG, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxMessagePack)
-			p.Txid = wCtx.Txid
+			p.Txid = traceCtx.Txid
 			p.Time = dateutil.SystemNow()
 			p.Hash = title
 			p.Desc = message
@@ -224,10 +224,10 @@ func Error(ctx context.Context, err error) error {
 	}
 	udpClient := whatapnet.GetUdpClient()
 	if err != nil {
-		if _, wCtx := GetTraceContext(ctx); wCtx != nil {
+		if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
 			if pack := udp.CreatePack(udp.TX_ERROR, udp.UDP_PACK_VERSION); pack != nil {
 				p := pack.(*udp.UdpTxErrorPack)
-				p.Txid = wCtx.Txid
+				p.Txid = traceCtx.Txid
 				p.Time = dateutil.SystemNow()
 				p.ErrorType = err.Error()
 				p.ErrorMessage = err.Error()
@@ -247,22 +247,22 @@ func End(ctx context.Context, err error) error {
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if _, wCtx := GetTraceContext(ctx); wCtx != nil {
+	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
 		Error(ctx, err)
 		if pack := udp.CreatePack(udp.TX_END, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxEndPack)
-			p.Txid = wCtx.Txid
+			p.Txid = traceCtx.Txid
 			p.Time = dateutil.SystemNow()
 
-			p.Host = wCtx.Host
-			p.Uri = wCtx.Name
+			p.Host = traceCtx.Host
+			p.Uri = traceCtx.Name
 
-			p.Mtid = wCtx.MTid
-			p.Mdepth = wCtx.MDepth
-			p.McallerTxid = wCtx.MCallerTxid
-			p.McallerPoidKey = wCtx.MCallerPoidKey
-			p.McallerSpec = wCtx.MCallerSpec
-			p.McallerUrl = wCtx.MCallerUrl
+			p.Mtid = traceCtx.MTid
+			p.Mdepth = traceCtx.MDepth
+			p.McallerTxid = traceCtx.MCallerTxid
+			p.McallerPoidKey = traceCtx.MCallerPoidKey
+			p.McallerSpec = traceCtx.MCallerSpec
+			p.McallerUrl = traceCtx.MCallerUrl
 
 			udpClient.Send(p)
 		}
@@ -273,8 +273,8 @@ func End(ctx context.Context, err error) error {
 }
 
 func UpdateMtraceWithContext(ctx context.Context, header http.Header) {
-	if _, wCtx := GetTraceContext(ctx); wCtx != nil {
-		UpdateMtrace(wCtx, header)
+	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
+		UpdateMtrace(traceCtx, header)
 	}
 }
 func GetMTrace(ctx context.Context) http.Header {
@@ -287,7 +287,7 @@ func GetMTrace(ctx context.Context) http.Header {
 	}
 	return rt
 }
-func UpdateMtrace(wCtx *TraceCtx, header http.Header) {
+func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 	conf := config.GetConfig()
 	if !conf.MtraceEnabled {
 		return
@@ -299,40 +299,40 @@ func UpdateMtrace(wCtx *TraceCtx, header http.Header) {
 			case conf.TraceMtraceCallerKey:
 				arr := stringutil.Split(v, ",")
 				if len(arr) >= 3 {
-					wCtx.MTid = hexa32.ToLong32(arr[0])
+					traceCtx.MTid = hexa32.ToLong32(arr[0])
 
 					if val, err := strconv.Atoi(arr[1]); err == nil {
-						wCtx.MDepth = int32(val)
+						traceCtx.MDepth = int32(val)
 					}
-					wCtx.MCallerTxid = hexa32.ToLong32(arr[2])
+					traceCtx.MCallerTxid = hexa32.ToLong32(arr[2])
 				}
 			case conf.TraceMtraceCalleeKey:
-				wCtx.MCallee = hexa32.ToLong32(v)
-				if wCtx.MCallee != 0 {
-					wCtx.Txid = wCtx.MCallee
+				traceCtx.MCallee = hexa32.ToLong32(v)
+				if traceCtx.MCallee != 0 {
+					traceCtx.Txid = traceCtx.MCallee
 				}
 
 			case conf.TraceMtraceSpecKey1:
 				arr := stringutil.Split(v, ",")
 				if len(arr) >= 2 {
-					wCtx.MCallerSpec = arr[0]
-					wCtx.MCallerUrl = arr[1]
+					traceCtx.MCallerSpec = arr[0]
+					traceCtx.MCallerUrl = arr[1]
 				}
 			case conf.TraceMtracePoidKey:
-				wCtx.MCallerPoidKey = v
+				traceCtx.MCallerPoidKey = v
 			}
 		}
 	}
 
-	if wCtx.MTid == 0 {
+	if traceCtx.MTid == 0 {
 		checkSeq := keygen.Next()
 		if int32(math.Abs(float64(checkSeq/100%100))) < conf.MtraceRate {
-			wCtx.MTid = checkSeq
+			traceCtx.MTid = checkSeq
 		}
 	}
-	wCtx.TraceMtraceCallerValue = fmt.Sprintf("%s,%s,%s", hexa32.ToString32(wCtx.MTid), strconv.Itoa(int(wCtx.MDepth)+1), hexa32.ToString32(wCtx.Txid))
-	wCtx.TraceMtraceSpecValue = fmt.Sprintf("%s, %s", conf.MtraceSpec, strconv.Itoa(int(hash.HashStr(wCtx.Name))))
-	wCtx.TraceMtracePoidValue = fmt.Sprintf("%s, %s, %s", hexa32.ToString32(conf.PCODE), hexa32.ToString32(int64(conf.OKIND)), hexa32.ToString32(conf.OID))
+	traceCtx.TraceMtraceCallerValue = fmt.Sprintf("%s,%s,%s", hexa32.ToString32(traceCtx.MTid), strconv.Itoa(int(traceCtx.MDepth)+1), hexa32.ToString32(traceCtx.Txid))
+	traceCtx.TraceMtraceSpecValue = fmt.Sprintf("%s, %s", conf.MtraceSpec, strconv.Itoa(int(hash.HashStr(traceCtx.Name))))
+	traceCtx.TraceMtracePoidValue = fmt.Sprintf("%s, %s, %s", hexa32.ToString32(conf.PCODE), hexa32.ToString32(int64(conf.OKIND)), hexa32.ToString32(conf.OID))
 }
 
 // wrapping type of http.HanderFunc, example : http.Handle(pattern, http.HandlerFunc)
@@ -351,4 +351,11 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 		defer End(ctx, nil)
 		handler(w, r.WithContext(ctx))
 	}
+}
+
+func GetTxid(ctx context.Context) int64 {
+	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
+		return traceCtx.Txid
+	}
+	return 0
 }

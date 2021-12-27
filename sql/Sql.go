@@ -57,12 +57,12 @@ func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
 	if !conf.Enabled {
 		return NewSqlCtx(), nil
 	}
-	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
 		sqlCtx := NewSqlCtx()
-		sqlCtx.ctx = wCtx
+		sqlCtx.ctx = traceCtx
 		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxSqlPack)
-			p.Txid = wCtx.Txid
+			p.Txid = traceCtx.Txid
 			p.Time = dateutil.SystemNow()
 			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
 			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
@@ -70,7 +70,6 @@ func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
 		}
 		return sqlCtx, nil
 	}
-
 	return nil, fmt.Errorf("Not found Txid ")
 }
 
@@ -79,19 +78,18 @@ func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
 	if !conf.Enabled {
 		return NewSqlCtx(), nil
 	}
-	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
 		sqlCtx := NewSqlCtx()
-		sqlCtx.ctx = wCtx
+		sqlCtx.ctx = traceCtx
 		if pack := udp.CreatePack(udp.TX_DB_CONN, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxDbcPack)
-			p.Txid = wCtx.Txid
+			p.Txid = traceCtx.Txid
 			p.Time = dateutil.SystemNow()
 			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
 			sqlCtx.step = p
 		}
 		return sqlCtx, nil
 	}
-
 	return nil, fmt.Errorf("Not found Txid ")
 }
 
@@ -100,12 +98,12 @@ func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{
 	if !conf.Enabled {
 		return NewSqlCtx(), nil
 	}
-	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
 		sqlCtx := NewSqlCtx()
-		sqlCtx.ctx = wCtx
+		sqlCtx.ctx = traceCtx
 		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxSqlParamPack)
-			p.Txid = wCtx.Txid
+			p.Txid = traceCtx.Txid
 			p.Time = dateutil.SystemNow()
 			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
 			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
@@ -114,7 +112,6 @@ func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{
 		}
 		return sqlCtx, nil
 	}
-
 	return nil, fmt.Errorf("Not found Txid ")
 }
 
@@ -166,31 +163,48 @@ func End(sqlCtx *SqlCtx, err error) error {
 			udpClient.Send(p)
 
 		}
-
 		return nil
 	}
-
 	return fmt.Errorf("SqlCtx is nil")
 }
 
-func Trace(ctx context.Context, dbhost, sql, param string, elapsed int, err error) error {
+func Trace(ctx context.Context, dbhost, sql string, param []interface{}, elapsed int, err error) error {
 	conf := config.GetConfig()
 	if !conf.Enabled {
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+		if param != nil && len(param) > 0 {
+			if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
+				p := pack.(*udp.UdpTxSqlParamPack)
+				p.Txid = traceCtx.Txid
+				p.Time = dateutil.SystemNow()
+				p.Elapsed = int32(elapsed)
+				p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
+				p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
+				if err != nil {
+					p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+					p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+				}
+				p.Param = paramsToString(param...)
+				udpClient.Send(p)
+			}
+		}
 		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxSqlPack)
-			p.Txid = wCtx.Txid
+			p.Txid = traceCtx.Txid
 			p.Time = dateutil.SystemNow()
 			p.Elapsed = int32(elapsed)
 			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
 			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
-			//TO-DO
-			//p.Param = param
+			if err != nil {
+				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+			}
 			udpClient.Send(p)
 		}
+
 		return nil
 	}
 
@@ -204,7 +218,6 @@ func paramsToString(params ...interface{}) string {
 		p, ok := v.(driver.NamedValue)
 		if ok {
 			val = p.Value
-			log.Println("NamedValue")
 		} else {
 			val = v
 		}

@@ -50,10 +50,12 @@ const (
 func GetMTrace(httpcCtx *HttpcCtx) http.Header {
 	rt := make(http.Header)
 	conf := config.GetConfig()
-	rt.Set(conf.TraceMtraceCallerKey, httpcCtx.TraceMtraceCallerValue)
-	rt.Set(conf.TraceMtracePoidKey, httpcCtx.TraceMtracePoidValue)
-	rt.Set(conf.TraceMtraceSpecKey1, httpcCtx.TraceMtraceSpecValue)
-
+	if conf.MtraceEnabled && httpcCtx.TraceMtraceCallerValue != "" {
+		conf := config.GetConfig()
+		rt.Set(conf.TraceMtraceCallerKey, httpcCtx.TraceMtraceCallerValue)
+		rt.Set(conf.TraceMtracePoidKey, httpcCtx.TraceMtracePoidValue)
+		rt.Set(conf.TraceMtraceSpecKey1, httpcCtx.TraceMtraceSpecValue)
+	}
 	return rt
 }
 
@@ -62,18 +64,20 @@ func Start(ctx context.Context, url string) (*HttpcCtx, error) {
 	if !conf.Enabled {
 		return NewHttpcCtx(), nil
 	}
-	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
 		httpcCtx := NewHttpcCtx()
-		httpcCtx.ctx = wCtx
+		httpcCtx.ctx = traceCtx
 
-		// multi trace info
-		httpcCtx.TraceMtraceCallerValue = wCtx.TraceMtraceCallerValue
-		httpcCtx.TraceMtracePoidValue = wCtx.TraceMtracePoidValue
-		httpcCtx.TraceMtraceSpecValue = wCtx.TraceMtraceSpecValue
+		if conf.MtraceEnabled && httpcCtx.TraceMtraceCallerValue != "" {
+			// multi trace info
+			httpcCtx.TraceMtraceCallerValue = traceCtx.TraceMtraceCallerValue
+			httpcCtx.TraceMtracePoidValue = traceCtx.TraceMtracePoidValue
+			httpcCtx.TraceMtraceSpecValue = traceCtx.TraceMtraceSpecValue
+		}
 
 		if pack := udp.CreatePack(udp.TX_HTTPC, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxHttpcPack)
-			p.Txid = wCtx.Txid
+			p.Txid = traceCtx.Txid
 			p.Time = dateutil.SystemNow()
 			p.Url = stringutil.Truncate(url, PACKET_HTTPC_MAX_SIZE)
 			httpcCtx.step = p
@@ -109,10 +113,10 @@ func Trace(ctx context.Context, host string, port int, url string, elapsed int, 
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
 		if pack := udp.CreatePack(udp.TX_HTTPC, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxHttpcPack)
-			p.Txid = wCtx.Txid
+			p.Txid = traceCtx.Txid
 			p.Time = dateutil.SystemNow()
 			p.Elapsed = int32(elapsed)
 			p.Url = stringutil.Truncate(url, PACKET_HTTPC_MAX_SIZE)

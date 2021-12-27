@@ -68,7 +68,8 @@ type Config struct {
 
 	Debug bool
 
-	ConfGrpc
+	ConfGo
+	ConfGoGrpc
 }
 
 var conf *Config = nil
@@ -126,7 +127,8 @@ func (conf *Config) ApplyDefault() {
 
 	m["debug"] = "false"
 
-	conf.ConfGrpc.ApplyDefault(m)
+	conf.ConfGo.ApplyDefault(m)
+	conf.ConfGoGrpc.ApplyDefault(m)
 	conf.ApplyConfig(m)
 }
 func (conf *Config) ApplyConfig(m map[string]string) {
@@ -198,7 +200,8 @@ func (conf *Config) ApplyConfig(m map[string]string) {
 
 	conf.Debug = conf.GetBoolean("debug", false)
 
-	conf.ConfGrpc.Apply(conf)
+	conf.ConfGo.Apply(conf)
+	conf.ConfGoGrpc.Apply(conf)
 
 	if conf.Debug {
 		for k, v := range conf.m {

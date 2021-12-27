@@ -18,12 +18,12 @@ import (
 func UnaryClientInterceptor() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		conf := config.GetConfig()
-		if !conf.GrpcProfileEnabled {
+		if !conf.GoGrpcProfileEnabled {
 			return invoker(ctx, method, req, reply, cc, opts...)
 		}
 
-		wCtx, _ := httpc.Start(ctx, fmt.Sprintf("grpc://%s%s", strings.TrimSpace(cc.Target()), strings.TrimSpace(method)))
-		mt := httpc.GetMTrace(wCtx)
+		httpcCtx, _ := httpc.Start(ctx, fmt.Sprintf("grpc://%s%s", strings.TrimSpace(cc.Target()), strings.TrimSpace(method)))
+		mt := httpc.GetMTrace(httpcCtx)
 		md, ok := metadata.FromOutgoingContext(ctx)
 		if ok {
 			for k, v := range mt {
@@ -39,7 +39,7 @@ func UnaryClientInterceptor() grpc.UnaryClientInterceptor {
 
 		err := invoker(ctx, method, req, reply, cc, opts...)
 
-		httpc.End(wCtx, 0, "", err)
+		httpc.End(httpcCtx, 0, "", err)
 		return err
 	}
 }
@@ -75,17 +75,17 @@ func (w *wrapClientStream) SendMsg(m interface{}) (err error) {
 }
 
 func (w *wrapClientStream) TraceStream(div string, callFunc func() error) (err error) {
-	if !w.conf.GrpcProfileStreamClientEnabled {
+	if !w.conf.GoGrpcProfileStreamClientEnabled {
 		return callFunc()
 	}
-	if w.conf.GrpcProfileStreamIdentify {
+	if w.conf.GoGrpcProfileStreamIdentify {
 		div = fmt.Sprintf("/%s%s", "StreamClient", div)
 	}
 
-	if w.conf.InArray(w.Method, w.conf.GrpcProfileStreamMethod) {
-		wCtx, _ := trace.Start(w.ClientStream.Context(), path.Join(div, w.Target, w.Method))
+	if w.conf.InArray(w.Method, w.conf.GoGrpcProfileStreamMethod) {
+		traceCtx, _ := trace.Start(w.ClientStream.Context(), path.Join(div, w.Target, w.Method))
 		err = callFunc()
-		trace.End(wCtx, err)
+		trace.End(traceCtx, err)
 	} else {
 		if _, traceCtx := trace.GetTraceContext(w.ctx); traceCtx != nil {
 			st := dateutil.SystemNow()
@@ -111,10 +111,10 @@ func StreamClientInterceptor() grpc.StreamClientInterceptor {
 		conf := config.GetConfig()
 
 		div := "/Start"
-		if conf.GrpcProfileStreamIdentify {
+		if conf.GoGrpcProfileStreamIdentify {
 			div = fmt.Sprintf("/%s%s", "StreamClient", div)
 		}
-		if conf.InArray(method, conf.GrpcProfileStreamMethod) {
+		if conf.InArray(method, conf.GoGrpcProfileStreamMethod) {
 			ctx, _ := trace.Start(ctx, path.Join(div, cc.Target(), method))
 			// stream
 			s, err = streamer(ctx, desc, cc, method, opts...)

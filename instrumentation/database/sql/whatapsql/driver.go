@@ -5,8 +5,9 @@ import (
 	"database/sql/driver"
 	"errors"
 
-	whataptracesql "github.com/whatap/go-api/sql"
-	whataptrace "github.com/whatap/go-api/trace"
+	"github.com/whatap/go-api/config"
+	whatapsql "github.com/whatap/go-api/sql"
+	"github.com/whatap/go-api/trace"
 )
 
 type dsnConnector struct {
@@ -22,19 +23,13 @@ func (t dsnConnector) Driver() driver.Driver {
 	return t.driver
 }
 
-// Driver implements driver.Driver
 type WhatapDriver struct {
 	driver.Driver
 	ctx context.Context
 }
 
-// Open implements driver.Driver
 func (d WhatapDriver) Open(name string) (driver.Conn, error) {
 	return d.Driver.Open(name)
-}
-
-func (d WhatapDriver) SetContext(ctx context.Context) {
-	d.ctx = ctx
 }
 
 func (d WhatapDriver) OpenConnector(name string) (c driver.Connector, err error) {
@@ -48,6 +43,17 @@ func (d WhatapDriver) OpenConnector(name string) (c driver.Connector, err error)
 	return driver.Connector(WrapConnector{dsnConnector{name, d}, d.ctx, name}), nil
 }
 
+func (d WhatapDriver) OpenConnectorContext(name string, ctx context.Context) (c driver.Connector, err error) {
+	if dCtx, ok := d.Driver.(driver.DriverContext); ok {
+		c, err = dCtx.OpenConnector(name)
+		if err != nil {
+			return nil, err
+		}
+		return WrapConnector{c, ctx, name}, nil
+	}
+	return driver.Connector(WrapConnector{dsnConnector{name, d}, ctx, name}), nil
+}
+
 type WrapConnector struct {
 	driver.Connector
 	ctx            context.Context
@@ -55,17 +61,19 @@ type WrapConnector struct {
 }
 
 func (ct WrapConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	conf := config.GetConfig()
+	if !conf.GoSqlProfileEnabled {
+		return ct.Connector.Connect(ctx)
+	}
+
 	wCtx := selectContext(ctx, ct.ctx)
-	sqlCtx, _ := whataptracesql.StartOpen(wCtx, ct.dataSourceName)
+	sqlCtx, _ := whatapsql.StartOpen(wCtx, ct.dataSourceName)
 	c, err := ct.Connector.Connect(ctx)
-	whataptracesql.End(sqlCtx, err)
+	whatapsql.End(sqlCtx, err)
 	if err != nil {
 		return nil, err
 	}
 	return driver.Conn(WrapConn{c, wCtx, ct.dataSourceName}), err
-}
-func (ct WrapConnector) SetContext(ctx context.Context) {
-	ct.ctx = ctx
 }
 
 type WrapConn struct {
@@ -76,9 +84,9 @@ type WrapConn struct {
 
 func (c WrapConn) Exec(query string, args []driver.Value) (res driver.Result, err error) {
 	if exec, ok := c.Conn.(driver.Execer); ok {
-		sqlCtx, _ := whataptracesql.StartWithParam(c.ctx, c.dataSourceName, query, convertDriverValue(args)...)
+		sqlCtx, _ := whatapsql.StartWithParam(c.ctx, c.dataSourceName, query, convertDriverValue(args)...)
 		res, err := exec.Exec(query, args)
-		whataptracesql.End(sqlCtx, err)
+		whatapsql.End(sqlCtx, err)
 		return res, err
 	}
 	return nil, driver.ErrSkip
@@ -87,9 +95,9 @@ func (c WrapConn) Exec(query string, args []driver.Value) (res driver.Result, er
 func (c WrapConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (res driver.Result, err error) {
 	wCtx := selectContext(ctx, c.ctx)
 	if execCtx, ok := c.Conn.(driver.ExecerContext); ok {
-		sqlCtx, _ := whataptracesql.StartWithParam(wCtx, c.dataSourceName, query, convertDriverNamedValue(args)...)
+		sqlCtx, _ := whatapsql.StartWithParam(wCtx, c.dataSourceName, query, convertDriverNamedValue(args)...)
 		res, err := execCtx.ExecContext(ctx, query, args)
-		whataptracesql.End(sqlCtx, err)
+		whatapsql.End(sqlCtx, err)
 		return res, err
 	}
 	return nil, driver.ErrSkip
@@ -97,9 +105,9 @@ func (c WrapConn) ExecContext(ctx context.Context, query string, args []driver.N
 
 func (c WrapConn) Query(query string, args []driver.Value) (rows driver.Rows, err error) {
 	if queryer, ok := c.Conn.(driver.Queryer); ok {
-		sqlCtx, _ := whataptracesql.StartWithParam(c.ctx, c.dataSourceName, query, convertDriverValue(args)...)
+		sqlCtx, _ := whatapsql.StartWithParam(c.ctx, c.dataSourceName, query, convertDriverValue(args)...)
 		res, err := queryer.Query(query, args)
-		whataptracesql.End(sqlCtx, err)
+		whatapsql.End(sqlCtx, err)
 		return res, err
 	}
 	return nil, driver.ErrSkip
@@ -108,9 +116,9 @@ func (c WrapConn) Query(query string, args []driver.Value) (rows driver.Rows, er
 func (c WrapConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
 	wCtx := selectContext(ctx, c.ctx)
 	if queryerCtx, ok := c.Conn.(driver.QueryerContext); ok {
-		sqlCtx, _ := whataptracesql.StartWithParam(wCtx, c.dataSourceName, query, convertDriverNamedValue(args)...)
+		sqlCtx, _ := whatapsql.StartWithParam(wCtx, c.dataSourceName, query, convertDriverNamedValue(args)...)
 		res, err := queryerCtx.QueryContext(ctx, query, args)
-		whataptracesql.End(sqlCtx, err)
+		whatapsql.End(sqlCtx, err)
 		return res, err
 	}
 	return nil, driver.ErrSkip
@@ -137,16 +145,16 @@ func (c WrapConn) PrepareContext(ctx context.Context, query string) (stmt driver
 }
 
 func (c WrapConn) Close() error {
-	sqlCtx, _ := whataptracesql.Start(c.ctx, c.dataSourceName, "Close")
+	sqlCtx, _ := whatapsql.Start(c.ctx, c.dataSourceName, "Close")
 	err := c.Conn.Close()
-	whataptracesql.End(sqlCtx, err)
+	whatapsql.End(sqlCtx, err)
 	return err
 }
 
 func (c WrapConn) Begin() (tx driver.Tx, err error) {
-	sqlCtx, _ := whataptracesql.Start(c.ctx, c.dataSourceName, "Begin")
+	sqlCtx, _ := whatapsql.Start(c.ctx, c.dataSourceName, "Begin")
 	tx, err = c.Conn.Begin()
-	whataptracesql.End(sqlCtx, err)
+	whatapsql.End(sqlCtx, err)
 	if err != nil {
 		return nil, err
 	}
@@ -156,9 +164,9 @@ func (c WrapConn) Begin() (tx driver.Tx, err error) {
 func (c WrapConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx driver.Tx, err error) {
 	wCtx := selectContext(ctx, c.ctx)
 	if connBeginTx, ok := c.Conn.(driver.ConnBeginTx); ok {
-		sqlCtx, _ := whataptracesql.Start(wCtx, c.dataSourceName, "BeginTx")
+		sqlCtx, _ := whatapsql.Start(wCtx, c.dataSourceName, "BeginTx")
 		tx, err = connBeginTx.BeginTx(ctx, opts)
-		whataptracesql.End(sqlCtx, err)
+		whatapsql.End(sqlCtx, err)
 		if err != nil {
 			return nil, err
 		}
@@ -179,18 +187,18 @@ type WrapStmt struct {
 }
 
 func (s WrapStmt) Exec(args []driver.Value) (res driver.Result, err error) {
-	sqlCtx, _ := whataptracesql.StartWithParam(s.ctx, s.dataSourceName, s.preparedSql, convertDriverValue(args)...)
+	sqlCtx, _ := whatapsql.StartWithParam(s.ctx, s.dataSourceName, s.preparedSql, convertDriverValue(args)...)
 	res, err = s.Stmt.Exec(args)
-	whataptracesql.End(sqlCtx, err)
+	whatapsql.End(sqlCtx, err)
 	return res, err
 }
 
 func (s WrapStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (res driver.Result, err error) {
 	wCtx := selectContext(ctx, s.ctx)
 	if execCtx, ok := s.Stmt.(driver.StmtExecContext); ok {
-		sqlCtx, _ := whataptracesql.StartWithParam(wCtx, s.dataSourceName, s.preparedSql, convertDriverNamedValue(args)...)
+		sqlCtx, _ := whatapsql.StartWithParam(wCtx, s.dataSourceName, s.preparedSql, convertDriverNamedValue(args)...)
 		res, err := execCtx.ExecContext(ctx, args)
-		whataptracesql.End(sqlCtx, err)
+		whatapsql.End(sqlCtx, err)
 		return res, err
 	}
 	dargs, err := namedValueToValue(args)
@@ -201,18 +209,18 @@ func (s WrapStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (re
 }
 
 func (s WrapStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
-	sqlCtx, _ := whataptracesql.StartWithParam(s.ctx, s.dataSourceName, s.preparedSql, convertDriverValue(args)...)
+	sqlCtx, _ := whatapsql.StartWithParam(s.ctx, s.dataSourceName, s.preparedSql, convertDriverValue(args)...)
 	res, err := s.Stmt.Query(args)
-	whataptracesql.End(sqlCtx, err)
+	whatapsql.End(sqlCtx, err)
 	return res, err
 }
 
 func (s WrapStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (rows driver.Rows, err error) {
 	wCtx := selectContext(ctx, s.ctx)
 	if queryerCtx, ok := s.Stmt.(driver.StmtQueryContext); ok {
-		sqlCtx, _ := whataptracesql.StartWithParam(wCtx, s.dataSourceName, s.preparedSql, convertDriverNamedValue(args)...)
+		sqlCtx, _ := whatapsql.StartWithParam(wCtx, s.dataSourceName, s.preparedSql, convertDriverNamedValue(args)...)
 		res, err := queryerCtx.QueryContext(ctx, args)
-		whataptracesql.End(sqlCtx, err)
+		whatapsql.End(sqlCtx, err)
 		return res, err
 	}
 	dargs, err := namedValueToValue(args)
@@ -229,16 +237,16 @@ type WrapTx struct {
 }
 
 func (t WrapTx) Commit() (err error) {
-	sqlCtx, _ := whataptracesql.Start(t.ctx, t.dataSourceName, "Commit")
+	sqlCtx, _ := whatapsql.Start(t.ctx, t.dataSourceName, "Commit")
 	err = t.Tx.Commit()
-	whataptracesql.End(sqlCtx, err)
+	whatapsql.End(sqlCtx, err)
 	return err
 }
 
 func (t WrapTx) Rollback() (err error) {
-	sqlCtx, _ := whataptracesql.Start(t.ctx, t.dataSourceName, "Commit")
+	sqlCtx, _ := whatapsql.Start(t.ctx, t.dataSourceName, "Commit")
 	err = t.Tx.Rollback()
-	whataptracesql.End(sqlCtx, err)
+	whatapsql.End(sqlCtx, err)
 	return err
 }
 
@@ -276,7 +284,7 @@ func selectContext(contexts ...context.Context) (ctx context.Context) {
 		if i == 0 {
 			first = it
 		}
-		if _, traceCtx := whataptrace.GetTraceContext(it); traceCtx != nil {
+		if _, traceCtx := trace.GetTraceContext(it); traceCtx != nil {
 			return it
 		}
 	}

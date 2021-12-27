@@ -49,12 +49,12 @@ func Start(ctx context.Context, name string) (*MethodCtx, error) {
 	if !conf.ProfileMethodEnabled {
 		return NewMethodCtx(), nil
 	}
-	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
 		methodCtx := NewMethodCtx()
-		methodCtx.ctx = wCtx
+		methodCtx.ctx = traceCtx
 		if pack := udp.CreatePack(udp.TX_METHOD, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxMethodPack)
-			p.Txid = wCtx.Txid
+			p.Txid = traceCtx.Txid
 			p.Time = dateutil.SystemNow()
 			p.Method = stringutil.Truncate(name, HTTP_URI_MAX_SIZE)
 			methodCtx.step = p
@@ -92,10 +92,10 @@ func Trace(ctx context.Context, name string, elapsed int, err error) error {
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if _, wCtx := trace.GetTraceContext(ctx); wCtx != nil {
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
 		if pack := udp.CreatePack(udp.TX_METHOD, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxMethodPack)
-			p.Txid = wCtx.Txid
+			p.Txid = traceCtx.Txid
 			p.Time = dateutil.SystemNow()
 			p.Elapsed = int32(elapsed)
 			p.Method = stringutil.Truncate(name, HTTP_URI_MAX_SIZE)
