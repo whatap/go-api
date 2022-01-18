@@ -19,6 +19,10 @@ import (
 	"github.com/whatap/go-api/config"
 )
 
+var (
+	WHATAP_COOKIE_NAME = "WHATAP"
+)
+
 func Init(m map[string]string) {
 	// TO-DO
 	if m != nil {
@@ -111,9 +115,11 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 		p.Host = r.Host
 		p.Uri = r.RequestURI
 		p.Ipaddr = r.RemoteAddr
+		p.WClientId = GetClientId(r)
 		p.HttpMethod = r.Method
 		p.Ref = r.Referer()
 		p.UAgent = r.UserAgent()
+
 		udpClient.Send(p)
 	}
 	// Parse form
@@ -145,6 +151,7 @@ func StartWithContext(ctx context.Context, name string) (context.Context, error)
 			p.Host = traceCtx.Host
 			p.Uri = name
 			p.Ipaddr = traceCtx.Ipaddr
+			p.WClientId = traceCtx.WClientId
 			p.HttpMethod = traceCtx.HttpMethod
 			p.Ref = traceCtx.Ref
 			p.UAgent = traceCtx.UAgent
@@ -176,7 +183,6 @@ func SetHeader(ctx context.Context, m map[string][]string) {
 		}
 	}
 }
-
 func SetParameter(ctx context.Context, m map[string][]string) {
 	conf := config.GetConfig()
 	if !conf.Enabled {
@@ -194,6 +200,47 @@ func SetParameter(ctx context.Context, m map[string][]string) {
 			}
 		}
 	}
+}
+func GetClientId(r *http.Request) string {
+	conf := config.GetConfig()
+	if !conf.Enabled || !conf.TraceUserEnabled {
+		return r.RemoteAddr
+	}
+	if conf.TraceUserUsingIp {
+		return r.RemoteAddr
+	}
+	if conf.TraceUserHeaderTicketEnabled {
+		for k, v := range r.Header {
+			if strings.ToLower(strings.TrimSpace(k)) == strings.ToLower(strings.TrimSpace(conf.TraceUserHeaderTicket)) && len(v) > 0 {
+				return v[0]
+			}
+		}
+	}
+	for _, cookie := range r.Cookies() {
+		for _, v := range conf.TraceUserCookieKeys {
+			if strings.ToLower(strings.TrimSpace(cookie.Name)) == strings.ToLower(strings.TrimSpace(v)) {
+				return cookie.Value
+			}
+		}
+	}
+	// WhaTap Cookie name is constant WHATAP_COOKIE_NAME(WHATAP)
+	for _, cookie := range r.Cookies() {
+		if strings.ToUpper(strings.TrimSpace(cookie.Name)) == WHATAP_COOKIE_NAME {
+			return cookie.Value
+		}
+	}
+	return r.RemoteAddr
+}
+func GetWhatapCookie(r *http.Request) (*http.Cookie, bool) {
+	for _, cookie := range r.Cookies() {
+		if cookie.Name == WHATAP_COOKIE_NAME {
+			return nil, false
+		}
+	}
+	return &http.Cookie{
+		Name:  WHATAP_COOKIE_NAME,
+		Value: fmt.Sprintf("%s", keygen.Next()),
+	}, true
 }
 func Step(ctx context.Context, title, message string, elapsed, value int) error {
 	conf := config.GetConfig()

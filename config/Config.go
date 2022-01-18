@@ -47,8 +47,8 @@ type Config struct {
 	TraceUserHeaderTicketEnabled bool   // private
 	TraceUserSetCookie           bool
 	TraceUserCookieLimit         int32
-	TraceUserCookieKey           string // 세션 쿠키 키 이름 별로도 지정.
-	TraceUserUsingType           int32  // private
+	TraceUserCookieKeys          []string // 세션 쿠키 키 이름 별로도 지정.
+	TraceUserUsingType           int32    // private
 
 	TraceHttpClientIpHeaderKeyEnabled bool
 	TraceHttpClientIpHeaderKey        string // TODO: getRemoteAddr
@@ -110,7 +110,7 @@ func (conf *Config) ApplyDefault() {
 	m["trace_user_header_ticket"] = ""
 	m["trace_user_set_cookie"] = "false"
 	m["trace_user_cookie_limit"] = "2048"
-	m["trace_user_cookie_key"] = ""
+	m["trace_user_cookie_keys"] = ""
 	m["trace_http_client_ip_header_key_enabled"] = "true"
 	m["trace_http_client_ip_header_key"] = "x-forwarded-for"
 
@@ -168,7 +168,7 @@ func (conf *Config) ApplyConfig(m map[string]string) {
 	conf.TraceUserHeaderTicketEnabled = stringutil.IsNotEmpty(conf.TraceUserHeaderTicket)
 	conf.TraceUserSetCookie = conf.getBoolean("trace_user_set_cookie", false)
 	conf.TraceUserCookieLimit = conf.getInt("trace_user_cookie_limit", 2048)
-	conf.TraceUserCookieKey = conf.getValueDef("trace_user_cookie_key", "")
+	conf.TraceUserCookieKeys = conf.GetStringArray("trace_user_cookie_keys", ",")
 
 	conf.TraceUserUsingType = 2 // default
 	if !conf.TraceUserEnabled {
