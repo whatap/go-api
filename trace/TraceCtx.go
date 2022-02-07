@@ -2,6 +2,8 @@
 package trace
 
 import (
+	"sync"
+
 	"github.com/whatap/go-api/common/util/dateutil"
 )
 
@@ -33,8 +35,69 @@ type TraceCtx struct {
 	TraceMtraceCallerValue string
 	TraceMtracePoidValue   string
 	TraceMtraceSpecValue   string
+
+	ActiveSQL    bool
+	ActiveHTTPC  bool
+	ActiveDBC    bool
+	ActiveSocket bool
 }
 
 func (this *TraceCtx) GetElapsedTime() int {
 	return int(this.StartTime - dateutil.SystemNow())
+}
+
+var ctxPool = sync.Pool{
+	New: func() interface{} {
+		return NewTraceCtx()
+	},
+}
+
+func NewTraceCtx() *TraceCtx {
+	p := new(TraceCtx)
+	return p
+}
+func PoolTraceContext() *TraceCtx {
+	p := ctxPool.Get().(*TraceCtx)
+	return p
+}
+
+func CloseTraceContext(ctx *TraceCtx) {
+	if ctx != nil {
+		ctx.Clear()
+		ctxPool.Put(ctx)
+	}
+}
+func (this *TraceCtx) Clear() {
+	this.Txid = 0
+	this.Name = ""
+	this.StartTime = 0
+
+	// Pack
+	this.Host = ""
+	this.Uri = ""
+	this.Ipaddr = ""
+	this.UAgent = ""
+	this.Ref = ""
+	this.WClientId = ""
+	this.HttpMethod = ""
+	this.IsStaticContents = ""
+
+	this.MTid = 0
+	this.MDepth = 0
+	this.MCallerTxid = 0
+
+	this.MCallee = 0
+	this.MCallerSpec = ""
+	this.MCallerUrl = ""
+
+	this.MCallerPoidKey = ""
+
+	this.TraceMtraceCallerValue = ""
+	this.TraceMtracePoidValue = ""
+	this.TraceMtraceSpecValue = ""
+
+	this.ActiveSQL = false
+	this.ActiveHTTPC = false
+	this.ActiveDBC = false
+	this.ActiveSocket = false
 }

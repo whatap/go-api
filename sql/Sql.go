@@ -58,6 +58,7 @@ func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
 		return NewSqlCtx(), nil
 	}
 	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+		traceCtx.ActiveSQL = true
 		sqlCtx := NewSqlCtx()
 		sqlCtx.ctx = traceCtx
 		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
@@ -79,6 +80,7 @@ func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
 		return NewSqlCtx(), nil
 	}
 	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+		traceCtx.ActiveDBC = true
 		sqlCtx := NewSqlCtx()
 		sqlCtx.ctx = traceCtx
 		if pack := udp.CreatePack(udp.TX_DB_CONN, udp.UDP_PACK_VERSION); pack != nil {
@@ -99,6 +101,7 @@ func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{
 		return NewSqlCtx(), nil
 	}
 	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+		traceCtx.ActiveSQL = true
 		sqlCtx := NewSqlCtx()
 		sqlCtx.ctx = traceCtx
 		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
@@ -136,6 +139,7 @@ func End(sqlCtx *SqlCtx, err error) error {
 		up := sqlCtx.step
 		switch up.GetPackType() {
 		case udp.TX_DB_CONN:
+			sqlCtx.ctx.ActiveDBC = false
 			p := up.(*udp.UdpTxDbcPack)
 			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 			if err != nil {
@@ -145,6 +149,7 @@ func End(sqlCtx *SqlCtx, err error) error {
 			udpClient.Send(p)
 
 		case udp.TX_SQL:
+			sqlCtx.ctx.ActiveSQL = false
 			p := up.(*udp.UdpTxSqlPack)
 			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 			if err != nil {
@@ -154,6 +159,7 @@ func End(sqlCtx *SqlCtx, err error) error {
 			udpClient.Send(p)
 
 		case udp.TX_SQL_PARAM:
+			sqlCtx.ctx.ActiveSQL = false
 			p := up.(*udp.UdpTxSqlParamPack)
 			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 			if err != nil {

@@ -51,7 +51,6 @@ func GetMTrace(httpcCtx *HttpcCtx) http.Header {
 	rt := make(http.Header)
 	conf := config.GetConfig()
 	if conf.MtraceEnabled && httpcCtx.TraceMtraceCallerValue != "" {
-		conf := config.GetConfig()
 		rt.Set(conf.TraceMtraceCallerKey, httpcCtx.TraceMtraceCallerValue)
 		rt.Set(conf.TraceMtracePoidKey, httpcCtx.TraceMtracePoidValue)
 		rt.Set(conf.TraceMtraceSpecKey1, httpcCtx.TraceMtraceSpecValue)
@@ -65,10 +64,11 @@ func Start(ctx context.Context, url string) (*HttpcCtx, error) {
 		return NewHttpcCtx(), nil
 	}
 	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+		traceCtx.ActiveHTTPC = true
 		httpcCtx := NewHttpcCtx()
 		httpcCtx.ctx = traceCtx
 
-		if conf.MtraceEnabled && httpcCtx.TraceMtraceCallerValue != "" {
+		if conf.MtraceEnabled {
 			// multi trace info
 			httpcCtx.TraceMtraceCallerValue = traceCtx.TraceMtraceCallerValue
 			httpcCtx.TraceMtracePoidValue = traceCtx.TraceMtracePoidValue
@@ -95,6 +95,7 @@ func End(httpcCtx *HttpcCtx, status int, reason string, err error) error {
 	}
 	udpClient := whatapnet.GetUdpClient()
 	if httpcCtx != nil && httpcCtx.step != nil {
+		httpcCtx.ctx.ActiveHTTPC = false
 		p := httpcCtx.step
 		p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 		if err != nil {
