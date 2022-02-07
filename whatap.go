@@ -26,6 +26,8 @@ import (
 	_ "github.com/whatap/go-api/common/util/urlutil"
 	_ "github.com/whatap/go-api/common/util/uuidutil"
 	_ "github.com/whatap/go-api/config"
+	_ "github.com/whatap/go-api/counter"
+	_ "github.com/whatap/go-api/counter/task"
 	_ "github.com/whatap/go-api/httpc"
 	_ "github.com/whatap/go-api/method"
 	_ "github.com/whatap/go-api/sql"
