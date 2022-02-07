@@ -237,8 +237,23 @@ func (out *DataOutputX) WriteTextShortLength(v string) {
 		out.WriteBytes(b)
 	}
 }
+
 func (out *DataOutputX) Size() int {
 	return out.written
+}
+
+// Must do after write pack type and pack data.
+func (out *DataOutputX) WriteHeader(netSrc, netSrcVer byte, pcode, licenseHash int64) {
+	b := out.buffer.Bytes()
+	t := make([]byte, len(b))
+	copy(t, b)
+	out.buffer.Reset()
+
+	out.WriteByte(netSrc)
+	out.WriteByte(netSrcVer)
+	out.WriteLong(pcode)
+	out.WriteLong(licenseHash)
+	out.WriteIntBytes(t)
 }
 
 func ToBytesBool(b bool) []byte {
