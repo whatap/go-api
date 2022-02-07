@@ -44,6 +44,8 @@ func (this *TagCountPack) Put(name string, v interface{}) {
 		this.Data.Put(name, v.(value.Value))
 	case int:
 		this.Data.Put(name, value.NewDecimalValue(int64(v.(int))))
+	case int16:
+		this.Data.Put(name, value.NewDecimalValue(int64(v.(int16))))
 	case int32:
 		this.Data.Put(name, value.NewDecimalValue(int64(v.(int32))))
 	case int64:
