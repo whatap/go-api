@@ -163,6 +163,12 @@ var udpConfigPool = sync.Pool{
 	},
 }
 
+var udpActiveStatsPool = sync.Pool{
+	New: func() interface{} {
+		return NewUdpActiveStatsPack()
+	},
+}
+
 func CreatePack(t uint8, ver int32) UdpPack {
 	switch t {
 	case TX_START:
@@ -230,6 +236,10 @@ func CreatePack(t uint8, ver int32) UdpPack {
 		p.Ver = ver
 		return p
 		//return NewUdpRelayPackVer(ver)
+	case ACTIVE_STATS:
+		p := udpActiveStatsPool.Get().(*UdpActiveStatsPack)
+		p.Ver = ver
+		return p
 	}
 	return nil
 }
@@ -258,6 +268,8 @@ func ClosePack(p UdpPack) {
 		udpDbcPool.Put(p)
 	case RELAY_PACK:
 		udpRelayPool.Put(p)
+	case ACTIVE_STATS:
+		udpActiveStatsPool.Put(p)
 	}
 }
 

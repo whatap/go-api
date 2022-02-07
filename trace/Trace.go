@@ -4,6 +4,7 @@ package trace
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"github.com/whatap/go-api/common/util/keygen"
 	"github.com/whatap/go-api/common/util/stringutil"
 	"github.com/whatap/go-api/config"
+	"github.com/whatap/go-api/counter"
 )
 
 var (
@@ -33,6 +35,9 @@ func Init(m map[string]string) {
 	p.Data = config.GetConfig().ToString()
 
 	udpClient.Send(p)
+
+	counter := counter.GetCounterManager()
+	counter.Add("active_stats", &TaskActiveStats{})
 }
 
 func Shutdown() {
@@ -43,13 +48,10 @@ func GetTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
 	if ctx == nil {
 		return ctx, nil
 	}
-	var traceCtx *TraceCtx
 	if v := ctx.Value("whatap"); v != nil {
-		traceCtx = v.(*TraceCtx)
-	} else {
-		traceCtx = nil
+		return ctx, v.(*TraceCtx)
 	}
-	return ctx, traceCtx
+	return ctx, nil
 }
 
 func NewTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
@@ -57,9 +59,10 @@ func NewTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
 		ctx = context.Background()
 	}
 	var traceCtx *TraceCtx
-	traceCtx = new(TraceCtx)
+	traceCtx = PoolTraceContext()
 	traceCtx.Txid = keygen.Next()
 	ctx = context.WithValue(ctx, "whatap", traceCtx)
+	AddTraceCtx(traceCtx)
 	return ctx, traceCtx
 }
 
@@ -71,6 +74,7 @@ func Start(ctx context.Context, name string) (context.Context, error) {
 
 	udpClient := whatapnet.GetUdpClient()
 	ctx, traceCtx := NewTraceContext(ctx)
+
 	traceCtx.Name = name
 	traceCtx.StartTime = dateutil.SystemNow()
 	// update multi trace info
@@ -313,6 +317,8 @@ func End(ctx context.Context, err error) error {
 
 			udpClient.Send(p)
 		}
+		RemoveTraceCtx(traceCtx)
+		CloseTraceContext(traceCtx)
 		return nil
 	}
 
@@ -337,6 +343,7 @@ func GetMTrace(ctx context.Context) http.Header {
 func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 	conf := config.GetConfig()
 	if !conf.MtraceEnabled {
+		log.Println(">>>>", "mtrace enabled false")
 		return
 	}
 	for k, val := range header {
@@ -385,6 +392,12 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 // wrapping type of http.HanderFunc, example : http.Handle(pattern, http.HandlerFunc)
 func HandlerFunc(handler func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conf := config.GetConfig()
+		if !conf.TransactionEnabled {
+			handler(w, r)
+			return
+		}
+
 		ctx, _ := StartWithRequest(r)
 		defer End(ctx, nil)
 		handler(w, r.WithContext(ctx))
@@ -394,6 +407,12 @@ func HandlerFunc(handler func(http.ResponseWriter, *http.Request)) http.HandlerF
 // wrapping handler function, example : http.HandleFunc(func(http.ResponseWriter, *http.Request))
 func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		conf := config.GetConfig()
+		if !conf.TransactionEnabled {
+			handler(w, r)
+			return
+		}
+
 		ctx, _ := StartWithRequest(r)
 		defer End(ctx, nil)
 		handler(w, r.WithContext(ctx))

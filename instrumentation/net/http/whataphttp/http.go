@@ -1,6 +1,7 @@
 package whataphttp
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/whatap/go-api/config"
@@ -32,12 +33,13 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 		}
 		ctx, _ := trace.StartWithRequest(r)
 		defer trace.End(ctx, nil)
-
+		handler(w, r.WithContext(ctx))
 	}
 }
 
 type WrapRoundTrip struct {
 	transport http.RoundTripper
+	ctx       context.Context
 }
 
 func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err error) {
@@ -46,10 +48,10 @@ func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err
 		return this.transport.RoundTrip(req)
 	}
 	ctx := req.Context()
-	httpcCtx, _ := httpc.Start(ctx, req.URL.String())
-
+	wCtx := selectContext(ctx, this.ctx)
+	httpcCtx, _ := httpc.Start(wCtx, req.URL.String())
 	if conf.MtraceEnabled {
-		headers := trace.GetMTrace(ctx)
+		headers := trace.GetMTrace(wCtx)
 		for key, _ := range headers {
 			req.Header.Add(key, headers.Get(key))
 		}
@@ -60,6 +62,19 @@ func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err
 	return res, err
 }
 
-func NewRoundTrip(t http.RoundTripper) http.RoundTripper {
-	return &WrapRoundTrip{t}
+func NewRoundTrip(ctx context.Context, t http.RoundTripper) http.RoundTripper {
+	return &WrapRoundTrip{t, ctx}
+}
+
+func selectContext(contexts ...context.Context) (ctx context.Context) {
+	var first context.Context
+	for i, it := range contexts {
+		if i == 0 {
+			first = it
+		}
+		if _, traceCtx := trace.GetTraceContext(it); traceCtx != nil {
+			return it
+		}
+	}
+	return first
 }

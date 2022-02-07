@@ -66,6 +66,10 @@ type Config struct {
 	MtraceSpec          string
 	MtraceSpecHash      int32
 
+	TxMaxCount          int32
+	TxDefaultCapacity   int32
+	TxDefaultLoadFactor float32
+
 	Debug bool
 
 	ConfGo
@@ -123,7 +127,9 @@ func (conf *Config) ApplyDefault() {
 	m["mtrace_spec_key1"] = "x-wtap-sp1"
 	m["mtrace_send_url_length"] = "80"
 	m["mtrace_spec"] = "ver1.0"
-	m["mtrace_rate"] = "100"
+	m["mtrace_rate"] = "10"
+
+	m["tx_max_count"] = "8000"
 
 	m["debug"] = "false"
 
@@ -198,6 +204,14 @@ func (conf *Config) ApplyConfig(m map[string]string) {
 		conf.MtraceSpecHash = hash.HashStr(conf.MtraceSpec)
 	}
 
+	conf.TxMaxCount = conf.GetInt("tx_max_count", 5000)
+	conf.TxDefaultCapacity = conf.GetInt("tx_default_capacity", 101)
+	strLoadFactor := conf.GetValueDef("tx_load_factor", "0.75")
+	if s, err := strconv.ParseFloat(strLoadFactor, 32); err == nil {
+		conf.TxDefaultLoadFactor = float32(s)
+	}
+
+	// Debug
 	conf.Debug = conf.GetBoolean("debug", false)
 
 	conf.ConfGo.Apply(conf)

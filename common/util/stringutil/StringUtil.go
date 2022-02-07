@@ -400,3 +400,15 @@ func ParseMapSASToString(m map[string][]string, maxCount, keyMaxSize, valueMaxSi
 	}
 	return rt
 }
+
+func ArrayInt16ToString(a []int16, sep string) string {
+	if len(a) == 0 {
+		return ""
+	}
+
+	b := make([]string, len(a))
+	for i, v := range a {
+		b[i] = strconv.Itoa(int(v))
+	}
+	return strings.Join(b, sep)
+}
