@@ -116,51 +116,51 @@ type Pack interface {
 
 func CreatePack(t int16) Pack {
 	switch t {
-	// case PACK_PARAMETER:
-	// 	return NewParamPack()
-	// case PACK_COUNTER_1:
-	// 	return NewCounterPack1()
-	// case PACK_PROFILE:
-	// 	return NewProfilePack()
-	// case PACK_ACTIVESTACK_1:
-	// 	return NewActiveStackPack()
+	case PACK_PARAMETER:
+		return NewParamPack()
+	case PACK_COUNTER_1:
+		return NewCounterPack1()
+	case PACK_PROFILE:
+		return NewProfilePack()
+	case PACK_ACTIVESTACK_1:
+		return NewActiveStackPack()
 	case PACK_TEXT:
 		return NewTextPack()
-	// case PACK_ERROR_SNAP_1:
-	// 	return NewErrorSnapPack1()
-	// case PACK_REALTIME_USER:
-	// 	return NewRealtimeUserPack()
+	case PACK_ERROR_SNAP_1:
+		return NewErrorSnapPack1()
+	case PACK_REALTIME_USER:
+		return NewRealtimeUserPack()
 
-	// case PACK_STAT_SERVICE:
-	// 	return NewStatServicePack()
-	// case PACK_STAT_GENERAL:
-	// 	return NewStatGeneralPack()
-	// case PACK_STAT_SQL:
-	// 	return NewStatSqlPack()
-	// case PACK_STAT_HTTPC:
-	// 	return NewStatHttpcPack()
-	// case PACK_STAT_ERROR:
-	// 	return NewStatErrorPack()
-	//	case PACK_STAT_METHOD:
-	//	return NewStatMethodPack()
-	//	case PACK_STAT_TOP_SERVICE
-	//	return NewStatTopServicePack()
-	// case PACK_STAT_REMOTE_IP:
-	// 	return NewStatRemoteIpPack()
-	// case PACK_STAT_USER_AGENT:
-	// 	return NewStatUserAgentPack()
-	// case PACK_EVENT:
-	// 	return NewEventPack()
-	// case PACK_HITMAP_1:
-	// 	return NewHitMapPack1()
-	// case PACK_EXTENSION:
-	// 	return NewExtensionPack()
+	case PACK_STAT_SERVICE:
+		return NewStatServicePack()
+	case PACK_STAT_GENERAL:
+		return NewStatGeneralPack()
+	case PACK_STAT_SQL:
+		return NewStatSqlPack()
+	case PACK_STAT_HTTPC:
+		return NewStatHttpcPack()
+	case PACK_STAT_ERROR:
+		return NewStatErrorPack()
+	// case PACK_STAT_METHOD:
+	// 	return NewStatMethodPack()
+	// case PACK_STAT_TOP_SERVICE
+	// return NewStatTopServicePack()
+	case PACK_STAT_REMOTE_IP:
+		return NewStatRemoteIpPack()
+	case PACK_STAT_USER_AGENT:
+		return NewStatUserAgentPack()
+	case PACK_EVENT:
+		return NewEventPack()
+	case PACK_HITMAP_1:
+		return NewHitMapPack1()
+	case PACK_EXTENSION:
+		return NewExtensionPack()
 	case TAG_COUNT:
 		return NewTagCountPack()
-		//		case TAG_LOG:
-		//		return NewTagLogPack()
-	// case PACK_COMPOSITE:
-	// 	return NewCompositePack()
+	case TAG_LOG:
+		return NewTagLogPack()
+	case PACK_COMPOSITE:
+		return NewCompositePack()
 	// case PACK_ADDIN_COUNT:
 	// 	return NewAddinCountPack()
 	case PACK_LOGSINK:
