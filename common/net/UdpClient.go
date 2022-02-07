@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/whatap/go-api/common/io"
+	"github.com/whatap/go-api/common/lang/pack"
 	"github.com/whatap/go-api/common/lang/pack/udp"
 	"github.com/whatap/go-api/common/util/dateutil"
 	"github.com/whatap/go-api/config"
@@ -128,6 +129,21 @@ func (this *UdpClient) Send(p udp.UdpPack) {
 	udp.ClosePack(p)
 }
 
+func (this *UdpClient) SendRelay(p pack.Pack, flush bool) {
+	pb := pack.ToBytesPack(p)
+
+	relayPack := udp.CreatePack(udp.RELAY_PACK, udp.UDP_PACK_VERSION)
+	if rp, ok := relayPack.(*udp.UdpRelayPack); ok {
+		rp.RelayType = p.GetPackType()
+		rp.Data = pb
+		rp.Flush = flush
+		rp.Time = dateutil.SystemNow()
+		b := udp.ToBytesPack(rp)
+		this.sendQueue(rp.GetPackType(), rp.GetVersion(), b, flush)
+	}
+	udp.ClosePack(relayPack)
+}
+
 func (this *UdpClient) sendQueue(t uint8, ver int32, b []byte, flush bool) bool {
 	this.lock.Lock()
 	defer func() {
@@ -139,6 +155,10 @@ func (this *UdpClient) sendQueue(t uint8, ver int32, b []byte, flush bool) bool 
 		this.lock.Unlock()
 	}()
 	if this.isOpen() {
+		if len(b) >= UDP_PACKET_BUFFER {
+			log.Println("[WA-GO-01003-01]", "big data ")
+			return false
+		}
 		buff := make([]byte, len(b))
 		copy(buff, b)
 		this.sendCh <- &UdpData{t, ver, buff, flush}
