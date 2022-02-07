@@ -1,8 +1,6 @@
 package hmap
 
 import (
-	// "log"
-
 	"bytes"
 	"sort"
 	"sync"
@@ -34,8 +32,6 @@ func NewLongKeyLinkedMapDefault() *LongKeyLinkedMap {
 }
 
 func NewLongKeyLinkedMap(initCapacity int, loadFactor float32) *LongKeyLinkedMap {
-	//log.Println("NewLongKeyLinkedMap", "tx_cap=", initCapacity, ",tx_lf=", loadFactor)
-
 	this := new(LongKeyLinkedMap)
 	this.loadFactor = float32(loadFactor)
 	this.table = make([]*LongKeyLinkedEntry, initCapacity)
