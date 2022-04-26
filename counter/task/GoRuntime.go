@@ -1,7 +1,6 @@
 package task
 
 import (
-	"log"
 	"os"
 	"runtime"
 	"strconv"
@@ -84,7 +83,6 @@ func (this *TaskGoRuntime) Process(now int64) {
 	if this.lastPauseNs > 0 {
 		lastSample := m.PauseTotalNs - this.lastPauseNs
 		gcPausePerSecond = float64(lastSample) / float64(time.Millisecond) / float64(diffTime)
-		log.Println("sample ", lastSample, ", deff ", diffTime)
 	}
 	p.Put("GcPausePerSecond", gcPausePerSecond)
 
