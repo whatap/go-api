@@ -149,7 +149,7 @@ func End(sqlCtx *SqlCtx, err error) error {
 	// driver.ErrSkip is not collected.
 	if err == driver.ErrSkip {
 		if conf.Debug {
-			log.Println("Error Skip err=", err)
+			log.Println("[WA-SQL-04001] End: Error Skip ", err)
 		}
 		return nil
 	}
@@ -166,7 +166,7 @@ func End(sqlCtx *SqlCtx, err error) error {
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
 			if conf.Debug {
-				log.Println("[WA-SQL-04001] End Connection: ", p.Txid, ", ", sqlCtx.ctx.Name, "\n", p.Dbc, "\n", p.Elapsed, "ms", "\n", err)
+				log.Println("[WA-SQL-04002] End Connection: ", p.Txid, ", ", sqlCtx.ctx.Name, "\n", p.Dbc, "\n", p.Elapsed, "ms", "\n", err)
 			}
 			udpClient.Send(p)
 
@@ -179,7 +179,7 @@ func End(sqlCtx *SqlCtx, err error) error {
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
 			if conf.Debug {
-				log.Println("[WA-SQL-04002] End sql: ", p.Txid, ", ", sqlCtx.ctx.Name, "\n", p.Dbc, "\n", p.Sql, "\n", p.Elapsed, "ms", "\n", err)
+				log.Println("[WA-SQL-04003] End sql: ", p.Txid, ", ", sqlCtx.ctx.Name, "\n", p.Dbc, "\n", p.Sql, "\n", p.Elapsed, "ms", "\n", err)
 			}
 			udpClient.Send(p)
 
@@ -192,7 +192,7 @@ func End(sqlCtx *SqlCtx, err error) error {
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
 			if conf.Debug {
-				log.Println("[WA-SQL-04003] End sql params: ", p.Txid, ", ", sqlCtx.ctx.Name, "\n", p.Dbc, "\n", p.Sql, "\n", p.Param, "\n", p.Elapsed, "ms", "\n", err)
+				log.Println("[WA-SQL-04004] End sql params: ", p.Txid, ", ", sqlCtx.ctx.Name, "\n", p.Dbc, "\n", p.Sql, "\n", p.Param, "\n", p.Elapsed, "ms", "\n", err)
 			}
 			udpClient.Send(p)
 
@@ -200,7 +200,7 @@ func End(sqlCtx *SqlCtx, err error) error {
 		return nil
 	}
 	if conf.Debug {
-		log.Println("[WA-SQL-04004] End SqlCtx is nil: ", err)
+		log.Println("[WA-SQL-04005] End SqlCtx is nil: ", err)
 	}
 	return fmt.Errorf("SqlCtx is nil")
 }

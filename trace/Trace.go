@@ -382,7 +382,6 @@ func GetMTrace(ctx context.Context) http.Header {
 func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 	conf := config.GetConfig()
 	if !conf.MtraceEnabled {
-		//log.Println(">>>>", "mtrace enabled false")
 		return
 	}
 	for k, val := range header {

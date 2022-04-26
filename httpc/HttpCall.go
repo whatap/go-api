@@ -112,7 +112,7 @@ func End(httpcCtx *HttpcCtx, status int, reason string, err error) error {
 		return nil
 	}
 	if conf.Debug {
-		log.Println("[WA-HTTPC-03002] End: Not found Txid, ", "\n", status, ", ", err)
+		log.Println("[WA-HTTPC-02002] End: Not found Txid, ", "\n", status, ", ", err)
 	}
 	return fmt.Errorf("HttpcCtx is nil")
 }

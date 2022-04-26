@@ -3,7 +3,6 @@ package whataphttp
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/whatap/go-api/config"
@@ -30,10 +29,7 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 			x := recover()
 			var err error = nil
 			if x != nil {
-				if conf.Debug {
-					log.Println("[WA-HTTP-01001]", r.RequestURI, ", panic:", x)
-				}
-				err = fmt.Errorf("%v", x)
+				err = fmt.Errorf("Panic: %v", x)
 				trace.Error(ctx, err)
 				err = nil
 			}
@@ -42,10 +38,7 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 				traceCtx.Status = int32(status)
 			}
 			if status >= 400 {
-				if conf.Debug {
-					log.Println("[WA-HTTP-01002]", r.RequestURI, ", error status:", status)
-				}
-				err = fmt.Errorf("Status %d:%s", status, http.StatusText(status))
+				err = fmt.Errorf("Status: %d,%s", status, http.StatusText(status))
 			}
 			trace.End(ctx, err)
 			if x != nil {
