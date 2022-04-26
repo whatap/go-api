@@ -47,12 +47,13 @@ func (this *UdpTxSqlParamPack) Clear() {
 
 	this.Dbc = ""
 	this.Sql = ""
+	this.Param = ""
 	//error
 	this.ErrorType = ""
 	this.ErrorMessage = ""
 
 	this.Stack = ""
-	this.Param = ""
+
 }
 
 func (this *UdpTxSqlParamPack) Write(dout *io.DataOutputX) {
@@ -60,11 +61,9 @@ func (this *UdpTxSqlParamPack) Write(dout *io.DataOutputX) {
 	dout.WriteTextShortLength(this.Dbc)
 	dout.WriteTextShortLength(this.Sql)
 	dout.WriteTextShortLength(this.Param)
-
 	dout.WriteTextShortLength(this.ErrorType)
 	dout.WriteTextShortLength(this.ErrorMessage)
 	dout.WriteTextShortLength(this.Stack)
-
 }
 
 func (this *UdpTxSqlParamPack) Read(din *io.DataInputX) {
@@ -73,10 +72,10 @@ func (this *UdpTxSqlParamPack) Read(din *io.DataInputX) {
 	this.Dbc = din.ReadTextShortLength()
 	this.Sql = din.ReadTextShortLength()
 	this.Param = din.ReadTextShortLength()
-
 	this.ErrorType = din.ReadTextShortLength()
 	this.ErrorMessage = din.ReadTextShortLength()
 	this.Stack = din.ReadTextShortLength()
+
 }
 
 func (this *UdpTxSqlParamPack) Process() {
