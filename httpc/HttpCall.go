@@ -83,9 +83,9 @@ func Start(ctx context.Context, url string) (*HttpcCtx, error) {
 			p.Url = stringutil.Truncate(url, PACKET_HTTPC_MAX_SIZE)
 			httpcCtx.step = p
 		}
-		if conf.Debug {
-			log.Println("[WA-HTTPC-01001] Start: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", url)
-		}
+		// if conf.Debug {
+		// 	log.Println("[WA-HTTPC-01001] Start: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", url)
+		// }
 		return httpcCtx, nil
 	}
 
@@ -106,13 +106,13 @@ func End(httpcCtx *HttpcCtx, status int, reason string, err error) error {
 			p.ErrorType = stringutil.Truncate(fmt.Sprintf("%d:%s", status, reason), STEP_ERROR_MESSAGE_MAX_SIZE)
 		}
 		if conf.Debug {
-			log.Println("[WA-HTTPC-02001] End: ", p.Txid, ", ", httpcCtx.ctx.Name, "\n", p.Url, "\n", p.Elapsed, "ms", "\n", status, ", ", err)
+			log.Println("[WA-HTTPC-02001] txid: ", p.Txid, ", uri: ", httpcCtx.ctx.Name, "\n http url: ", p.Url, "\n elapsed: ", p.Elapsed, "ms ", "\n status: ", status, "\n error:  ", err)
 		}
 		udpClient.Send(p)
 		return nil
 	}
 	if conf.Debug {
-		log.Println("[WA-HTTPC-02002] End: Not found Txid, ", "\n", status, ", ", err)
+		log.Println("[WA-HTTPC-02002] End: Not found Txid ", "\n status: ", status, "\n error:  ", err)
 	}
 	return fmt.Errorf("HttpcCtx is nil")
 }
@@ -131,13 +131,13 @@ func Trace(ctx context.Context, host string, port int, url string, elapsed int, 
 			p.Url = stringutil.Truncate(url, PACKET_HTTPC_MAX_SIZE)
 
 			if conf.Debug {
-				log.Println("[WA-HTTPC-03001] Trace: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", url, "\n", p.Elapsed, "ms", "\n", status, ", ", err)
+				log.Println("[WA-HTTPC-03001] txid: ", traceCtx.Txid, ", uri: ", traceCtx.Name, "\n http url: ", url, "\n time: ", p.Elapsed, "ms ", "\n status: ", status, "\n error:  ", err)
 			}
 			udpClient.Send(p)
 		}
 	}
 	if conf.Debug {
-		log.Println("[WA-HTTPC-03002] Trace: Not found Txid, ", "\n", url, "\n", host, ":", port, "\n", elapsed, "ms", "\n", status, ", ", err)
+		log.Println("[WA-HTTPC-03002] Trace: Not found Txid ", "\n http url: ", url, "\n host: ", host, ":", port, "\n time: ", elapsed, "ms ", "\n status: ", status, "\n error:  ", err)
 	}
 	return fmt.Errorf("Not found Txid ")
 }

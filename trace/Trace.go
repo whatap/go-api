@@ -101,11 +101,10 @@ func Start(ctx context.Context, name string) (context.Context, error) {
 		p.HttpMethod = traceCtx.HttpMethod
 		p.Ref = traceCtx.Ref
 		p.UAgent = traceCtx.UAgent
+		// if conf.Debug {
+		// 	log.Println("[WA-TX-01001] Start: ", p.Txid, ",", traceCtx.Uri)
+		// }
 		udpClient.Send(p)
-
-		if conf.Debug {
-			log.Println("[WA-TX-01001] Start: ", p.Txid, ",", traceCtx.Uri)
-		}
 	}
 	return ctx, nil
 }
@@ -138,11 +137,10 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 		p.Ref = r.Referer()
 		p.UAgent = r.UserAgent()
 
+		// if conf.Debug {
+		// 	log.Println("[WA-TX-02001] StartWithRequest: ", traceCtx.Txid, ", ", traceCtx.Name)
+		// }
 		udpClient.Send(p)
-
-		if conf.Debug {
-			log.Println("[WA-TX-02001] StartWithRequest: ", traceCtx.Txid, ", ", traceCtx.Name)
-		}
 	}
 	// Parse form
 	// r.Form -> url.Values -> map[string][]string
@@ -177,10 +175,11 @@ func StartWithContext(ctx context.Context, name string) (context.Context, error)
 			p.HttpMethod = traceCtx.HttpMethod
 			p.Ref = traceCtx.Ref
 			p.UAgent = traceCtx.UAgent
+			// if conf.Debug {
+			// 	log.Println("[WA-TX-03001] StartWithContext: ", traceCtx.Txid, ", ", traceCtx.Name)
+			// }
 			udpClient.Send(p)
-			if conf.Debug {
-				log.Println("[WA-TX-03001] StartWithContext: ", traceCtx.Txid, ", ", traceCtx.Name)
-			}
+
 		}
 	} else {
 		if conf.Debug {
@@ -309,13 +308,13 @@ func Error(ctx context.Context, err error) error {
 
 				udpClient.Send(p)
 				if conf.Debug {
-					log.Println("[WA-TX-04001] Error: ", traceCtx.Txid, ", ", traceCtx.Name, ", ", err)
+					log.Println("[WA-TX-04001] txid:", traceCtx.Txid, ", uri: ", traceCtx.Name, "\n error: ", err)
 				}
 			}
 			return nil
 		} else {
 			if conf.Debug {
-				log.Println("[WA-TX-04002] Error: Not found Txid, ", err)
+				log.Println("[WA-TX-04002] Error: Not found Txid ", "\n error: ", err)
 			}
 			return fmt.Errorf("Not found Txid ")
 		}
@@ -351,7 +350,8 @@ func End(ctx context.Context, err error) error {
 			udpClient.Send(p)
 
 			if conf.Debug {
-				log.Println("[WA-TX-05001] End: ", traceCtx.Txid, ", ", traceCtx.Name, ", ", (dateutil.SystemNow() - traceCtx.StartTime), "ms, ", err)
+				log.Println("[WA-TX-05001] txid: ", traceCtx.Txid, ", uri: ", traceCtx.Name,
+					"\n time: ", (dateutil.SystemNow() - traceCtx.StartTime), "ms ", "\n error: ", err)
 			}
 		}
 		RemoveTraceCtx(traceCtx)
@@ -359,7 +359,7 @@ func End(ctx context.Context, err error) error {
 		return nil
 	}
 	if conf.Debug {
-		log.Println("[WA-TX-05002] End: Not found Txid, ", ", ", err)
+		log.Println("[WA-TX-05002] End: Not found Txid ", "\n error: ", err)
 	}
 	return fmt.Errorf("Not found Txid ")
 }
