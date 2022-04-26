@@ -256,6 +256,35 @@ func (out *DataOutputX) WriteHeader(netSrc, netSrcVer byte, pcode, licenseHash i
 	out.WriteIntBytes(t)
 }
 
+// Must do after write pack type and pack data.
+func (out *DataOutputX) WriteOneWayHeader(netSrc, netSrcVer byte, pcode, licenseHash int64) {
+	b := out.buffer.Bytes()
+	t := make([]byte, len(b))
+	copy(t, b)
+	out.buffer.Reset()
+
+	out.WriteByte(netSrc)
+	out.WriteByte(netSrcVer)
+	out.WriteLong(pcode)
+	out.WriteLong(licenseHash)
+	out.WriteIntBytes(t)
+}
+
+// Must do after write pack type and pack data.
+func (out *DataOutputX) WriteSecureHeader(netSrc, netSrcVer byte, pcode int64, oid, transferKey int32) {
+	b := out.buffer.Bytes()
+	t := make([]byte, len(b))
+	copy(t, b)
+	out.buffer.Reset()
+
+	out.WriteByte(netSrc)
+	out.WriteByte(netSrcVer)
+	out.WriteLong(pcode)
+	out.WriteInt(oid)
+	out.WriteInt(transferKey)
+	out.WriteIntBytes(t)
+}
+
 func ToBytesBool(b bool) []byte {
 	if b {
 		return []byte{1}

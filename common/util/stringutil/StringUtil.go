@@ -412,3 +412,21 @@ func ArrayInt16ToString(a []int16, sep string) string {
 	}
 	return strings.Join(b, sep)
 }
+
+func InArray(str string, list []string) bool {
+	for _, it := range list {
+		if strings.ToUpper(strings.TrimSpace(str)) == strings.ToUpper(strings.TrimSpace(it)) {
+			return true
+		}
+	}
+	return false
+}
+
+func InArrayCaseSensitive(str string, list []string) bool {
+	for _, it := range list {
+		if strings.TrimSpace(str) == strings.TrimSpace(it) {
+			return true
+		}
+	}
+	return false
+}
