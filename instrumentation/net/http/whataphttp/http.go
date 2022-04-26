@@ -2,6 +2,8 @@ package whataphttp
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/whatap/go-api/config"
@@ -11,16 +13,7 @@ import (
 
 // wrapping type of http.HanderFunc, example : http.Handle(pattern, http.HandlerFunc)
 func HandlerFunc(handler func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conf := config.GetConfig()
-		if !conf.TransactionEnabled {
-			handler(w, r)
-			return
-		}
-		ctx, _ := trace.StartWithRequest(r)
-		defer trace.End(ctx, nil)
-		handler(w, r.WithContext(ctx))
-	})
+	return http.HandlerFunc(Func(handler))
 }
 
 // wrapping handler function, example : http.HandleFunc(func(http.ResponseWriter, *http.Request))
@@ -31,9 +24,35 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 			handler(w, r)
 			return
 		}
+		wrw := &trace.WrapResponseWriter{ResponseWriter: w}
 		ctx, _ := trace.StartWithRequest(r)
-		defer trace.End(ctx, nil)
-		handler(w, r.WithContext(ctx))
+		defer func() {
+			x := recover()
+			var err error = nil
+			if x != nil {
+				if conf.Debug {
+					log.Println("[WA-HTTP-01001]", r.RequestURI, ", panic:", x)
+				}
+				err = fmt.Errorf("%v", x)
+				trace.Error(ctx, err)
+				err = nil
+			}
+			status := wrw.Status
+			if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+				traceCtx.Status = int32(status)
+			}
+			if status >= 400 {
+				if conf.Debug {
+					log.Println("[WA-HTTP-01002]", r.RequestURI, ", error status:", status)
+				}
+				err = fmt.Errorf("Status %d:%s", status, http.StatusText(status))
+			}
+			trace.End(ctx, err)
+			if x != nil {
+				panic(x)
+			}
+		}()
+		handler(wrw, r.WithContext(ctx))
 	}
 }
 
