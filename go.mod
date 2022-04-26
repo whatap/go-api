@@ -8,7 +8,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.8.0
 	github.com/labstack/echo v3.3.10+incompatible
-	github.com/labstack/gommon v0.3.1 // indirect
+	github.com/labstack/echo/v4 v4.7.2
 	golang.org/x/text v0.3.7
 	google.golang.org/grpc v1.42.0
 )
