@@ -68,8 +68,14 @@ func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
 			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
 			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
 			sqlCtx.step = p
+			if conf.Debug {
+				log.Println("[WA-SQL-01001] Start: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", dbhost, "\n", sql)
+			}
 		}
 		return sqlCtx, nil
+	}
+	if conf.Debug {
+		log.Println("[WA-SQL-01002] Start: Not found Txid ", dbhost, sql)
 	}
 	return nil, fmt.Errorf("Not found Txid ")
 }
@@ -89,8 +95,14 @@ func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
 			p.Time = dateutil.SystemNow()
 			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
 			sqlCtx.step = p
+			if conf.Debug {
+				log.Println("[WA-SQL-02001] Start Connection: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", dbhost)
+			}
 		}
 		return sqlCtx, nil
+	}
+	if conf.Debug {
+		log.Println("[WA-SQL-02001] StartOpen: Not found Txid, ", "\n", dbhost)
 	}
 	return nil, fmt.Errorf("Not found Txid ")
 }
@@ -112,8 +124,15 @@ func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{
 			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
 			p.Param = paramsToString(param...)
 			sqlCtx.step = p
+
+			if conf.Debug {
+				log.Println("[WA-SQL-03001] StartWithParam: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", dbhost, "\n", sql, "\n", param)
+			}
 		}
 		return sqlCtx, nil
+	}
+	if conf.Debug {
+		log.Println("[WA-SQL-03002] StartWithParam: Not found Txid, ", "\n", dbhost, "\n", sql, "\n", param)
 	}
 	return nil, fmt.Errorf("Not found Txid ")
 }
@@ -146,6 +165,9 @@ func End(sqlCtx *SqlCtx, err error) error {
 				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
+			if conf.Debug {
+				log.Println("[WA-SQL-04001] End Connection: ", p.Txid, ", ", sqlCtx.ctx.Name, "\n", p.Dbc, "\n", p.Elapsed, "ms", "\n", err)
+			}
 			udpClient.Send(p)
 
 		case udp.TX_SQL:
@@ -155,6 +177,9 @@ func End(sqlCtx *SqlCtx, err error) error {
 			if err != nil {
 				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+			}
+			if conf.Debug {
+				log.Println("[WA-SQL-04002] End sql: ", p.Txid, ", ", sqlCtx.ctx.Name, "\n", p.Dbc, "\n", p.Sql, "\n", p.Elapsed, "ms", "\n", err)
 			}
 			udpClient.Send(p)
 
@@ -166,10 +191,16 @@ func End(sqlCtx *SqlCtx, err error) error {
 				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
+			if conf.Debug {
+				log.Println("[WA-SQL-04003] End sql params: ", p.Txid, ", ", sqlCtx.ctx.Name, "\n", p.Dbc, "\n", p.Sql, "\n", p.Param, "\n", p.Elapsed, "ms", "\n", err)
+			}
 			udpClient.Send(p)
 
 		}
 		return nil
+	}
+	if conf.Debug {
+		log.Println("[WA-SQL-04004] End SqlCtx is nil: ", err)
 	}
 	return fmt.Errorf("SqlCtx is nil")
 }
@@ -194,6 +225,10 @@ func Trace(ctx context.Context, dbhost, sql string, param []interface{}, elapsed
 					p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 				}
 				p.Param = paramsToString(param...)
+
+				if conf.Debug {
+					log.Println("[WA-SQL-05001] Trace: ", p.Txid, ", ", traceCtx.Name, "\n", p.Dbc, "\n", p.Sql, "\n", p.Param, "\n", p.Elapsed, "ms", "\n", err)
+				}
 				udpClient.Send(p)
 			}
 		}
@@ -208,12 +243,16 @@ func Trace(ctx context.Context, dbhost, sql string, param []interface{}, elapsed
 				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
+			if conf.Debug {
+				log.Println("[WA-SQL-05002] Trace: ", p.Txid, ", ", traceCtx.Name, "\n", p.Dbc, "\n", p.Sql, "\n", p.Elapsed, "ms", "\n", err)
+			}
 			udpClient.Send(p)
 		}
-
 		return nil
 	}
-
+	if conf.Debug {
+		log.Println("[WA-SQL-05003] Trace: Not found Txid, ", "\n", dbhost, "\n", sql, "\n", err)
+	}
 	return fmt.Errorf("Not found Txid ")
 }
 

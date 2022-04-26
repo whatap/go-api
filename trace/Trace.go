@@ -4,6 +4,7 @@ package trace
 import (
 	"context"
 	"fmt"
+
 	"log"
 	"math"
 	"net/http"
@@ -24,6 +25,16 @@ import (
 var (
 	WHATAP_COOKIE_NAME = "WHATAP"
 )
+
+type WrapResponseWriter struct {
+	http.ResponseWriter
+	Status int
+}
+
+func (l *WrapResponseWriter) WriteHeader(status int) {
+	l.Status = status
+	l.ResponseWriter.WriteHeader(status)
+}
 
 func Init(m map[string]string) {
 	// TO-DO
@@ -91,6 +102,10 @@ func Start(ctx context.Context, name string) (context.Context, error) {
 		p.Ref = traceCtx.Ref
 		p.UAgent = traceCtx.UAgent
 		udpClient.Send(p)
+
+		if conf.Debug {
+			log.Println("[WA-TX-01001] Start: ", p.Txid, ",", traceCtx.Uri)
+		}
 	}
 	return ctx, nil
 }
@@ -107,7 +122,6 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 	traceCtx.Name = r.RequestURI
 	traceCtx.Host = r.Host
 	traceCtx.StartTime = dateutil.SystemNow()
-
 	// update multi trace info
 	UpdateMtrace(traceCtx, r.Header)
 
@@ -125,6 +139,10 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 		p.UAgent = r.UserAgent()
 
 		udpClient.Send(p)
+
+		if conf.Debug {
+			log.Println("[WA-TX-02001] StartWithRequest: ", traceCtx.Txid, ", ", traceCtx.Name)
+		}
 	}
 	// Parse form
 	// r.Form -> url.Values -> map[string][]string
@@ -160,8 +178,14 @@ func StartWithContext(ctx context.Context, name string) (context.Context, error)
 			p.Ref = traceCtx.Ref
 			p.UAgent = traceCtx.UAgent
 			udpClient.Send(p)
+			if conf.Debug {
+				log.Println("[WA-TX-03001] StartWithContext: ", traceCtx.Txid, ", ", traceCtx.Name)
+			}
 		}
 	} else {
+		if conf.Debug {
+			log.Println("[WA-TX-03002] StartWithContext: Not found trace context ", name)
+		}
 		return ctx, fmt.Errorf("Not found trace context ")
 	}
 	return ctx, nil
@@ -284,12 +308,19 @@ func Error(ctx context.Context, err error) error {
 				p.ErrorMessage = err.Error()
 
 				udpClient.Send(p)
+				if conf.Debug {
+					log.Println("[WA-TX-04001] Error: ", traceCtx.Txid, ", ", traceCtx.Name, ", ", err)
+				}
 			}
 			return nil
+		} else {
+			if conf.Debug {
+				log.Println("[WA-TX-04002] Error: Not found Txid, ", err)
+			}
+			return fmt.Errorf("Not found Txid ")
 		}
 	}
-
-	return fmt.Errorf("Not found Txid ")
+	return nil
 }
 
 func End(ctx context.Context, err error) error {
@@ -315,13 +346,21 @@ func End(ctx context.Context, err error) error {
 			p.McallerSpec = traceCtx.MCallerSpec
 			p.McallerUrl = traceCtx.MCallerUrl
 
+			p.Status = traceCtx.Status
+
 			udpClient.Send(p)
+
+			if conf.Debug {
+				log.Println("[WA-TX-05001] End: ", traceCtx.Txid, ", ", traceCtx.Name, ", ", (dateutil.SystemNow() - traceCtx.StartTime), "ms, ", err)
+			}
 		}
 		RemoveTraceCtx(traceCtx)
 		CloseTraceContext(traceCtx)
 		return nil
 	}
-
+	if conf.Debug {
+		log.Println("[WA-TX-05002] End: Not found Txid, ", ", ", err)
+	}
 	return fmt.Errorf("Not found Txid ")
 }
 
@@ -391,17 +430,7 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 
 // wrapping type of http.HanderFunc, example : http.Handle(pattern, http.HandlerFunc)
 func HandlerFunc(handler func(http.ResponseWriter, *http.Request)) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conf := config.GetConfig()
-		if !conf.TransactionEnabled {
-			handler(w, r)
-			return
-		}
-
-		ctx, _ := StartWithRequest(r)
-		defer End(ctx, nil)
-		handler(w, r.WithContext(ctx))
-	})
+	return http.HandlerFunc(Func(handler))
 }
 
 // wrapping handler function, example : http.HandleFunc(func(http.ResponseWriter, *http.Request))
@@ -412,10 +441,29 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 			handler(w, r)
 			return
 		}
-
+		wrw := &WrapResponseWriter{ResponseWriter: w}
 		ctx, _ := StartWithRequest(r)
-		defer End(ctx, nil)
-		handler(w, r.WithContext(ctx))
+		defer func() {
+			x := recover()
+			var err error = nil
+			if x != nil {
+				err = fmt.Errorf("%v", x)
+				Error(ctx, err)
+				err = nil
+			}
+			status := wrw.Status
+			if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
+				traceCtx.Status = int32(status)
+			}
+			if status >= 400 {
+				err = fmt.Errorf("Status %d:%s", status, http.StatusText(status))
+			}
+			End(ctx, err)
+			if x != nil {
+				panic(x)
+			}
+		}()
+		handler(wrw, r.WithContext(ctx))
 	}
 }
 
