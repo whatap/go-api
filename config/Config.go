@@ -2,7 +2,7 @@
 package config
 
 import (
-	"log"
+	// "log"
 	"os"
 	"strconv"
 	"strings"
@@ -14,6 +14,9 @@ import (
 
 const ()
 
+type ConfigInterface interface {
+	ApplyConfig(*Config)
+}
 type Config struct {
 	m map[string]string
 
@@ -218,9 +221,9 @@ func (conf *Config) ApplyConfig(m map[string]string) {
 	conf.ConfGoGrpc.Apply(conf)
 
 	if conf.Debug {
-		for k, v := range conf.m {
-			log.Println("k=", k, ",v=", v)
-		}
+		// for k, v := range conf.m {
+		// 	log.Println("k=", k, ",v=", v)
+		// }
 	}
 
 }
@@ -350,7 +353,12 @@ func (conf *Config) getStringArray(key string, deli string) []string {
 		return []string{}
 	}
 	tokens := stringutil.Tokenizer(v, deli)
-	return tokens
+	// trim Space
+	trimTokens := make([]string, 0)
+	for _, v := range tokens {
+		trimTokens = append(trimTokens, strings.TrimSpace(v))
+	}
+	return trimTokens
 }
 
 func (conf *Config) getFloat(key string, def float32) float32 {
@@ -367,7 +375,7 @@ func (conf *Config) getFloat(key string, def float32) float32 {
 
 func (conf *Config) InArray(str string, list []string) bool {
 	for _, it := range list {
-		if str == it {
+		if strings.TrimSpace(str) == strings.TrimSpace(it) {
 			return true
 		}
 	}

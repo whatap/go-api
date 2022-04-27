@@ -20,19 +20,32 @@ func Middleware() gin.HandlerFunc {
 		ctx, _ := trace.StartWithRequest(c.Request)
 		c.Request = c.Request.WithContext(ctx)
 
+		defer func() {
+			x := recover()
+			var err error = nil
+
+			if len(c.Errors) > 0 {
+				err = fmt.Errorf("Errors: %s", c.Errors.String())
+				trace.Error(ctx, err)
+				err = nil
+			}
+			if x != nil {
+				err = fmt.Errorf("Panic: %v", x)
+				trace.Error(ctx, err)
+				err = nil
+			}
+			status := c.Writer.Status()
+			if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+				traceCtx.Status = int32(status)
+			}
+			if status >= 400 {
+				err = fmt.Errorf("Status: %d,%s", status, http.StatusText(status))
+			}
+			trace.End(ctx, err)
+			if x != nil {
+				panic(x)
+			}
+		}()
 		c.Next()
-
-		var err error
-		status := c.Writer.Status()
-		if status >= 500 && status < 600 {
-			err = fmt.Errorf("%d: %s", status, http.StatusText(status))
-			trace.Error(ctx, err)
-		}
-
-		if len(c.Errors) > 0 {
-			err = fmt.Errorf("Errors: %s", c.Errors.String())
-			trace.Error(ctx, err)
-		}
-		trace.End(ctx, err)
 	}
 }

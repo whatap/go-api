@@ -26,6 +26,8 @@ type UdpTxEndPack struct {
 	McallerUrl     string
 	McallerPoidKey string
 
+	Status int32
+
 	// Processing data
 	ServiceURL     *urlutil.URL
 	McallerUrlHash int32
@@ -69,6 +71,8 @@ func (this *UdpTxEndPack) Clear() {
 	this.McallerUrl = ""
 	this.McallerPoidKey = ""
 
+	this.Status = 0
+
 	// Processing data
 	this.ServiceURL = nil
 	this.McallerUrlHash = 0
@@ -90,6 +94,8 @@ func (this *UdpTxEndPack) Write(dout *io.DataOutputX) {
 	dout.WriteTextShortLength(this.McallerSpec)
 	dout.WriteTextShortLength(this.McallerUrl)
 	dout.WriteTextShortLength(this.McallerPoidKey)
+	dout.WriteTextShortLength(stringutil.ParseStringZeroToEmpty(int64(this.Status)))
+
 }
 
 func (this *UdpTxEndPack) Read(din *io.DataInputX) {
@@ -103,6 +109,7 @@ func (this *UdpTxEndPack) Read(din *io.DataInputX) {
 	this.McallerSpec = din.ReadTextShortLength()
 	this.McallerUrl = din.ReadTextShortLength()
 	this.McallerPoidKey = din.ReadTextShortLength()
+	this.Status = stringutil.ParseInt32(din.ReadTextShortLength())
 }
 func (this *UdpTxEndPack) Process() {
 	if this.Host != "" && this.Uri != "" {

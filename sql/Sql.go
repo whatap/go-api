@@ -68,8 +68,15 @@ func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
 			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
 			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
 			sqlCtx.step = p
+			// if conf.Debug {
+			// 	log.Println("[WA-SQL-01001] Start: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", dbhost, "\n", sql)
+			// }
 		}
 		return sqlCtx, nil
+	}
+	if conf.Debug {
+		log.Println("[WA-SQL-01002] Start: Not found Txid ",
+			"\n dbhost: ", dbhost, "\n sql: ", sql)
 	}
 	return nil, fmt.Errorf("Not found Txid ")
 }
@@ -89,8 +96,14 @@ func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
 			p.Time = dateutil.SystemNow()
 			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
 			sqlCtx.step = p
+			// if conf.Debug {
+			// 	log.Println("[WA-SQL-02001] Start Connection: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", dbhost)
+			// }
 		}
 		return sqlCtx, nil
+	}
+	if conf.Debug {
+		log.Println("[WA-SQL-02001] StartOpen: Not found Txid ", "\n dbhost: ", dbhost)
 	}
 	return nil, fmt.Errorf("Not found Txid ")
 }
@@ -112,8 +125,15 @@ func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{
 			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
 			p.Param = paramsToString(param...)
 			sqlCtx.step = p
+
+			// if conf.Debug {
+			// 	log.Println("[WA-SQL-03001] StartWithParam: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", dbhost, "\n", sql, "\n", param)
+			// }
 		}
 		return sqlCtx, nil
+	}
+	if conf.Debug {
+		log.Println("[WA-SQL-03002] StartWithParam: Not found Txid ", ", \n dbhost: ", dbhost, ", \n sql: ", sql, ", \n args: ", param)
 	}
 	return nil, fmt.Errorf("Not found Txid ")
 }
@@ -130,7 +150,7 @@ func End(sqlCtx *SqlCtx, err error) error {
 	// driver.ErrSkip is not collected.
 	if err == driver.ErrSkip {
 		if conf.Debug {
-			log.Println("Error Skip err=", err)
+			log.Println("[WA-SQL-04001] End: Error Skip ", err)
 		}
 		return nil
 	}
@@ -146,6 +166,9 @@ func End(sqlCtx *SqlCtx, err error) error {
 				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
+			if conf.Debug {
+				log.Println("[WA-SQL-04002] txid: ", p.Txid, ", uri: ", sqlCtx.ctx.Name, "\n dbhost: ", p.Dbc, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
+			}
 			udpClient.Send(p)
 
 		case udp.TX_SQL:
@@ -155,6 +178,9 @@ func End(sqlCtx *SqlCtx, err error) error {
 			if err != nil {
 				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+			}
+			if conf.Debug {
+				log.Println("[WA-SQL-04003] txid: ", p.Txid, ", uri: ", sqlCtx.ctx.Name, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
 			}
 			udpClient.Send(p)
 
@@ -166,10 +192,16 @@ func End(sqlCtx *SqlCtx, err error) error {
 				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
+			if conf.Debug {
+				log.Println("[WA-SQL-04004] txid: ", p.Txid, ", uri: ", sqlCtx.ctx.Name, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n args: ", p.Param, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
+			}
 			udpClient.Send(p)
 
 		}
 		return nil
+	}
+	if conf.Debug {
+		log.Println("[WA-SQL-04005] End SqlCtx is nil: ", "\n error: ", err)
 	}
 	return fmt.Errorf("SqlCtx is nil")
 }
@@ -194,6 +226,10 @@ func Trace(ctx context.Context, dbhost, sql string, param []interface{}, elapsed
 					p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 				}
 				p.Param = paramsToString(param...)
+
+				if conf.Debug {
+					log.Println("[WA-SQL-05001] txid: ", p.Txid, ", uri: ", traceCtx.Name, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n args: ", p.Param, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
+				}
 				udpClient.Send(p)
 			}
 		}
@@ -208,12 +244,16 @@ func Trace(ctx context.Context, dbhost, sql string, param []interface{}, elapsed
 				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
+			if conf.Debug {
+				log.Println("[WA-SQL-05002] txid: ", p.Txid, ", uri: ", traceCtx.Name, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
+			}
 			udpClient.Send(p)
 		}
-
 		return nil
 	}
-
+	if conf.Debug {
+		log.Println("[WA-SQL-05003] Trace: Not found Txid, ", "\n dbhost: ", dbhost, "\n sql: ", sql, "\n error: ", err)
+	}
 	return fmt.Errorf("Not found Txid ")
 }
 

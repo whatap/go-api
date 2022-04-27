@@ -21,6 +21,7 @@ type TraceCtx struct {
 	WClientId        string
 	HttpMethod       string
 	IsStaticContents string
+	Status           int32
 
 	MTid        int64
 	MDepth      int32
@@ -81,6 +82,7 @@ func (this *TraceCtx) Clear() {
 	this.WClientId = ""
 	this.HttpMethod = ""
 	this.IsStaticContents = ""
+	this.Status = 0
 
 	this.MTid = 0
 	this.MDepth = 0
