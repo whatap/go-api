@@ -57,28 +57,20 @@ func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
 	if !conf.Enabled {
 		return NewSqlCtx(), nil
 	}
-	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-		traceCtx.ActiveSQL = true
-		sqlCtx := NewSqlCtx()
-		sqlCtx.ctx = traceCtx
-		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxSqlPack)
+	sqlCtx := NewSqlCtx()
+	if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
+		p := pack.(*udp.UdpTxSqlPack)
+		p.Time = dateutil.SystemNow()
+		p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
+		p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
+		sqlCtx.step = p
+		if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+			traceCtx.ActiveSQL = true
+			sqlCtx.ctx = traceCtx
 			p.Txid = traceCtx.Txid
-			p.Time = dateutil.SystemNow()
-			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
-			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
-			sqlCtx.step = p
-			// if conf.Debug {
-			// 	log.Println("[WA-SQL-01001] Start: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", dbhost, "\n", sql)
-			// }
 		}
-		return sqlCtx, nil
 	}
-	if conf.Debug {
-		log.Println("[WA-SQL-01002] Start: Not found Txid ",
-			"\n dbhost: ", dbhost, "\n sql: ", sql)
-	}
-	return nil, fmt.Errorf("Not found Txid ")
+	return sqlCtx, nil
 }
 
 func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
@@ -86,26 +78,19 @@ func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
 	if !conf.Enabled {
 		return NewSqlCtx(), nil
 	}
-	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-		traceCtx.ActiveDBC = true
-		sqlCtx := NewSqlCtx()
-		sqlCtx.ctx = traceCtx
-		if pack := udp.CreatePack(udp.TX_DB_CONN, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxDbcPack)
+	sqlCtx := NewSqlCtx()
+	if pack := udp.CreatePack(udp.TX_DB_CONN, udp.UDP_PACK_VERSION); pack != nil {
+		p := pack.(*udp.UdpTxDbcPack)
+		p.Time = dateutil.SystemNow()
+		p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
+		sqlCtx.step = p
+		if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+			traceCtx.ActiveDBC = true
+			sqlCtx.ctx = traceCtx
 			p.Txid = traceCtx.Txid
-			p.Time = dateutil.SystemNow()
-			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
-			sqlCtx.step = p
-			// if conf.Debug {
-			// 	log.Println("[WA-SQL-02001] Start Connection: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", dbhost)
-			// }
 		}
-		return sqlCtx, nil
 	}
-	if conf.Debug {
-		log.Println("[WA-SQL-02001] StartOpen: Not found Txid ", "\n dbhost: ", dbhost)
-	}
-	return nil, fmt.Errorf("Not found Txid ")
+	return sqlCtx, nil
 }
 
 func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{}) (*SqlCtx, error) {
@@ -113,29 +98,21 @@ func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{
 	if !conf.Enabled {
 		return NewSqlCtx(), nil
 	}
-	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-		traceCtx.ActiveSQL = true
-		sqlCtx := NewSqlCtx()
-		sqlCtx.ctx = traceCtx
-		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxSqlParamPack)
+	sqlCtx := NewSqlCtx()
+	if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
+		p := pack.(*udp.UdpTxSqlParamPack)
+		p.Time = dateutil.SystemNow()
+		p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
+		p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
+		p.Param = paramsToString(param...)
+		sqlCtx.step = p
+		if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+			traceCtx.ActiveSQL = true
 			p.Txid = traceCtx.Txid
-			p.Time = dateutil.SystemNow()
-			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
-			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
-			p.Param = paramsToString(param...)
-			sqlCtx.step = p
-
-			// if conf.Debug {
-			// 	log.Println("[WA-SQL-03001] StartWithParam: ", traceCtx.Txid, ", ", traceCtx.Name, "\n", dbhost, "\n", sql, "\n", param)
-			// }
+			sqlCtx.ctx = traceCtx
 		}
-		return sqlCtx, nil
 	}
-	if conf.Debug {
-		log.Println("[WA-SQL-03002] StartWithParam: Not found Txid ", ", \n dbhost: ", dbhost, ", \n sql: ", sql, ", \n args: ", param)
-	}
-	return nil, fmt.Errorf("Not found Txid ")
+	return sqlCtx, nil
 }
 
 func StartWithParamArray(ctx context.Context, dbhost, sql string, param []interface{}) (*SqlCtx, error) {
@@ -159,7 +136,11 @@ func End(sqlCtx *SqlCtx, err error) error {
 		up := sqlCtx.step
 		switch up.GetPackType() {
 		case udp.TX_DB_CONN:
-			sqlCtx.ctx.ActiveDBC = false
+			serviceName := ""
+			if sqlCtx.ctx != nil {
+				sqlCtx.ctx.ActiveDBC = false
+				serviceName = sqlCtx.ctx.Name
+			}
 			p := up.(*udp.UdpTxDbcPack)
 			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 			if err != nil {
@@ -167,12 +148,16 @@ func End(sqlCtx *SqlCtx, err error) error {
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
 			if conf.Debug {
-				log.Println("[WA-SQL-04002] txid: ", p.Txid, ", uri: ", sqlCtx.ctx.Name, "\n dbhost: ", p.Dbc, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
+				log.Println("[WA-SQL-04002] txid: ", p.Txid, ", uri: ", serviceName, "\n dbhost: ", p.Dbc, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
 			}
 			udpClient.Send(p)
 
 		case udp.TX_SQL:
-			sqlCtx.ctx.ActiveSQL = false
+			serviceName := ""
+			if sqlCtx.ctx != nil {
+				sqlCtx.ctx.ActiveSQL = false
+				serviceName = sqlCtx.ctx.Name
+			}
 			p := up.(*udp.UdpTxSqlPack)
 			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 			if err != nil {
@@ -180,12 +165,16 @@ func End(sqlCtx *SqlCtx, err error) error {
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
 			if conf.Debug {
-				log.Println("[WA-SQL-04003] txid: ", p.Txid, ", uri: ", sqlCtx.ctx.Name, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
+				log.Println("[WA-SQL-04003] txid: ", p.Txid, ", uri: ", serviceName, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
 			}
 			udpClient.Send(p)
 
 		case udp.TX_SQL_PARAM:
-			sqlCtx.ctx.ActiveSQL = false
+			serviceName := ""
+			if sqlCtx.ctx != nil {
+				sqlCtx.ctx.ActiveSQL = false
+				serviceName = sqlCtx.ctx.Name
+			}
 			p := up.(*udp.UdpTxSqlParamPack)
 			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 			if err != nil {
@@ -193,7 +182,7 @@ func End(sqlCtx *SqlCtx, err error) error {
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
 			if conf.Debug {
-				log.Println("[WA-SQL-04004] txid: ", p.Txid, ", uri: ", sqlCtx.ctx.Name, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n args: ", p.Param, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
+				log.Println("[WA-SQL-04004] txid: ", p.Txid, ", uri: ", serviceName, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n args: ", p.Param, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
 			}
 			udpClient.Send(p)
 
@@ -212,30 +201,9 @@ func Trace(ctx context.Context, dbhost, sql string, param []interface{}, elapsed
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
-	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-		if param != nil && len(param) > 0 {
-			if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
-				p := pack.(*udp.UdpTxSqlParamPack)
-				p.Txid = traceCtx.Txid
-				p.Time = dateutil.SystemNow()
-				p.Elapsed = int32(elapsed)
-				p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
-				p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
-				if err != nil {
-					p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
-					p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
-				}
-				p.Param = paramsToString(param...)
-
-				if conf.Debug {
-					log.Println("[WA-SQL-05001] txid: ", p.Txid, ", uri: ", traceCtx.Name, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n args: ", p.Param, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
-				}
-				udpClient.Send(p)
-			}
-		}
-		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxSqlPack)
-			p.Txid = traceCtx.Txid
+	if param != nil && len(param) > 0 {
+		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
+			p := pack.(*udp.UdpTxSqlParamPack)
 			p.Time = dateutil.SystemNow()
 			p.Elapsed = int32(elapsed)
 			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
@@ -244,17 +212,42 @@ func Trace(ctx context.Context, dbhost, sql string, param []interface{}, elapsed
 				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
 			}
+			p.Param = paramsToString(param...)
+			serviceName := ""
+			if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+				p.Txid = traceCtx.Txid
+				serviceName = traceCtx.Name
+			}
+
 			if conf.Debug {
-				log.Println("[WA-SQL-05002] txid: ", p.Txid, ", uri: ", traceCtx.Name, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
+				log.Println("[WA-SQL-05001] txid: ", p.Txid, ", uri: ", serviceName, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n args: ", p.Param, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
+			}
+			udpClient.Send(p)
+
+		}
+	} else {
+		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
+			p := pack.(*udp.UdpTxSqlPack)
+			p.Time = dateutil.SystemNow()
+			p.Elapsed = int32(elapsed)
+			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
+			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
+			if err != nil {
+				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+				p.ErrorType = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+			}
+			serviceName := ""
+			if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+				p.Txid = traceCtx.Txid
+				serviceName = traceCtx.Name
+			}
+			if conf.Debug {
+				log.Println("[WA-SQL-05002] txid: ", p.Txid, ", uri: ", serviceName, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
 			}
 			udpClient.Send(p)
 		}
-		return nil
 	}
-	if conf.Debug {
-		log.Println("[WA-SQL-05003] Trace: Not found Txid, ", "\n dbhost: ", dbhost, "\n sql: ", sql, "\n error: ", err)
-	}
-	return fmt.Errorf("Not found Txid ")
+	return nil
 }
 
 func paramsToString(params ...interface{}) string {
