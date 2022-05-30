@@ -8,6 +8,8 @@ import (
 	"log"
 	"math"
 	"net/http"
+
+	//	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -20,6 +22,37 @@ import (
 	"github.com/whatap/go-api/common/util/stringutil"
 	"github.com/whatap/go-api/config"
 	"github.com/whatap/go-api/counter"
+)
+
+const (
+	PACKET_DB_MAX_SIZE           = 4 * 1024  // max size of sql
+	PACKET_SQL_MAX_SIZE          = 32 * 1024 // max size of sql
+	PACKET_HTTPC_MAX_SIZE        = 32 * 1024 // max size of sql
+	PACKET_MESSAGE_MAX_SIZE      = 32 * 1024 // max size of message
+	PACKET_METHOD_STACK_MAX_SIZE = 32 * 1024 // max size of message
+
+	COMPILE_FILE_MAX_SIZE = 2 * 1024 // max size of filename
+
+	HTTP_HOST_MAX_SIZE   = 2 * 1024 // max size of host
+	HTTP_URI_MAX_SIZE    = 2 * 1024 // max size of uri
+	HTTP_METHOD_MAX_SIZE = 256      // max size of method
+	HTTP_IP_MAX_SIZE     = 256      // max size of ip(request_addr)
+	HTTP_UA_MAX_SIZE     = 2 * 1024 // max size of user agent
+	HTTP_REF_MAX_SIZE    = 2 * 1024 // max size of referer
+	HTTP_USERID_MAX_SIZE = 2 * 1024 // max size of userid
+
+	HTTP_PARAM_MAX_COUNT      = 20
+	HTTP_PARAM_KEY_MAX_SIZE   = 255 // = 을 빼고 255 byte
+	HTTP_PARAM_VALUE_MAX_SIZE = 256
+
+	HTTP_HEADER_MAX_COUNT      = 20
+	HTTP_HEADER_KEY_MAX_SIZE   = 255 // = 을 빼고 255 byte
+	HTTP_HEADER_VALUE_MAX_SIZE = 256
+
+	SQL_PARAM_MAX_COUNT      = 20
+	SQL_PARAM_VALUE_MAX_SIZE = 256
+
+	STEP_ERROR_MESSAGE_MAX_SIZE = 4 * 1024
 )
 
 var (
@@ -142,11 +175,7 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 		// }
 		udpClient.Send(p)
 	}
-	// Parse form
-	// r.Form -> url.Values -> map[string][]string
-	r.ParseForm()
-	SetParameter(ctx, r.Form)
-	// http.Header -> map[string][]string
+	//http.Header -> map[string][]string
 	SetHeader(ctx, r.Header)
 
 	return ctx, nil
@@ -205,6 +234,9 @@ func SetHeader(ctx context.Context, m map[string][]string) {
 				p.Time = dateutil.SystemNow()
 				p.Hash = "HTTP-HEADERS"
 				p.SetHeader(map[string][]string(m))
+				if conf.Debug {
+					log.Println("[WA-TX-06001] txid:", traceCtx.Txid, ", uri: ", traceCtx.Name, "\n headers: ", p.Desc)
+				}
 				udpClient.Send(p)
 			}
 		}
@@ -220,9 +252,13 @@ func SetParameter(ctx context.Context, m map[string][]string) {
 		if conf.ProfileHttpParameterEnabled && strings.HasPrefix(traceCtx.Name, conf.ProfileHttpParameterUrlPrefix) {
 			if pack := udp.CreatePack(udp.TX_SECURE_MSG, udp.UDP_PACK_VERSION); pack != nil {
 				p := pack.(*udp.UdpTxSecureMessagePack)
+				p.Txid = traceCtx.Txid
 				p.Time = dateutil.SystemNow()
 				p.Hash = "HTTP-PARAMS"
 				p.SetParameter(map[string][]string(m))
+				if conf.Debug {
+					log.Println("[WA-TX-07001] HTTP-PARAMS txid:", traceCtx.Txid, ", uri: ", traceCtx.Name, "\n params: ", p.Desc)
+				}
 				udpClient.Send(p)
 			}
 		}
@@ -292,31 +328,28 @@ func Step(ctx context.Context, title, message string, elapsed, value int) error 
 }
 
 func Error(ctx context.Context, err error) error {
+	//log.Println(">>>> runtime debug stack ", string(debug.Stack()))
 	conf := config.GetConfig()
 	if !conf.Enabled {
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
 	if err != nil {
-		if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
-			if pack := udp.CreatePack(udp.TX_ERROR, udp.UDP_PACK_VERSION); pack != nil {
-				p := pack.(*udp.UdpTxErrorPack)
+		if pack := udp.CreatePack(udp.TX_ERROR, udp.UDP_PACK_VERSION); pack != nil {
+			p := pack.(*udp.UdpTxErrorPack)
+			p.Time = dateutil.SystemNow()
+			p.ErrorType = stringutil.Truncate(fmt.Sprintf("%T", err), STEP_ERROR_MESSAGE_MAX_SIZE)
+			p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+			serviceName := ""
+			if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
 				p.Txid = traceCtx.Txid
-				p.Time = dateutil.SystemNow()
-				p.ErrorType = err.Error()
-				p.ErrorMessage = err.Error()
-
-				udpClient.Send(p)
-				if conf.Debug {
-					log.Println("[WA-TX-04001] txid:", traceCtx.Txid, ", uri: ", traceCtx.Name, "\n error: ", err)
-				}
+				serviceName = traceCtx.Name
 			}
-			return nil
-		} else {
 			if conf.Debug {
-				log.Println("[WA-TX-04002] Error: Not found Txid ", "\n error: ", err)
+				log.Println("[WA-TX-04001] txid:", p.Txid, ", uri: ", serviceName, "\n error: ", err)
 			}
-			return fmt.Errorf("Not found Txid ")
+			udpClient.Send(p)
+
 		}
 	}
 	return nil
@@ -328,8 +361,8 @@ func End(ctx context.Context, err error) error {
 		return nil
 	}
 	udpClient := whatapnet.GetUdpClient()
+	Error(ctx, err)
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
-		Error(ctx, err)
 		if pack := udp.CreatePack(udp.TX_END, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxEndPack)
 			p.Txid = traceCtx.Txid
@@ -347,12 +380,12 @@ func End(ctx context.Context, err error) error {
 
 			p.Status = traceCtx.Status
 
-			udpClient.Send(p)
-
 			if conf.Debug {
 				log.Println("[WA-TX-05001] txid: ", traceCtx.Txid, ", uri: ", traceCtx.Name,
 					"\n time: ", (dateutil.SystemNow() - traceCtx.StartTime), "ms ", "\n error: ", err)
 			}
+
+			udpClient.Send(p)
 		}
 		RemoveTraceCtx(traceCtx)
 		CloseTraceContext(traceCtx)
@@ -442,6 +475,7 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 		}
 		wrw := &WrapResponseWriter{ResponseWriter: w}
 		ctx, _ := StartWithRequest(r)
+		wRequest := r.WithContext(ctx)
 		defer func() {
 			x := recover()
 			var err error = nil
@@ -457,12 +491,19 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 			if status >= 400 {
 				err = fmt.Errorf("Status %d:%s", status, http.StatusText(status))
 			}
+			// trace http parameter
+			if conf.ProfileHttpParameterEnabled && strings.HasPrefix(r.RequestURI, conf.ProfileHttpParameterUrlPrefix) {
+				if wRequest.Form != nil {
+					SetParameter(ctx, wRequest.Form)
+				}
+			}
 			End(ctx, err)
 			if x != nil {
 				panic(x)
 			}
 		}()
-		handler(wrw, r.WithContext(ctx))
+		handler(wrw, wRequest)
+
 	}
 }
 

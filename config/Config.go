@@ -35,6 +35,10 @@ type Config struct {
 
 	TransactionEnabled bool
 	//profile
+	ProfileSqlParamEnabled    bool
+	ProfileSqlCommentEnabled  bool
+	ProfileSqlResourceEnabled bool
+
 	ProfileMethodEnabled      bool
 	ProfileMethodStackEnabled bool
 
@@ -112,6 +116,8 @@ func (conf *Config) ApplyDefault() {
 	m["profile_http_parameter_enabled"] = "false"
 	m["profile_http_parameter_url_prefix"] = "/"
 
+	m["profile_sql_param_enabled"] = "false"
+
 	m["trace_user_enabled"] = "true"
 	m["trace_user_using_ip"] = "false"
 	m["trace_user_header_ticket"] = ""
@@ -161,6 +167,10 @@ func (conf *Config) ApplyConfig(m map[string]string) {
 	conf.NetUdpPort = conf.getInt("net_udp_port", 6600)
 
 	conf.TransactionEnabled = conf.Enabled && conf.getBoolean("transaction_enabled", true)
+
+	conf.ProfileSqlParamEnabled = conf.getBoolean("profile_sql_param_enabled", false)
+	conf.ProfileSqlResourceEnabled = conf.getBoolean("profile_sql_resource_enabled", false)
+	conf.ProfileSqlCommentEnabled = conf.getBoolean("profile_sql_comment_enabled", false)
 
 	conf.ProfileMethodEnabled = conf.Enabled && conf.getBoolean("profile_method_enabled", true)
 	conf.ProfileMethodStackEnabled = conf.Enabled && conf.getBoolean("profile_method_stack_enabled", false)
@@ -360,7 +370,9 @@ func (conf *Config) getStringArray(key string, deli string) []string {
 	}
 	return trimTokens
 }
-
+func (conf *Config) GetFloat(key string, def float32) float32 {
+	return conf.getFloat(key, def)
+}
 func (conf *Config) getFloat(key string, def float32) float32 {
 	v := conf.getValue(key)
 	if v == "" {
