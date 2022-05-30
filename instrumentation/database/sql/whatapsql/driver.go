@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"errors"
 
+	"github.com/whatap/go-api/common/util/dateutil"
 	"github.com/whatap/go-api/config"
 	whatapsql "github.com/whatap/go-api/sql"
 	"github.com/whatap/go-api/trace"
@@ -145,17 +146,29 @@ func (c WrapConn) PrepareContext(ctx context.Context, query string) (stmt driver
 }
 
 func (c WrapConn) Close() error {
-	sqlCtx, _ := whatapsql.Start(c.ctx, c.dataSourceName, "Close")
+	st := dateutil.SystemNow()
 	err := c.Conn.Close()
-	whatapsql.End(sqlCtx, err)
+	elapsed := dateutil.SystemNow() - st
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	trace.Step(c.ctx, "Close", "Close", int(elapsed), 0)
+	if err != nil {
+		trace.Error(c.ctx, err)
+	}
 	return err
 }
 
 func (c WrapConn) Begin() (tx driver.Tx, err error) {
-	sqlCtx, _ := whatapsql.Start(c.ctx, c.dataSourceName, "Begin")
+	st := dateutil.SystemNow()
 	tx, err = c.Conn.Begin()
-	whatapsql.End(sqlCtx, err)
+	elapsed := dateutil.SystemNow() - st
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	trace.Step(c.ctx, "Begin", "Begin", int(elapsed), 0)
 	if err != nil {
+		trace.Error(c.ctx, err)
 		return nil, err
 	}
 	return WrapTx{tx, c.ctx, c.dataSourceName}, nil
@@ -164,19 +177,24 @@ func (c WrapConn) Begin() (tx driver.Tx, err error) {
 func (c WrapConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx driver.Tx, err error) {
 	wCtx := selectContext(ctx, c.ctx)
 	if connBeginTx, ok := c.Conn.(driver.ConnBeginTx); ok {
-		sqlCtx, _ := whatapsql.Start(wCtx, c.dataSourceName, "BeginTx")
+		st := dateutil.SystemNow()
 		tx, err = connBeginTx.BeginTx(ctx, opts)
-		whatapsql.End(sqlCtx, err)
+		elapsed := dateutil.SystemNow() - st
+		if elapsed < 0 {
+			elapsed = 0
+		}
+		trace.Step(wCtx, "BeginTx", "BeginTx", int(elapsed), 0)
 		if err != nil {
+			trace.Error(wCtx, err)
 			return nil, err
 		}
-		return WrapTx{tx, c.ctx, c.dataSourceName}, nil
+		return WrapTx{tx, wCtx, c.dataSourceName}, nil
 	}
 	tx, err = c.Conn.Begin()
 	if err != nil {
 		return nil, err
 	}
-	return WrapTx{tx, c.ctx, c.dataSourceName}, nil
+	return WrapTx{tx, wCtx, c.dataSourceName}, nil
 }
 
 type WrapStmt struct {
@@ -237,23 +255,36 @@ type WrapTx struct {
 }
 
 func (t WrapTx) Commit() (err error) {
-	sqlCtx, _ := whatapsql.Start(t.ctx, t.dataSourceName, "Commit")
+	st := dateutil.SystemNow()
 	err = t.Tx.Commit()
-	whatapsql.End(sqlCtx, err)
+	elapsed := dateutil.SystemNow() - st
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	trace.Step(t.ctx, "Commit", "Commit", int(elapsed), 0)
+	if err != nil {
+		trace.Error(t.ctx, err)
+	}
 	return err
 }
 
 func (t WrapTx) Rollback() (err error) {
-	sqlCtx, _ := whatapsql.Start(t.ctx, t.dataSourceName, "Commit")
+	st := dateutil.SystemNow()
 	err = t.Tx.Rollback()
-	whatapsql.End(sqlCtx, err)
+	elapsed := dateutil.SystemNow() - st
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	trace.Step(t.ctx, "Rollback", "Rollback", int(elapsed), 0)
+	if err != nil {
+		trace.Error(t.ctx, err)
+	}
 	return err
 }
 
 func convertDriverValue(args []driver.Value) []interface{} {
 	iArgs := make([]interface{}, 0)
 	for _, it := range args {
-
 		iArgs = append(iArgs, interface{}(it))
 	}
 	return iArgs
