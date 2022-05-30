@@ -96,8 +96,8 @@ func End(httpcCtx *HttpcCtx, status int, reason string, err error) error {
 		p := httpcCtx.step
 		p.Elapsed = int32(dateutil.SystemNow() - p.Time)
 		if err != nil {
+			p.ErrorType = stringutil.Truncate(fmt.Sprintf("%T", err), STEP_ERROR_MESSAGE_MAX_SIZE)
 			p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
-			p.ErrorType = stringutil.Truncate(fmt.Sprintf("%d:%s", status, reason), STEP_ERROR_MESSAGE_MAX_SIZE)
 		}
 		serviceName := ""
 		if httpcCtx.ctx != nil {
@@ -127,6 +127,10 @@ func Trace(ctx context.Context, host string, port int, url string, elapsed int, 
 		p.Time = dateutil.SystemNow()
 		p.Elapsed = int32(elapsed)
 		p.Url = stringutil.Truncate(url, PACKET_HTTPC_MAX_SIZE)
+		if err != nil {
+			p.ErrorType = stringutil.Truncate(fmt.Sprintf("%T", err), STEP_ERROR_MESSAGE_MAX_SIZE)
+			p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+		}
 		serviceName := ""
 		if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
 			p.Txid = traceCtx.Txid

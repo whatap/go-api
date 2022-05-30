@@ -3,6 +3,7 @@ package whatapecho
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo"
 
@@ -60,7 +61,12 @@ func Middleware() echo.MiddlewareFunc {
 						err = fmt.Errorf("Status: %d,%s", status, http.StatusText(status))
 					}
 				}
-
+				// trace http parameter
+				if conf.ProfileHttpParameterEnabled && strings.HasPrefix(c.Request().RequestURI, conf.ProfileHttpParameterUrlPrefix) {
+					if c.Request().Form != nil {
+						trace.SetParameter(ctx, c.Request().Form)
+					}
+				}
 				trace.End(ctx, err)
 				if x != nil {
 					panic(x)
