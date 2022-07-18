@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/whatap/go-api/common/util/hash"
-	"github.com/whatap/go-api/common/util/stringutil"
+	"github.com/whatap/golib/util/hash"
+	"github.com/whatap/golib/util/stringutil"
 )
 
 const ()
@@ -94,6 +94,8 @@ func GetConfig() *Config {
 		return conf
 	}
 	conf = new(Config)
+	conf.m = make(map[string]string)
+	conf.ApplyConfig(nil)
 	//conf.ApplyDefault()
 	return conf
 }
@@ -106,50 +108,47 @@ func GetWhatapHome() string {
 	return home
 }
 
-func (conf *Config) ApplyDefault() {
-	m := make(map[string]string)
-	m["enabled"] = "true"
-	m["net_udp_port"] = "6600"
-	m["transaction_enabled"] = "true"
-	m["profile_http_header_enabled"] = "false"
-	m["profile_http_header_url_prefix"] = "/"
-	m["profile_http_parameter_enabled"] = "false"
-	m["profile_http_parameter_url_prefix"] = "/"
+// func (conf *Config) ApplyDefault() {
+// 	conf.m["enabled"] = "true"
+// 	m["net_udp_port"] = "6600"
+// 	m["transaction_enabled"] = "true"
+// 	m["profile_http_header_enabled"] = "false"
+// 	m["profile_http_header_url_prefix"] = "/"
+// 	m["profile_http_parameter_enabled"] = "false"
+// 	m["profile_http_parameter_url_prefix"] = "/"
 
-	m["profile_sql_param_enabled"] = "false"
+// 	m["profile_sql_param_enabled"] = "false"
 
-	m["trace_user_enabled"] = "true"
-	m["trace_user_using_ip"] = "false"
-	m["trace_user_header_ticket"] = ""
-	m["trace_user_set_cookie"] = "false"
-	m["trace_user_cookie_limit"] = "2048"
-	m["trace_user_cookie_keys"] = ""
-	m["trace_http_client_ip_header_key_enabled"] = "true"
-	m["trace_http_client_ip_header_key"] = "x-forwarded-for"
+// 	m["trace_user_enabled"] = "true"
+// 	m["trace_user_using_ip"] = "false"
+// 	m["trace_user_header_ticket"] = ""
+// 	m["trace_user_set_cookie"] = "false"
+// 	m["trace_user_cookie_limit"] = "2048"
+// 	m["trace_user_cookie_keys"] = ""
+// 	m["trace_http_client_ip_header_key_enabled"] = "true"
+// 	m["trace_http_client_ip_header_key"] = "x-forwarded-for"
 
-	m["mtrace_enabled"] = "true"
-	m["mtrace_caller_key"] = "x-wtap-mst"
-	m["mtrace_callee_key"] = "x-wtap-tx"
-	m["mtrace_info_key"] = "x-wtap-inf"
-	m["mtrace_poid_key"] = "x-wtap-po"
-	m["mtrace_spec_key"] = "x-wtap-sp"
-	m["mtrace_spec_key1"] = "x-wtap-sp1"
-	m["mtrace_send_url_length"] = "80"
-	m["mtrace_spec"] = "ver1.0"
-	m["mtrace_rate"] = "10"
+// 	m["mtrace_enabled"] = "true"
+// 	m["mtrace_caller_key"] = "x-wtap-mst"
+// 	m["mtrace_callee_key"] = "x-wtap-tx"
+// 	m["mtrace_info_key"] = "x-wtap-inf"
+// 	m["mtrace_poid_key"] = "x-wtap-po"
+// 	m["mtrace_spec_key"] = "x-wtap-sp"
+// 	m["mtrace_spec_key1"] = "x-wtap-sp1"
+// 	m["mtrace_send_url_length"] = "80"
+// 	m["mtrace_spec"] = "ver1.0"
+// 	m["mtrace_rate"] = "10"
 
-	m["tx_max_count"] = "8000"
+// 	m["tx_max_count"] = "8000"
 
-	m["debug"] = "false"
+// 	m["debug"] = "false"
 
-	conf.ConfGo.ApplyDefault(m)
-	conf.ConfGoGrpc.ApplyDefault(m)
-	conf.ApplyConfig(m)
-}
+// 	conf.ConfGo.ApplyDefault(m)
+// 	conf.ConfGoGrpc.ApplyDefault(m)
+// 	conf.ApplyConfig(m)
+// }
 func (conf *Config) ApplyConfig(m map[string]string) {
-	if conf.m == nil {
-		conf.m = m
-	} else {
+	if m != nil {
 		for k, v := range m {
 			conf.m[k] = v
 		}

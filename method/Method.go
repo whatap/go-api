@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	"github.com/whatap/go-api/common/lang/pack/udp"
-	whatapnet "github.com/whatap/go-api/common/net"
-	"github.com/whatap/go-api/common/util/dateutil"
-	"github.com/whatap/go-api/common/util/stringutil"
 	"github.com/whatap/go-api/config"
 	"github.com/whatap/go-api/trace"
+	"github.com/whatap/golib/lang/pack/udp"
+	whatapnet "github.com/whatap/golib/net"
+	"github.com/whatap/golib/util/dateutil"
+	"github.com/whatap/golib/util/stringutil"
 )
 
 const (

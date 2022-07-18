@@ -89,7 +89,6 @@ func getCommandString(commandName string, args ...interface{}) string {
 	} else {
 		cmd = commandName
 	}
-
 	for _, arg := range args {
 		cmd = fmt.Sprintf("%s %s", cmd, arg)
 	}

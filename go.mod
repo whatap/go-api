@@ -5,6 +5,8 @@ go 1.14
 require (
 	github.com/Shopify/sarama v1.34.1
 	github.com/gin-gonic/gin v1.7.7
+	github.com/go-chi/chi v1.5.4 // indirect
+	github.com/go-chi/chi/v5 v5.0.7 // indirect
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gomodule/redigo v1.8.8
 	github.com/google/go-cmp v0.5.6 // indirect
@@ -15,6 +17,7 @@ require (
 	github.com/labstack/echo/v4 v4.7.2
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/stretchr/testify v1.7.1
+	github.com/whatap/golib v0.0.1
 	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2
 	golang.org/x/text v0.3.7
 	google.golang.org/grpc v1.42.0

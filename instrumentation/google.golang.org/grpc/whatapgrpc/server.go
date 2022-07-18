@@ -6,9 +6,9 @@ import (
 	"net"
 	"path"
 
-	"github.com/whatap/go-api/common/util/dateutil"
 	"github.com/whatap/go-api/config"
 	"github.com/whatap/go-api/trace"
+	"github.com/whatap/golib/util/dateutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"

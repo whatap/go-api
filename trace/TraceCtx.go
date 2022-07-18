@@ -4,7 +4,7 @@ package trace
 import (
 	"sync"
 
-	"github.com/whatap/go-api/common/util/dateutil"
+	"github.com/whatap/golib/util/dateutil"
 )
 
 type TraceCtx struct {

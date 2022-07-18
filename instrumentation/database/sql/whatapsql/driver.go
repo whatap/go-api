@@ -5,10 +5,10 @@ import (
 	"database/sql/driver"
 	"errors"
 
-	"github.com/whatap/go-api/common/util/dateutil"
 	"github.com/whatap/go-api/config"
 	whatapsql "github.com/whatap/go-api/sql"
 	"github.com/whatap/go-api/trace"
+	"github.com/whatap/golib/util/dateutil"
 )
 
 type dsnConnector struct {
