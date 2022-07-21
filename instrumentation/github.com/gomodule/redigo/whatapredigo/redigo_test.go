@@ -9,11 +9,12 @@ import (
 	"github.com/whatap/go-api/trace"
 )
 
+// Demo 환경에 따라 수정 필요
 const (
 	network     = "tcp"
-	address     = "192.168.200.65:6379"
-	failAddress = "192.168.200.65:6380"
-	url         = "redis://192.168.200.65:6379"
+	address     = "phpdemo3:6379"
+	failAddress = "127.0.0.1:6380"
+	url         = "redis://phpdemo3:6379"
 )
 
 func dialTest(t *testing.T, conn Conn) {
@@ -61,6 +62,7 @@ func TestDialContext(t *testing.T) {
 	assert.Nil(err)
 
 	dialTest(t, conn)
+	conn.Close()
 }
 
 func TestDialURLContext(t *testing.T) {
@@ -77,6 +79,7 @@ func TestDialURLContext(t *testing.T) {
 	assert.Nil(err)
 
 	dialTest(t, conn)
+	conn.Close()
 
 }
 
@@ -96,7 +99,7 @@ func TestDial(t *testing.T) {
 	conn.WithContext(ctx)
 
 	dialTest(t, conn)
-
+	conn.Close()
 }
 
 func TestDialURL(t *testing.T) {
@@ -115,6 +118,7 @@ func TestDialURL(t *testing.T) {
 	conn.WithContext(ctx)
 
 	dialTest(t, conn)
+	conn.Close()
 }
 
 func TestConnectionError(t *testing.T) {

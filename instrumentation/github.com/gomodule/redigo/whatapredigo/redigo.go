@@ -79,9 +79,6 @@ func (c contextConnWithTimeout) Send(commandName string, args ...interface{}) er
 	return SendRun(c.ctx, c.ConnWithTimeout, c.connection, commandName, args...)
 }
 
-// TODO
-// 현재 사용 커맨드 및 관련 옵션 정보 나열하는 형태
-// 개인정보등 가려야하면 별도 처리 필요
 func getCommandString(commandName string, args ...interface{}) string {
 	var cmd string
 	if commandName == "" {
@@ -89,10 +86,6 @@ func getCommandString(commandName string, args ...interface{}) string {
 	} else {
 		cmd = commandName
 	}
-	for _, arg := range args {
-		cmd = fmt.Sprintf("%s %s", cmd, arg)
-	}
-
 	return cmd
 }
 
@@ -104,7 +97,7 @@ func DoRun(ctx context.Context, conn redis.Conn, connection, commandName string,
 		defer trace.End(ctx, nil)
 	}
 
-	sqlCtx, _ := sql.Start(ctx, connection, cmd)
+	sqlCtx, _ := sql.StartWithParam(ctx, connection, cmd, args...)
 	ret, err := conn.Do(commandName, args...)
 	sql.End(sqlCtx, nil)
 	return ret, err
@@ -117,7 +110,7 @@ func SendRun(ctx context.Context, conn redis.Conn, connection, commandName strin
 		defer trace.End(ctx, nil)
 	}
 
-	sqlCtx, _ := sql.Start(ctx, connection, cmd)
+	sqlCtx, _ := sql.StartWithParam(ctx, connection, cmd, args...)
 	err := conn.Send(commandName, args...)
 	sql.End(sqlCtx, nil)
 	return err
