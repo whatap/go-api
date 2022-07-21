@@ -303,7 +303,7 @@ func GetWhatapCookie(r *http.Request) (*http.Cookie, bool) {
 	}
 	return &http.Cookie{
 		Name:  WHATAP_COOKIE_NAME,
-		Value: fmt.Sprintf("%s", keygen.Next()),
+		Value: fmt.Sprintf("%d", keygen.Next()),
 	}, true
 }
 func Step(ctx context.Context, title, message string, elapsed, value int) error {

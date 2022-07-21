@@ -72,7 +72,7 @@ func (this *ConfNet) Apply(conf *Config) {
 	}
 
 	this.Hosts = make([]string, 0)
-	for it := range this.WhatapHost {
+	for _, it := range this.WhatapHost {
 		addr := fmt.Sprintf("tcp://%s:%d", it, this.WhatapPort)
 
 		u, err := url.Parse(addr)
