@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/mysql"
+	_ "gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -79,14 +79,14 @@ func TestOpen(t *testing.T) {
 	assert.Nil(tx.Error)
 }
 
-func TestOpenWithError(t *testing.T) {
-	assert := assert.New(t)
-	_, err := Open(mysql.New(mysql.Config{Conn: nil}), &gorm.Config{})
-	if assert.NotNil(err) != true {
-		return
-	}
-	assert.Contains(err.Error(), "connection refused")
-}
+// func TestOpenWithError(t *testing.T) {
+// 	assert := assert.New(t)
+// 	_, err := Open(mysql.New(mysql.Config{Conn: nil}), &gorm.Config{})
+// 	if assert.NotNil(err) != true {
+// 		return
+// 	}
+// 	assert.Contains(err.Error(), "connection refused")
+// }
 
 func TestOpenWithContext(t *testing.T) {
 	assert := assert.New(t)
@@ -112,14 +112,15 @@ func TestOpenWithContext(t *testing.T) {
 	tx = db.Unscoped().Delete(&Product{}, "1 = 1")
 	assert.Nil(tx.Error)
 }
-func TestOpenWitContextWithError(t *testing.T) {
-	assert := assert.New(t)
-	_, err := OpenWithContext(mysql.New(mysql.Config{Conn: nil}), &gorm.Config{}, context.Background())
-	if assert.NotNil(err) != true {
-		return
-	}
-	assert.Contains(err.Error(), "connection refused")
-}
+
+// func TestOpenWitContextWithError(t *testing.T) {
+// 	assert := assert.New(t)
+// 	_, err := OpenWithContext(mysql.New(mysql.Config{Conn: nil}), &gorm.Config{}, context.Background())
+// 	if assert.NotNil(err) != true {
+// 		return
+// 	}
+// 	assert.Contains(err.Error(), "connection refused")
+// }
 
 func TestWithContext(t *testing.T) {
 	assert := assert.New(t)
