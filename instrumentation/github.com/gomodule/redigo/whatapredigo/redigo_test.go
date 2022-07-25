@@ -56,10 +56,14 @@ func TestDialContext(t *testing.T) {
 	assert := assert.New(t)
 
 	ctx, err := trace.Start(context.Background(), "TEST")
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	conn, err := DialContext(ctx, network, address)
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	dialTest(t, conn)
 	conn.Close()
@@ -73,10 +77,14 @@ func TestDialURLContext(t *testing.T) {
 	assert := assert.New(t)
 
 	ctx, err := trace.Start(context.Background(), "TEST")
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	conn, err := DialURLContext(ctx, url)
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	dialTest(t, conn)
 	conn.Close()
@@ -91,10 +99,14 @@ func TestDial(t *testing.T) {
 	assert := assert.New(t)
 
 	ctx, err := trace.Start(context.Background(), "TEST")
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	conn, err := Dial(network, address)
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	conn.WithContext(ctx)
 
@@ -110,10 +122,14 @@ func TestDialURL(t *testing.T) {
 	assert := assert.New(t)
 
 	ctx, err := trace.Start(context.Background(), "TEST")
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	conn, err := DialURL(url)
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	conn.WithContext(ctx)
 

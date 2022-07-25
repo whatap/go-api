@@ -38,28 +38,40 @@ func TestWithCallback(t *testing.T) {
 		}
 	}
 	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	db = withCallback(db, beforeTest, afterFunc())
 
 	err = db.AutoMigrate(&Product{})
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 }
 func TestOpen(t *testing.T) {
 	assert := assert.New(t)
 	db, err := Open(sqlite.Open("test.db"), &gorm.Config{})
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	err = db.AutoMigrate(&Product{})
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	var product Product
 	tx := db.Create(&Product{Code: 1, Price: 2})
-	assert.Nil(tx.Error)
-	tx = db.Find(&product, "1 = 1")
-	assert.Nil(tx.Error)
+	if assert.Nil(tx.Error) != true {
+		return
+	}
 
+	tx = db.Find(&product, "1 = 1")
+	if assert.Nil(tx.Error) != true {
+		return
+	}
 	assert.Equal(product.Code, int(1))
 	assert.Equal(product.Price, int(2))
 
@@ -70,17 +82,23 @@ func TestOpen(t *testing.T) {
 func TestOpenWithError(t *testing.T) {
 	assert := assert.New(t)
 	_, err := Open(mysql.New(mysql.Config{Conn: nil}), &gorm.Config{})
-	assert.NotNil(err)
+	if assert.NotNil(err) != true {
+		return
+	}
 	assert.Contains(err.Error(), "connection refused")
 }
 
 func TestOpenWithContext(t *testing.T) {
 	assert := assert.New(t)
 	db, err := OpenWithContext(sqlite.Open("test.db"), &gorm.Config{}, context.Background())
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	err = db.AutoMigrate(&Product{})
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	var product Product
 	tx := db.Create(&Product{Code: 1, Price: 2})
@@ -97,14 +115,18 @@ func TestOpenWithContext(t *testing.T) {
 func TestOpenWitContextWithError(t *testing.T) {
 	assert := assert.New(t)
 	_, err := OpenWithContext(mysql.New(mysql.Config{Conn: nil}), &gorm.Config{}, context.Background())
-	assert.NotNil(err)
+	if assert.NotNil(err) != true {
+		return
+	}
 	assert.Contains(err.Error(), "connection refused")
 }
 
 func TestWithContext(t *testing.T) {
 	assert := assert.New(t)
 	db, err := Open(sqlite.Open("test.db"), &gorm.Config{})
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	dbWithContext := WithContext(context.Background(), db)
 

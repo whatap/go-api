@@ -44,12 +44,15 @@ func TestWithCallback(t *testing.T) {
 	}
 
 	db, err := gorm.Open("sqlite3", "test.db")
-
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	db = withCallback(db, beforeTest, afterFunc())
 	db = db.AutoMigrate(&Product{})
-	assert.Nil(db.Error)
+	if assert.Nil(db.Error) != true {
+		return
+	}
 
 	var product Product
 	tx := db.Create(&Product{Code: 1, Price: 2})
@@ -66,16 +69,25 @@ func TestWithCallback(t *testing.T) {
 func TestOpen(t *testing.T) {
 	assert := assert.New(t)
 	db, err := Open("sqlite3", "test.db")
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	db = db.AutoMigrate(&Product{})
-	assert.Nil(db.Error)
+	if assert.Nil(db.Error) != true {
+		return
+	}
 
 	var product Product
 	tx := db.Create(&Product{Code: 1, Price: 2})
-	assert.Nil(tx.Error)
+	if assert.Nil(tx.Error) != true {
+		return
+	}
+
 	tx = db.Find(&product, "1 = 1")
-	assert.Nil(tx.Error)
+	if assert.Nil(tx.Error) != true {
+		return
+	}
 
 	assert.Equal(product.Code, int(1))
 	assert.Equal(product.Price, int(2))
@@ -87,7 +99,9 @@ func TestOpen(t *testing.T) {
 func TestOpenWithError(t *testing.T) {
 	assert := assert.New(t)
 	_, err := Open("mysql", nil)
-	assert.NotNil(err)
+	if assert.NotNil(err) != true {
+		return
+	}
 	assert.Contains(err.Error(), "invalid database source")
 }
 
@@ -95,10 +109,14 @@ func TestOpenWithContext(t *testing.T) {
 	assert := assert.New(t)
 
 	db, err := OpenWithContext(context.Background(), "sqlite3", "test.db")
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	db = db.AutoMigrate(&Product{})
-	assert.Nil(db.Error)
+	if assert.Nil(db.Error) != true {
+		return
+	}
 
 	var product Product
 	tx := db.Create(&Product{Code: 1, Price: 2})
@@ -116,7 +134,9 @@ func TestOpenWithContext(t *testing.T) {
 func TestOpenWitContextWithError(t *testing.T) {
 	assert := assert.New(t)
 	_, err := OpenWithContext(context.Background(), "sqlite3", nil)
-	assert.NotNil(err)
+	if assert.NotNil(err) != true {
+		return
+	}
 	assert.Contains(err.Error(), "invalid database source")
 }
 
@@ -128,10 +148,14 @@ func TestOpenWithSQLCommon(t *testing.T) {
 	conn, err = whatapsql.Open("sqlite3", "test.db")
 
 	db, err := Open("sqlite3", conn)
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	db = db.AutoMigrate(&Product{})
-	assert.Nil(db.Error)
+	if assert.Nil(db.Error) != true {
+		return
+	}
 
 	var product Product
 	tx := db.Create(&Product{Code: 1, Price: 2})
@@ -154,10 +178,14 @@ func TestOpenWithContextWithSQLCommon(t *testing.T) {
 	conn, err = whatapsql.Open("sqlite3", "test.db")
 
 	db, err := OpenWithContext(context.Background(), "sqlite3", conn)
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	db = db.AutoMigrate(&Product{})
-	assert.Nil(db.Error)
+	if assert.Nil(db.Error) != true {
+		return
+	}
 
 	var product Product
 	tx := db.Create(&Product{Code: 1, Price: 2})
@@ -176,7 +204,9 @@ func TestWithContext(t *testing.T) {
 	assert := assert.New(t)
 
 	db, err := Open("sqlite3", "test.db")
-	assert.Nil(err)
+	if assert.Nil(err) != true {
+		return
+	}
 
 	dbWithContext := WithContext(context.Background(), db)
 	scope := dbWithContext.NewScope(nil)

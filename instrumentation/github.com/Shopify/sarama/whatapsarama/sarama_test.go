@@ -138,7 +138,7 @@ func TestOnSendWithError(t *testing.T) {
 
 }
 
-func TestOnConsumet(t *testing.T) {
+func TestOnConsumer(t *testing.T) {
 	assert := assert.New(t)
 
 	msg := &sarama.ConsumerMessage{
