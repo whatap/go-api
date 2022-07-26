@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/Shopify/sarama"
 	"github.com/whatap/go-api/trace"
@@ -61,12 +62,7 @@ func (in *Interceptor) OnSend(msg *sarama.ProducerMessage) {
 	record := sarama.RecordHeader{Key: []byte(saramaTraceCtx), Value: buf.Bytes()}
 	msg.Headers = append(msg.Headers, record)
 
-	text := fmt.Sprintf("Topic : %s, Key : %s, Value : %s, Brokers :", msg.Topic, msg.Key, msg.Value)
-
-	for _, broker := range in.Brokers {
-		text += " "
-		text += broker
-	}
+	text := fmt.Sprintf("Topic : %s, Key : %s, Value : %s, Brokers : %s", msg.Topic, msg.Key, msg.Value, strings.Join(in.Brokers, " "))
 
 	trace.Step(produceCtx, "Producer Interceptor Message", text, 1, 1)
 }
