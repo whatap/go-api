@@ -15,13 +15,19 @@ const (
 type callbackFunc func(*gorm.Scope)
 
 func before(scope *gorm.Scope) {
+	if scope == nil {
+		return
+	}
 	ctx := GetContext(scope)
 
-	sqlCtx, _ := sql.Start(ctx, scope.Dialect().GetName(), scope.SQL)
+	sqlCtx, _ := sql.StartWithParamArray(ctx, scope.Dialect().GetName(), scope.SQL, scope.SQLVars)
 	scope.Set(gormSQLContextStart, sqlCtx)
 }
 
 func after(scope *gorm.Scope) {
+	if scope == nil {
+		return
+	}
 	v, ok := scope.Get(gormSQLContextStart)
 	if ok {
 		sqlCtx := v.(*sql.SqlCtx)

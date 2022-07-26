@@ -3,6 +3,7 @@ package whatapredigo
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/whatap/go-api/sql"
@@ -86,12 +87,23 @@ func getCommandString(commandName string, args ...interface{}) string {
 	} else {
 		cmd = commandName
 	}
-	return cmd
+
+	prepared := make([]string, 0)
+	for range args {
+		prepared = append(prepared, "?")
+	}
+
+	if len(prepared) > 0 {
+		return fmt.Sprintf("%s (%s)", cmd, strings.Join(prepared, ", "))
+	} else {
+		return cmd
+	}
+
 }
 
 // Redis는SQL은 아니지만 같은 DB 계열임.  통계 처리를 위해 SQL로 처리
 func DoRun(ctx context.Context, conn redis.Conn, connection, commandName string, args ...interface{}) (interface{}, error) {
-	cmd := getCommandString(commandName, args)
+	cmd := getCommandString(commandName, args...)
 	if ctx == nil {
 		ctx, _ = trace.Start(context.Background(), connection)
 		defer trace.End(ctx, nil)
@@ -104,7 +116,7 @@ func DoRun(ctx context.Context, conn redis.Conn, connection, commandName string,
 }
 
 func SendRun(ctx context.Context, conn redis.Conn, connection, commandName string, args ...interface{}) error {
-	cmd := getCommandString(commandName, args)
+	cmd := getCommandString(commandName, args...)
 	if ctx == nil {
 		ctx, _ = trace.Start(context.Background(), connection)
 		defer trace.End(ctx, nil)
