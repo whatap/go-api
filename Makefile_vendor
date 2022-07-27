@@ -1,0 +1,17 @@
+all: mod_tidy mod_download build test
+
+mod_download:
+        go mod download -x
+
+mod_tidy:
+        go mod vendor
+        go mod tidy
+
+test:   #compile warning 제거후 사용 가능
+        go test -mod vendor ./...
+
+build:
+        go build -mod vendor ./...
+
+clean :
+        go clean
