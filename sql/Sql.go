@@ -279,7 +279,7 @@ func paramsToString(params ...interface{}) string {
 			if i < len(params)-1 || i < SQL_PARAM_MAX_COUNT-1 {
 				switch t := val.(type) {
 				case string:
-					buffer.WriteString(fmt.Sprintf("%v,", stringutil.Truncate(t, SQL_PARAM_VALUE_MAX_SIZE)))
+					buffer.WriteString(fmt.Sprintf("'%s',", stringutil.Truncate(t, SQL_PARAM_VALUE_MAX_SIZE)))
 				default:
 					str := fmt.Sprintf("%v,", val)
 					buffer.WriteString(stringutil.Truncate(str, SQL_PARAM_VALUE_MAX_SIZE))
@@ -288,7 +288,7 @@ func paramsToString(params ...interface{}) string {
 			} else {
 				switch t := val.(type) {
 				case string:
-					buffer.WriteString(fmt.Sprintf("%v", stringutil.Truncate(t, SQL_PARAM_VALUE_MAX_SIZE)))
+					buffer.WriteString(fmt.Sprintf("'%s'", stringutil.Truncate(t, SQL_PARAM_VALUE_MAX_SIZE)))
 				default:
 					str := fmt.Sprintf("%v", val)
 					buffer.WriteString(stringutil.Truncate(str, SQL_PARAM_VALUE_MAX_SIZE))
@@ -300,10 +300,30 @@ func paramsToString(params ...interface{}) string {
 }
 
 func hidePwd(connStr string) string {
-	first := strings.Index(connStr, ".")
-	last := strings.Index(connStr, "@")
-	if first > -1 && last > -1 && first < last {
-		return fmt.Sprintf("%s:#@%s", connStr[0:first], connStr[last+1:])
+	if first := strings.Index(connStr, ":"); first > -1 {
+		last := strings.Index(connStr[first:], "@")
+		if last > -1 && first < last {
+			return fmt.Sprintf("%s:#%s", connStr[0:first], (connStr[first:])[last:])
+		}
 	}
+	if first := strings.Index(connStr, "password="); first > -1 {
+		last := strings.Index(connStr[first:], " ")
+		if last > -1 && first < last {
+			return fmt.Sprintf("%spassword=#%s", connStr[0:first], (connStr[first:])[last:])
+		}
+	}
+	// var firstCopy []rune
+	// copy(firstCopy, []rune(connStr[first:]))
+	// last := strings.Index(connStr[first:], "@")
+	// if first > -1 && last > -1 && first < last {
+	// 	return fmt.Sprintf("%s:#%s", connStr[0:first], firstCopy[last:])
+	// }
+
+	// first = strings.Index(connStr, "password=")
+	// copy(firstCopy, []rune(connStr[first:]))
+	// last = strings.Index(connStr[first:], " ")
+	// if first > -1 && last > -1 && first < last {
+	// 	return fmt.Sprintf("%spassword=#%s", connStr[0:first], firstCopy[last:])
+	// }
 	return connStr
 }
