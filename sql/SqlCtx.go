@@ -2,8 +2,8 @@
 package sql
 
 import (
-	"github.com/whatap/go-api/common/lang/pack/udp"
 	"github.com/whatap/go-api/trace"
+	"github.com/whatap/golib/lang/pack/udp"
 )
 
 type SqlCtx struct {

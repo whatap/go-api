@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/whatap/go-api/common/lang/pack"
-	whatapnet "github.com/whatap/go-api/common/net"
-	"github.com/whatap/go-api/common/util/stringutil"
+	"github.com/whatap/golib/lang/pack"
+	whatapnet "github.com/whatap/golib/net"
+	"github.com/whatap/golib/util/stringutil"
 )
 
 type TaskGoRuntime struct {

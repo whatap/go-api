@@ -4,13 +4,14 @@ mod_download:
 	go mod download -x
 
 mod_tidy:
+	go mod vendor
 	go mod tidy
 
 test:   #compile warning 제거후 사용 가능
-	go test ./...
+	go test -mod vendor ./...
 
 build:
-	go build ./...
+	go build -mod vendor ./...
 
 clean :
-	go clean 
+	go clean

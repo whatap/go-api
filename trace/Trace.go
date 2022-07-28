@@ -9,19 +9,20 @@ import (
 	"math"
 	"net/http"
 
-	//	"runtime/debug"
+	"bytes"
+	"runtime"
 	"strconv"
 	"strings"
 
-	"github.com/whatap/go-api/common/lang/pack/udp"
-	whatapnet "github.com/whatap/go-api/common/net"
-	"github.com/whatap/go-api/common/util/dateutil"
-	"github.com/whatap/go-api/common/util/hash"
-	"github.com/whatap/go-api/common/util/hexa32"
-	"github.com/whatap/go-api/common/util/keygen"
-	"github.com/whatap/go-api/common/util/stringutil"
 	"github.com/whatap/go-api/config"
 	"github.com/whatap/go-api/counter"
+	"github.com/whatap/golib/lang/pack/udp"
+	whatapnet "github.com/whatap/golib/net"
+	"github.com/whatap/golib/util/dateutil"
+	"github.com/whatap/golib/util/hash"
+	"github.com/whatap/golib/util/hexa32"
+	"github.com/whatap/golib/util/keygen"
+	"github.com/whatap/golib/util/stringutil"
 )
 
 const (
@@ -302,7 +303,7 @@ func GetWhatapCookie(r *http.Request) (*http.Cookie, bool) {
 	}
 	return &http.Cookie{
 		Name:  WHATAP_COOKIE_NAME,
-		Value: fmt.Sprintf("%s", keygen.Next()),
+		Value: fmt.Sprintf("%d", keygen.Next()),
 	}, true
 }
 func Step(ctx context.Context, title, message string, elapsed, value int) error {
@@ -363,6 +364,7 @@ func End(ctx context.Context, err error) error {
 	udpClient := whatapnet.GetUdpClient()
 	Error(ctx, err)
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
+		// traceCtx = RemoveTraceCtx((traceCtx.Txid))
 		if pack := udp.CreatePack(udp.TX_END, udp.UDP_PACK_VERSION); pack != nil {
 			p := pack.(*udp.UdpTxEndPack)
 			p.Txid = traceCtx.Txid
@@ -512,4 +514,13 @@ func GetTxid(ctx context.Context) int64 {
 		return traceCtx.Txid
 	}
 	return 0
+}
+
+func GetGID() uint64 {
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
 }

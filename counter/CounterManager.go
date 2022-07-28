@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/whatap/go-api/common/util/dateutil"
 	"github.com/whatap/go-api/config"
 	"github.com/whatap/go-api/counter/task"
+	"github.com/whatap/golib/util/dateutil"
 )
 
 var counter *Counter

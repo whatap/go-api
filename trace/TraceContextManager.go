@@ -4,10 +4,10 @@ import (
 	//	"log"
 	"sync"
 
-	"github.com/whatap/go-api/common/lang/pack/udp"
-	whatapnet "github.com/whatap/go-api/common/net"
-	"github.com/whatap/go-api/common/util/hmap"
 	"github.com/whatap/go-api/config"
+	"github.com/whatap/golib/lang/pack/udp"
+	whatapnet "github.com/whatap/golib/net"
+	"github.com/whatap/golib/util/hmap"
 )
 
 const (
@@ -21,13 +21,27 @@ const (
 var conf *config.Config = config.GetConfig()
 
 var ctxTable *hmap.LongKeyLinkedMap = hmap.NewLongKeyLinkedMapDefault().SetMax(int(conf.TxMaxCount))
+
+//var goidTable *hmap.LongLongLinkedMap = hmap.NewLongLongLinkedMapDefault().SetMax(int(conf.TxMaxCount))
+
 var ctxLock sync.Mutex
 
 func AddTraceCtx(traceCtx *TraceCtx) {
 	ctxTable.Put(traceCtx.Txid, traceCtx)
+	// goidTable.Put(GetGID(), traceCtx.Txid)
 }
+
+// func RemoveTraceCtx(txid int64) *TraceCtx {
+// 	if v := ctxTable.Remove(txid); v != nil {
+// 		if tCtx, ok := v.(*TraceCtx); ok {
+// 			return tCtx
+// 		}
+// 	}
+// 	return nil
+// }
 func RemoveTraceCtx(traceCtx *TraceCtx) {
 	ctxTable.Remove(traceCtx.Txid)
+	//goidTable.Put(GetGID())
 }
 func GetActiveStats() []int16 {
 	ctxLock.Lock()
