@@ -36,7 +36,6 @@ func traceParams(fiberCtx *fiber.Ctx, ctx context.Context) error {
 	return nil
 }
 
-//TODO: defer function
 func Middleware() func(c *fiber.Ctx) error {
 	return func(fiberCtx *fiber.Ctx) error {
 		conf := config.GetConfig()
@@ -50,13 +49,6 @@ func Middleware() func(c *fiber.Ctx) error {
 		defer func() {
 			x := recover()
 
-			/*
-				if len(c.Errors) > 0 {
-					err = fmt.Errorf("Errors: %s", c.Errors.String())
-					trace.Error(ctx, err)
-					err = nil
-				}
-			*/
 			if x != nil {
 				err := fmt.Errorf("Panic: %v", x)
 				trace.Error(ctx, err)
