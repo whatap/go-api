@@ -1,4 +1,4 @@
-module github.com/whatap/go-api/instrumentation/github.com/fasthttp
+module github.com/whatap/go-api/instrumentation/github.com/valyala/fasthttp
 
 go 1.18
 

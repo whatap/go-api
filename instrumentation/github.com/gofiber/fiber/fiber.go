@@ -10,7 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/whatap/go-api/config"
 
-	whatapfasthttp "github.com/whatap/go-api/instrumentation/github.com/fasthttp"
+	whatapfasthttp "github.com/whatap/go-api/instrumentation/github.com/valyala/fasthttp"
 	"github.com/whatap/go-api/trace"
 )
 
