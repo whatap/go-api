@@ -28,6 +28,12 @@ type WrapRoundTrip struct {
 	transport http.RoundTripper
 }
 
+// kubernates.client-go wrap roundtripper
+func (this *WrapRoundTrip) WrapRoundTripper(t http.RoundTripper) http.RoundTripper {
+	this.transport = t
+	return this
+}
+
 func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err error) {
 	conf := config.GetConfig()
 	if !conf.Enabled {
