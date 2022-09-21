@@ -52,6 +52,8 @@ func StartTrace(ctx context.Context,
 		return middleware.WithStackValue(ctx, TraceKey{}, traceCtx)
 	}(ctx)
 
+	trace.Step(startCtx, getTxName(startCtx), "", 0, 0)
+
 	return next.HandleInitialize(startCtx, in)
 }
 
@@ -94,9 +96,10 @@ func traceCtxExist(ctx context.Context) bool {
 //StartTrace를 실행하기 전에 다른 미들웨어가 실행되면 실행시간 측정이 정확하지 않게 됨
 //aws.Config.APIOptions에 다른 미들웨어를 넣기 전에 whatapaws.AppendMiddleware를 무조건 먼저 실행해야 함
 func getTxName(ctx context.Context) string {
+	region := awsmiddleware.GetRegion(ctx)
 	serviceID := awsmiddleware.GetServiceID(ctx)
 	operation := awsmiddleware.GetOperationName(ctx)
-	return fmt.Sprintf("%s.%s", serviceID, operation)
+	return fmt.Sprintf("%s.%s.%s", region, serviceID, operation)
 }
 
 func makeTraceCtx(ctx context.Context) (*trace.TraceCtx, error) {
