@@ -52,7 +52,11 @@ func StartTrace(ctx context.Context,
 		return middleware.WithStackValue(ctx, TraceKey{}, traceCtx)
 	}(ctx)
 
-	trace.Step(startCtx, getTxName(startCtx), "", 0, 0)
+	trace.SetParameter(startCtx, map[string][]string{
+		"region":    []string{awsmiddleware.GetRegion(ctx)},
+		"service":   []string{awsmiddleware.GetServiceID(ctx)},
+		"operation": []string{awsmiddleware.GetOperationName(ctx)},
+	})
 
 	return next.HandleInitialize(startCtx, in)
 }
