@@ -89,6 +89,7 @@ func (m *monitor) Pop(requestID int64) (ctx whatapContext, exist bool) {
 	ret, exist := m.state[requestID]
 	if exist {
 		delete(m.state, requestID)
+		m.stateCount -= 1
 	}
 	//기존 map의 참조를 끊어서 GC 유도
 	if len(m.state) == 0 {
