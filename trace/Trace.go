@@ -248,6 +248,9 @@ func SetParameter(ctx context.Context, m map[string][]string) {
 	if !conf.Enabled {
 		return
 	}
+	if m == nil && len(m) <= 0 {
+		return
+	}
 	udpClient := whatapnet.GetUdpClient()
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
 		if conf.ProfileHttpParameterEnabled && strings.HasPrefix(traceCtx.Name, conf.ProfileHttpParameterUrlPrefix) {
@@ -280,6 +283,7 @@ func GetClientId(r *http.Request) string {
 			}
 		}
 	}
+
 	for _, cookie := range r.Cookies() {
 		for _, v := range conf.TraceUserCookieKeys {
 			if strings.ToLower(strings.TrimSpace(cookie.Name)) == strings.ToLower(strings.TrimSpace(v)) {
@@ -287,25 +291,37 @@ func GetClientId(r *http.Request) string {
 			}
 		}
 	}
+
 	// WhaTap Cookie name is constant WHATAP_COOKIE_NAME(WHATAP)
 	for _, cookie := range r.Cookies() {
 		if strings.ToUpper(strings.TrimSpace(cookie.Name)) == WHATAP_COOKIE_NAME {
 			return cookie.Value
 		}
 	}
+
 	return r.RemoteAddr
 }
-func GetWhatapCookie(r *http.Request) (*http.Cookie, bool) {
-	for _, cookie := range r.Cookies() {
-		if cookie.Name == WHATAP_COOKIE_NAME {
-			return nil, false
+func GetWhatapCookie(r *http.Request) (cookie *http.Cookie, exists bool) {
+	for _, c := range r.Cookies() {
+		if c.Name == WHATAP_COOKIE_NAME {
+			return c, true
 		}
 	}
-	return &http.Cookie{
-		Name:  WHATAP_COOKIE_NAME,
-		Value: fmt.Sprintf("%d", keygen.Next()),
-	}, true
+	if cookie == nil {
+		cookie = &http.Cookie{
+			Name:  WHATAP_COOKIE_NAME,
+			Value: fmt.Sprintf("%d", keygen.Next()),
+		}
+	}
+	return cookie, false
 }
+
+func SetWhatapCookie(w http.ResponseWriter, cookie *http.Cookie) {
+	if w != nil && cookie != nil {
+		w.Header().Add("Set-Cookie", cookie.String())
+	}
+}
+
 func Step(ctx context.Context, title, message string, elapsed, value int) error {
 	conf := config.GetConfig()
 	if !conf.Enabled {
@@ -499,6 +515,13 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 					SetParameter(ctx, wRequest.Form)
 				}
 			}
+
+			// Set Whatap Cookie
+			// if conf.TraceUserSetCookie {
+			// 	if cookie, exists := GetWhatapCookie(r); !exists {
+			// 		SetWhatapCookie(w, cookie)
+			// 	}
+			// }
 			End(ctx, err)
 			if x != nil {
 				panic(x)
