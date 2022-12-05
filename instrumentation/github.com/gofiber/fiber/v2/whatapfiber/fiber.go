@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
+
+	// "net/url"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/whatap/go-api/config"
 
-	whatapfasthttp "github.com/whatap/go-api/instrumentation/github.com/valyala/fasthttp"
+	"github.com/whatap/go-api/instrumentation/github.com/valyala/fasthttp/whatapfasthttp"
 	"github.com/whatap/go-api/trace"
 )
 
@@ -25,10 +26,17 @@ func traceParams(fiberCtx *fiber.Ctx, ctx context.Context) error {
 		return nil
 	}
 
-	form, err := url.ParseQuery(string(fiberCtx.Body()))
-	if err != nil {
-		return err
+	// get parameter from fasthttp
+	fasthttpRequest := fiberCtx.Context()
+	form := whatapfasthttp.TraceHttpParameter(fasthttpRequest)
+
+	// get path parameter from router of fiber
+	params := fiberCtx.AllParams()
+	for k, v := range params {
+		nK := "router." + k
+		form[nK] = append(form[nK], v)
 	}
+
 	if form != nil {
 		trace.SetParameter(ctx, form)
 	}
@@ -40,40 +48,46 @@ func Middleware() func(c *fiber.Ctx) error {
 	return func(fiberCtx *fiber.Ctx) error {
 		conf := config.GetConfig()
 		if !conf.TransactionEnabled {
-			fiberCtx.Next()
-			return nil
+			return fiberCtx.Next()
 		}
 
 		ctx, _ := whatapfasthttp.StartWithFastHttpRequest(fiberCtx.Context())
-
+		var err error = nil
 		defer func() {
 			x := recover()
 
 			if x != nil {
-				err := fmt.Errorf("Panic: %v", x)
+				err = fmt.Errorf("Panic: %v", x)
 				trace.Error(ctx, err)
 			}
-			traceParams(fiberCtx, ctx)
 
 			status := fiberCtx.Response().StatusCode()
 			if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
 				traceCtx.Status = int32(status)
 			}
 
-			err := func() error {
-				if status >= 400 {
-					return fmt.Errorf("Status: %d,%s", status, http.StatusText(status))
+			if status >= 400 {
+				err = fmt.Errorf("Status: %d,%s", status, http.StatusText(status))
+			}
+
+			traceParams(fiberCtx, ctx)
+
+			// Set Whatap Cookie
+			if conf.TraceUserSetCookie {
+				if cookie, exists := whatapfasthttp.GetWhatapCookie(fiberCtx.Context()); !exists {
+					whatapfasthttp.SetWhatapCookie(fiberCtx.Context(), cookie)
 				}
-				return nil
-			}()
+			}
 
 			trace.End(ctx, err)
 			if x != nil {
-				panic(x)
+				if !conf.GoRecoverEnabled {
+					panic(x)
+				}
 			}
 		}()
 
-		fiberCtx.Next()
-		return nil
+		err = fiberCtx.Next()
+		return err
 	}
 }

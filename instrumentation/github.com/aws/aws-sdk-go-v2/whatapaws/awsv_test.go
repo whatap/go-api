@@ -1,4 +1,4 @@
-package awsv2_test
+package whatapaws
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/aws/smithy-go/middleware"
 
 	"github.com/stretchr/testify/assert"
-	whatapaws "github.com/whatap/go-api/instrumentation/github.com/aws/aws-sdk-go-v2"
 	"github.com/whatap/go-api/trace"
 	"github.com/whatap/golib/util/dateutil"
 )
@@ -27,40 +26,44 @@ func TestUnit(t *testing.T) {
 
 	t.Run("Trace start", func(t *testing.T) {
 		in := middleware.InitializeInput{}
-		outRaw, _, err := whatapaws.StartTrace(ctx, in, whatapaws.MockHandler{})
+		outRaw, _, err := StartTrace(ctx, in, MockHandler{})
 		assert.Nil(err)
 
 		outCtx, typeMatched := outRaw.Result.(context.Context)
 		assert.True(typeMatched)
 		assert.NotNil(outCtx)
 
-		traceCtxRaw := middleware.GetStackValue(outCtx, whatapaws.TraceKey{})
+		traceCtxRaw := middleware.GetStackValue(outCtx, TraceKey{})
 		assert.NotNil(traceCtxRaw)
 		traceCtx, typeMatched := traceCtxRaw.(*trace.TraceCtx)
-		assert.True(typeMatched)
-		assert.NotNil(traceCtx)
-		assert.Greater(len(traceCtx.Name), 0)
+		if assert.True(typeMatched) {
+			assert.NotNil(traceCtx)
+			assert.Greater(len(traceCtx.Name), 0)
+		}
 		ctx = outCtx
 	},
 	)
 
 	t.Run("End trace", func(t *testing.T) {
 		in := middleware.DeserializeInput{}
-		outRaw, _, err := whatapaws.EndTrace(ctx, in, whatapaws.MockHandler{})
+		outRaw, _, err := EndTrace(ctx, in, MockHandler{})
 		assert.Nil(err)
 
 		outCtx, typeMatched := outRaw.Result.(context.Context)
 		assert.True(typeMatched)
 		assert.NotNil(outCtx)
 
-		traceCtxRaw := middleware.GetStackValue(outCtx, whatapaws.TraceKey{})
+		traceCtxRaw := middleware.GetStackValue(outCtx, TraceKey{})
 		assert.NotNil(traceCtxRaw)
 		traceCtx, typeMatched := traceCtxRaw.(*trace.TraceCtx)
-		assert.True(typeMatched)
-		assert.NotNil(traceCtx)
-		//clear 됐는지 테스트
-		assert.Equal(int64(0), traceCtx.Txid)
-		assert.Equal("", traceCtx.Name)
+		if assert.True(typeMatched) {
+
+			assert.NotNil(traceCtx)
+			//clear 됐는지 테스트
+			assert.Equal(int64(0), traceCtx.Txid)
+			assert.Equal("", traceCtx.Name)
+		}
+
 	},
 	)
 
@@ -73,32 +76,32 @@ func TestUnit(t *testing.T) {
 		ctx := context.WithValue(context.TODO(), "whatap", traceCtx)
 
 		in := middleware.InitializeInput{}
-		outRaw, _, err := whatapaws.StartTrace(ctx, in, whatapaws.MockHandler{})
+		outRaw, _, err := StartTrace(ctx, in, MockHandler{})
 		assert.Nil(err)
 		outCtx := outRaw.Result.(context.Context)
-		traced := outCtx.Value("whatap").(*trace.TraceCtx)
-
-		assert.Equal(int64(-1), traced.Txid)
-		assert.Equal("skynet", traced.Name)
+		if traced, ok := outCtx.Value("whatap").(*trace.TraceCtx); ok {
+			assert.Equal(int64(-1), traced.Txid)
+			assert.Equal("skynet", traced.Name)
+		}
 	},
 	)
 
 	t.Run("Middleware Stack", func(t *testing.T) {
-		awsCfg := whatapaws.AppendMiddleware(aws.Config{})
+		awsCfg := AppendMiddleware(aws.Config{})
 		assert.NotNil(awsCfg)
 		assert.Equal(2, len(awsCfg.APIOptions))
 		stack := &middleware.Stack{
 			Initialize:  middleware.NewInitializeStep(),
 			Deserialize: middleware.NewDeserializeStep(),
 		}
-		err := whatapaws.AddStartTrace(stack)
+		err := AddStartTrace(stack)
 		assert.Nil(err)
-		_, idFound := stack.Initialize.Get(whatapaws.TraceStartFuncName)
+		_, idFound := stack.Initialize.Get(TraceStartFuncName)
 		assert.True(idFound)
 
-		err = whatapaws.AddEndTrace(stack)
+		err = AddEndTrace(stack)
 		assert.Nil(err)
-		_, idFound = stack.Deserialize.Get(whatapaws.TraceEndFuncName)
+		_, idFound = stack.Deserialize.Get(TraceEndFuncName)
 		assert.True(idFound)
 	},
 	)
@@ -107,18 +110,22 @@ func TestUnit(t *testing.T) {
 		// Load the Shared AWS Configuration (~/.aws/config)
 		cfg, err := config.LoadDefaultConfig(context.TODO())
 		assert.Nil(err)
-		cfg = whatapaws.AppendMiddleware(cfg)
+		cfg = AppendMiddleware(cfg)
 		assert.Equal(2, len(cfg.APIOptions))
 
 		// Create an Amazon S3 service client
 		client := s3.NewFromConfig(cfg)
 
-		assert.NotNil(client)
+		if !assert.NotNil(client) {
+			return
+		}
 
 		output, err := client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
 			Bucket: aws.String("dev-default-region"),
 		})
-		assert.Nil(err)
+		if !assert.Nil(err) {
+			return
+		}
 
 		t.Log("first page results:")
 		for _, object := range output.Contents {

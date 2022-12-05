@@ -1,4 +1,4 @@
-package awsv2
+package whatapaws
 
 import (
 	"context"
