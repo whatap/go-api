@@ -5,6 +5,8 @@ type ConfGo struct {
 	GoCounterEnabled    bool
 	GoCounterInterval   int32
 	GoCounterTimeout    int32
+
+	GoRecoverEnabled bool
 }
 
 func (this *ConfGo) ApplyDefault(m map[string]string) {
@@ -12,6 +14,7 @@ func (this *ConfGo) ApplyDefault(m map[string]string) {
 	m["go.counter_enabled"] = "true"
 	m["go.counter_interval"] = "5000"
 	m["go.counter_timeout"] = "5000"
+	m["go.recover_enabled"] = "false"
 
 }
 func (this *ConfGo) Apply(conf *Config) {
@@ -19,4 +22,5 @@ func (this *ConfGo) Apply(conf *Config) {
 	this.GoCounterEnabled = conf.Enabled && conf.GetBoolean("go.counter_enabled", true)
 	this.GoCounterInterval = conf.GetInt("go.counter_interval", 5000)
 	this.GoCounterTimeout = conf.GetInt("go.counter_interval", 5000)
+	this.GoRecoverEnabled = conf.GetBoolean("go.recover_enabled", false)
 }

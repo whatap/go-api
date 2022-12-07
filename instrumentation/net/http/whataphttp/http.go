@@ -53,6 +53,9 @@ func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err
 	}
 	return res, err
 }
+func NewWrapRoundTrip(ctx context.Context, t http.RoundTripper) *WrapRoundTrip {
+	return &WrapRoundTrip{ctx, t}
+}
 
 func NewRoundTrip(ctx context.Context, t http.RoundTripper) http.RoundTripper {
 	return &WrapRoundTrip{ctx, t}
