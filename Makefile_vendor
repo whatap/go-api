@@ -8,7 +8,7 @@ mod_tidy:
 	go mod tidy
 
 test:   #compile warning 제거후 사용 가능
-	go test -mod vendor ./...
+	go test -mod vendor ./... -cover
 
 build:
 	go build -mod vendor ./...
