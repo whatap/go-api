@@ -36,7 +36,6 @@ import (
 	_ "github.com/whatap/go-api/httpc"
 	_ "github.com/whatap/go-api/instrumentation/database/sql/whatapsql"
 	_ "github.com/whatap/go-api/instrumentation/github.com/Shopify/sarama/whatapsarama"
-	_ "github.com/whatap/go-api/instrumentation/github.com/aws/aws-sdk-go-v2/whatapaws"
 	_ "github.com/whatap/go-api/instrumentation/github.com/gin-gonic/gin/whatapgin"
 	_ "github.com/whatap/go-api/instrumentation/github.com/go-chi/chi/whatapchi"
 	_ "github.com/whatap/go-api/instrumentation/github.com/go-gorm/gorm/whatapgorm"
