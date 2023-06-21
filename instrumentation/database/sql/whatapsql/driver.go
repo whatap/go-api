@@ -5,7 +5,10 @@ import (
 	"database/sql/driver"
 	"errors"
 
-	"github.com/whatap/go-api/config"
+	//"fmt"
+	//"runtime/debug"
+
+	"github.com/whatap/go-api/agent/agent/config"
 	whatapsql "github.com/whatap/go-api/sql"
 	"github.com/whatap/go-api/trace"
 	"github.com/whatap/golib/util/dateutil"
@@ -159,6 +162,12 @@ func (c WrapConn) Close() error {
 	return err
 }
 
+func (c WrapConn) ResetSession(ctx context.Context) error {
+	if cr, ok := c.Conn.(driver.SessionResetter); ok {
+		return cr.ResetSession(ctx)
+	}
+	return nil
+}
 func (c WrapConn) Begin() (tx driver.Tx, err error) {
 	st := dateutil.SystemNow()
 	tx, err = c.Conn.Begin()

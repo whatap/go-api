@@ -93,9 +93,21 @@ $  sudo  yum  install  whatap-agent
 ```  
 
 ####  라이센스  및  수집서버  설정
-/usr/whatap/agent  이하에  whatap.conf  파일에  라이센스와  수집서버  정보를  설정합니다.  
+
+음 명령어를 차례로 실행해 *whatap.conf* 파일에 **액세스 키**와 **수집 서버 IP 주소** 등을 설정하세요.
+
+- 애플리케이션의 시작 스크립트 경로에 *whatap.conf* 파일을 생성하세요.
+- `WHATAP_HOME` 환경 변수를 설정하지 않으면 애플리케이션 시작 스크립트의 경로를 *whatap.conf* 파일 경로로 인식합니다.
+/usr/whatap/agent  이하에  whatap.con다f  파일에  라이센스와  수집서버  정보를  설정합니다.  
 
 ```
-$  echo  "license=[라이센스키]"  >>  /usr/whatap/agent/whatap.conf
-$  echo  "whatap.server.host=[수집서버  주소]"  >>  /usr/whatap/agent/whatap.conf
+
+# 스크립트 실행 경로에 whatap.conf 파일 생성
+echo "license={액세스 키}" >> ./whatap.conf
+echo "whatap.server.host={수집 서버 IP}" >> ./whatap.conf
+echo "app_name={애플리케이션 이름}" >> ./whatap.conf
+
+# 애플리케이션 실행
+./app  
+
 ```

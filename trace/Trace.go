@@ -2,27 +2,31 @@
 package trace
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-
 	"log"
 	"math"
 	"net/http"
-
-	"bytes"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
-	"github.com/whatap/go-api/config"
-	"github.com/whatap/go-api/counter"
-	"github.com/whatap/golib/lang/pack/udp"
-	whatapnet "github.com/whatap/golib/net"
+	whatapboot "github.com/whatap/go-api/agent/agent/boot"
+	agentconfig "github.com/whatap/go-api/agent/agent/config"
+	agenttrace "github.com/whatap/go-api/agent/agent/trace"
+	agentapi "github.com/whatap/go-api/agent/agent/trace/api"
+
+	"github.com/whatap/golib/io"
 	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/golib/util/hash"
 	"github.com/whatap/golib/util/hexa32"
+	"github.com/whatap/golib/util/iputil"
 	"github.com/whatap/golib/util/keygen"
 	"github.com/whatap/golib/util/stringutil"
+	"github.com/whatap/golib/util/urlutil"
 )
 
 const (
@@ -58,6 +62,7 @@ const (
 
 var (
 	WHATAP_COOKIE_NAME = "WHATAP"
+	traceLock          sync.Mutex
 )
 
 type WrapResponseWriter struct {
@@ -71,22 +76,16 @@ func (l *WrapResponseWriter) WriteHeader(status int) {
 }
 
 func Init(m map[string]string) {
-	// TO-DO
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	if m != nil {
-		config.GetConfig().ApplyConfig(m)
+		agentconfig.SetValues(&m)
 	}
-	udpClient := whatapnet.GetUdpClient()
-	p := udp.NewUdpConfigPack()
-	p.Data = config.GetConfig().ToString()
-
-	udpClient.Send(p)
-
-	counter := counter.GetCounterManager()
-	counter.Add("active_stats", &TaskActiveStats{})
+	// embeded
+	go whatapboot.Boot()
 }
 
 func Shutdown() {
-	whatapnet.UdpShutdown()
+	// whatapnet.UdpShutdown()
 }
 
 func GetTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
@@ -96,7 +95,20 @@ func GetTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
 	if v := ctx.Value("whatap"); v != nil {
 		return ctx, v.(*TraceCtx)
 	}
+
+	// TO-DO goroutine id
+	// if v := GetGIDTraceCtx(GetGID()); v != nil {
+	// 	return ctx, v
+	// }
+
 	return ctx, nil
+}
+
+func GetAgentTraceContext(tCtx *TraceCtx) *agenttrace.TraceContext {
+	if tCtx != nil {
+		return tCtx.Ctx
+	}
+	return nil
 }
 
 func NewTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
@@ -105,77 +117,71 @@ func NewTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
 	}
 	var traceCtx *TraceCtx
 	traceCtx = PoolTraceContext()
-	traceCtx.Txid = keygen.Next()
+	traceCtx.GID = GetGID()
+	traceCtx.Ctx = agenttrace.PoolTraceContext()
+
+	wCtx := traceCtx.Ctx
+	wCtx.Txid = keygen.Next()
+	traceCtx.Txid = wCtx.Txid
+
 	ctx = context.WithValue(ctx, "whatap", traceCtx)
-	AddTraceCtx(traceCtx)
+	// TO-DO goroutine id
+	// AddGIDTraceCtx(traceCtx.GID, traceCtx)
 	return ctx, traceCtx
 }
 
 func Start(ctx context.Context, name string) (context.Context, error) {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return ctx, nil
 	}
 
-	udpClient := whatapnet.GetUdpClient()
 	ctx, traceCtx := NewTraceContext(ctx)
-
 	traceCtx.Name = name
 	traceCtx.StartTime = dateutil.SystemNow()
 	// update multi trace info
 	UpdateMtrace(traceCtx, http.Header{})
 
-	if pack := udp.CreatePack(udp.TX_START, udp.UDP_PACK_VERSION); pack != nil {
-		p := pack.(*udp.UdpTxStartPack)
-		p.Txid = traceCtx.Txid
-		p.Time = traceCtx.StartTime
-		p.Host = traceCtx.Host
-		p.Uri = name
-		p.Ipaddr = traceCtx.Ipaddr
-		p.HttpMethod = traceCtx.HttpMethod
-		p.Ref = traceCtx.Ref
-		p.UAgent = traceCtx.UAgent
-		// if conf.Debug {
-		// 	log.Println("[WA-TX-01001] Start: ", p.Txid, ",", traceCtx.Uri)
-		// }
-		udpClient.Send(p)
-	}
+	wCtx := traceCtx.Ctx
+	wCtx.StartTime = traceCtx.StartTime
+	wCtx.ServiceURL = urlutil.NewURL(name)
+	agentapi.StartTx(wCtx)
+
 	return ctx, nil
 }
 
 func StartWithRequest(r *http.Request) (context.Context, error) {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return r.Context(), nil
 	}
 
-	udpClient := whatapnet.GetUdpClient()
 	ctx, traceCtx := NewTraceContext(r.Context())
-
 	traceCtx.Name = r.RequestURI
-	traceCtx.Host = r.Host
 	traceCtx.StartTime = dateutil.SystemNow()
 	// update multi trace info
 	UpdateMtrace(traceCtx, r.Header)
 
-	if pack := udp.CreatePack(udp.TX_START, udp.UDP_PACK_VERSION); pack != nil {
-		p := pack.(*udp.UdpTxStartPack)
-
-		p.Txid = traceCtx.Txid
-		p.Time = traceCtx.StartTime
-		p.Host = r.Host
-		p.Uri = r.RequestURI
-		p.Ipaddr = r.RemoteAddr
-		p.WClientId = GetClientId(r)
-		p.HttpMethod = r.Method
-		p.Ref = r.Referer()
-		p.UAgent = r.UserAgent()
-
-		// if conf.Debug {
-		// 	log.Println("[WA-TX-02001] StartWithRequest: ", traceCtx.Txid, ", ", traceCtx.Name)
-		// }
-		udpClient.Send(p)
+	wCtx := traceCtx.Ctx
+	wCtx.StartTime = traceCtx.StartTime
+	wCtx.ServiceURL = urlutil.NewURL(filepath.Join(r.Host, "/", r.RequestURI))
+	ipaddr := r.RemoteAddr
+	if strings.Index(ipaddr, ",") > -1 {
+		ipArray := strings.Split(ipaddr, ",")
+		if len(ipArray) > 1 {
+			ipaddr = ipArray[0]
+		}
 	}
+	wCtx.RemoteIp = io.ToInt(iputil.ToBytes(ipaddr), 0)
+	wCtx.HttpMethod = r.Method
+	wCtx.RefererURL = urlutil.NewURL(r.Referer())
+	wCtx.UserAgentString = r.UserAgent()
+	wCtx.WClientId = int64(hash.HashStr(GetClientId(r)))
+	if conf.Debug {
+		log.Println("[WA-TX-02001] StartWithRequest: ", traceCtx.Txid, ", ", traceCtx.Name)
+	}
+	agentapi.StartTx(wCtx)
+
 	//http.Header -> map[string][]string
 	SetHeader(ctx, r.Header)
 
@@ -183,34 +189,29 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 }
 
 func StartWithContext(ctx context.Context, name string) (context.Context, error) {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return ctx, nil
 	}
-	udpClient := whatapnet.GetUdpClient()
 	if ctx, traceCtx := GetTraceContext(ctx); traceCtx != nil {
 		traceCtx.Name = name
 		traceCtx.StartTime = dateutil.SystemNow()
 		// update multi trace info
 		UpdateMtrace(traceCtx, http.Header{})
 
-		if pack := udp.CreatePack(udp.TX_START, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxStartPack)
-			p.Txid = traceCtx.Txid
-			p.Time = traceCtx.StartTime
-			p.Host = traceCtx.Host
-			p.Uri = name
-			p.Ipaddr = traceCtx.Ipaddr
-			p.WClientId = traceCtx.WClientId
-			p.HttpMethod = traceCtx.HttpMethod
-			p.Ref = traceCtx.Ref
-			p.UAgent = traceCtx.UAgent
-			// if conf.Debug {
-			// 	log.Println("[WA-TX-03001] StartWithContext: ", traceCtx.Txid, ", ", traceCtx.Name)
-			// }
-			udpClient.Send(p)
-
+		wCtx := traceCtx.Ctx
+		if wCtx == nil {
+			wCtx = agenttrace.PoolTraceContext()
+			traceCtx.Ctx = wCtx
+			wCtx.Txid = traceCtx.Txid
 		}
+
+		wCtx.StartTime = traceCtx.StartTime
+		wCtx.ServiceURL = urlutil.NewURL(name)
+		if conf.Debug {
+			log.Println("[WA-TX-03001] StartWithContext: ", traceCtx.Txid, ", ", traceCtx.Name)
+		}
+		agentapi.StartTx(wCtx)
 	} else {
 		if conf.Debug {
 			log.Println("[WA-TX-03002] StartWithContext: Not found trace context ", name)
@@ -221,52 +222,41 @@ func StartWithContext(ctx context.Context, name string) (context.Context, error)
 }
 
 func SetHeader(ctx context.Context, m map[string][]string) {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.ProfileHttpHeaderEnabled {
 		return
 	}
-	udpClient := whatapnet.GetUdpClient()
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
 		// http.Header -> map[string][]string
 		if strings.HasPrefix(traceCtx.Name, conf.ProfileHttpHeaderUrlPrefix) {
-			if pack := udp.CreatePack(udp.TX_MSG, udp.UDP_PACK_VERSION); pack != nil {
-				p := pack.(*udp.UdpTxMessagePack)
-				p.Txid = traceCtx.Txid
-				p.Time = dateutil.SystemNow()
-				p.Hash = "HTTP-HEADERS"
-				p.SetHeader(map[string][]string(m))
-				if conf.Debug {
-					log.Println("[WA-TX-06001] txid:", traceCtx.Txid, ", uri: ", traceCtx.Name, "\n headers: ", p.Desc)
-				}
-				udpClient.Send(p)
+			parsedHeader := ParseHeader(m)
+			agentapi.ProfileMsg(traceCtx.Ctx, "HTTP_HEADERS", parsedHeader, 0, 0)
+			if conf.Debug {
+				log.Println("[WA-TX-06001] txid:", traceCtx.Txid, ", uri: ", traceCtx.Name, "\n headers: ", parsedHeader)
 			}
 		}
 	}
 }
 func SetParameter(ctx context.Context, m map[string][]string) {
-	conf := config.GetConfig()
-	if !conf.Enabled {
+	conf := agentconfig.GetConfig()
+	if !conf.ProfileHttpParameterEnabled {
 		return
 	}
-	udpClient := whatapnet.GetUdpClient()
+	if m == nil && len(m) <= 0 {
+		return
+	}
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
-		if conf.ProfileHttpParameterEnabled && strings.HasPrefix(traceCtx.Name, conf.ProfileHttpParameterUrlPrefix) {
-			if pack := udp.CreatePack(udp.TX_SECURE_MSG, udp.UDP_PACK_VERSION); pack != nil {
-				p := pack.(*udp.UdpTxSecureMessagePack)
-				p.Txid = traceCtx.Txid
-				p.Time = dateutil.SystemNow()
-				p.Hash = "HTTP-PARAMS"
-				p.SetParameter(map[string][]string(m))
-				if conf.Debug {
-					log.Println("[WA-TX-07001] HTTP-PARAMS txid:", traceCtx.Txid, ", uri: ", traceCtx.Name, "\n params: ", p.Desc)
-				}
-				udpClient.Send(p)
+		if strings.HasPrefix(traceCtx.Name, conf.ProfileHttpParameterUrlPrefix) {
+			parsedParam := ParseParameter(m)
+			agentapi.ProfileSecureMsg(traceCtx.Ctx, "HTTP-PARAMS", parsedParam, 0, 0)
+			if conf.Debug {
+				log.Println("[WA-TX-07001] HTTP-PARAMS txid:", traceCtx.Txid, ", uri: ", traceCtx.Name, "\n params: ", parsedParam)
 			}
 		}
 	}
 }
 func GetClientId(r *http.Request) string {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled || !conf.TraceUserEnabled {
 		return r.RemoteAddr
 	}
@@ -280,6 +270,7 @@ func GetClientId(r *http.Request) string {
 			}
 		}
 	}
+
 	for _, cookie := range r.Cookies() {
 		for _, v := range conf.TraceUserCookieKeys {
 			if strings.ToLower(strings.TrimSpace(cookie.Name)) == strings.ToLower(strings.TrimSpace(v)) {
@@ -287,41 +278,44 @@ func GetClientId(r *http.Request) string {
 			}
 		}
 	}
+
 	// WhaTap Cookie name is constant WHATAP_COOKIE_NAME(WHATAP)
 	for _, cookie := range r.Cookies() {
 		if strings.ToUpper(strings.TrimSpace(cookie.Name)) == WHATAP_COOKIE_NAME {
 			return cookie.Value
 		}
 	}
+
 	return r.RemoteAddr
 }
-func GetWhatapCookie(r *http.Request) (*http.Cookie, bool) {
-	for _, cookie := range r.Cookies() {
-		if cookie.Name == WHATAP_COOKIE_NAME {
-			return nil, false
+func GetWhatapCookie(r *http.Request) (cookie *http.Cookie, exists bool) {
+	for _, c := range r.Cookies() {
+		if c.Name == WHATAP_COOKIE_NAME {
+			return c, true
 		}
 	}
-	return &http.Cookie{
-		Name:  WHATAP_COOKIE_NAME,
-		Value: fmt.Sprintf("%d", keygen.Next()),
-	}, true
+	if cookie == nil {
+		cookie = &http.Cookie{
+			Name:  WHATAP_COOKIE_NAME,
+			Value: fmt.Sprintf("%d", keygen.Next()),
+		}
+	}
+	return cookie, false
 }
+
+func SetWhatapCookie(w http.ResponseWriter, cookie *http.Cookie) {
+	if w != nil && cookie != nil {
+		w.Header().Add("Set-Cookie", cookie.String())
+	}
+}
+
 func Step(ctx context.Context, title, message string, elapsed, value int) error {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return nil
 	}
-	udpClient := whatapnet.GetUdpClient()
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
-		if pack := udp.CreatePack(udp.TX_MSG, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxMessagePack)
-			p.Txid = traceCtx.Txid
-			p.Time = dateutil.SystemNow()
-			p.Hash = title
-			p.Desc = message
-			//p.Value = value
-			udpClient.Send(p)
-		}
+		agentapi.ProfileMsg(traceCtx.Ctx, title, message, int32(elapsed), int32(value))
 		return nil
 	}
 
@@ -329,67 +323,52 @@ func Step(ctx context.Context, title, message string, elapsed, value int) error 
 }
 
 func Error(ctx context.Context, err error) error {
-	//log.Println(">>>> runtime debug stack ", string(debug.Stack()))
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return nil
 	}
-	udpClient := whatapnet.GetUdpClient()
+	// udpClient := whatapnet.GetUdpClient()
 	if err != nil {
-		if pack := udp.CreatePack(udp.TX_ERROR, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxErrorPack)
-			p.Time = dateutil.SystemNow()
-			p.ErrorType = stringutil.Truncate(fmt.Sprintf("%T", err), STEP_ERROR_MESSAGE_MAX_SIZE)
-			p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
-			serviceName := ""
-			if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
-				p.Txid = traceCtx.Txid
-				serviceName = traceCtx.Name
-			}
-			if conf.Debug {
-				log.Println("[WA-TX-04001] txid:", p.Txid, ", uri: ", serviceName, "\n error: ", err)
-			}
-			udpClient.Send(p)
+		var txid int64
+		var serviceName string
 
+		if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
+			agentapi.ProfileError(traceCtx.Ctx, err)
+			txid = traceCtx.Txid
+			serviceName = traceCtx.Name
+		} else {
+			agentapi.ProfileError(nil, err)
+		}
+
+		if conf.Debug {
+			log.Println("[WA-TX-04001] txid:", txid, ", uri: ", serviceName, "\n error: ", err)
 		}
 	}
 	return nil
 }
 
 func End(ctx context.Context, err error) error {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return nil
 	}
-	udpClient := whatapnet.GetUdpClient()
 	Error(ctx, err)
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
-		// traceCtx = RemoveTraceCtx((traceCtx.Txid))
-		if pack := udp.CreatePack(udp.TX_END, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxEndPack)
-			p.Txid = traceCtx.Txid
-			p.Time = dateutil.SystemNow()
-
-			p.Host = traceCtx.Host
-			p.Uri = traceCtx.Name
-
-			p.Mtid = traceCtx.MTid
-			p.Mdepth = traceCtx.MDepth
-			p.McallerTxid = traceCtx.MCallerTxid
-			p.McallerPoidKey = traceCtx.MCallerPoidKey
-			p.McallerSpec = traceCtx.MCallerSpec
-			p.McallerUrl = traceCtx.MCallerUrl
-
-			p.Status = traceCtx.Status
-
-			if conf.Debug {
-				log.Println("[WA-TX-05001] txid: ", traceCtx.Txid, ", uri: ", traceCtx.Name,
-					"\n time: ", (dateutil.SystemNow() - traceCtx.StartTime), "ms ", "\n error: ", err)
-			}
-
-			udpClient.Send(p)
+		wCtx := traceCtx.Ctx
+		wCtx.Mtid = traceCtx.MTid
+		wCtx.Mdepth = traceCtx.MDepth
+		wCtx.McallerTxid = traceCtx.MCallerTxid
+		wCtx.McallerPoidKey = traceCtx.MCallerPoidKey
+		wCtx.McallerSpec = traceCtx.MCallerSpec
+		wCtx.McallerUrl = traceCtx.MCallerUrl
+		wCtx.Status = traceCtx.Status
+		if conf.Debug {
+			log.Println("[WA-TX-05001] txid: ", traceCtx.Txid, ", uri: ", traceCtx.Name,
+				"\n time: ", (dateutil.SystemNow() - traceCtx.StartTime), "ms ", "\n error: ", err)
 		}
-		RemoveTraceCtx(traceCtx)
+		agentapi.EndTx(wCtx)
+		// TO-DO goroutine id
+		//RemoveGIDTraceCtx(traceCtx.GID)
 		CloseTraceContext(traceCtx)
 		return nil
 	}
@@ -406,16 +385,23 @@ func UpdateMtraceWithContext(ctx context.Context, header http.Header) {
 }
 func GetMTrace(ctx context.Context) http.Header {
 	rt := make(http.Header)
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
 		rt.Set(conf.TraceMtraceCallerKey, traceCtx.TraceMtraceCallerValue)
 		rt.Set(conf.TraceMtracePoidKey, traceCtx.TraceMtracePoidValue)
 		rt.Set(conf.TraceMtraceSpecKey1, traceCtx.TraceMtraceSpecValue)
+
+		// Mcallee
+		if conf.MtraceCalleeTxidEnabled {
+			traceCtx.TraceMtraceMcallee = keygen.Next()
+			rt.Set(conf.TraceMtraceCalleeKey, fmt.Sprintf("%d", traceCtx.TraceMtraceMcallee))
+		}
 	}
+
 	return rt
 }
 func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.MtraceEnabled {
 		return
 	}
@@ -437,6 +423,9 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 				traceCtx.MCallee = hexa32.ToLong32(v)
 				if traceCtx.MCallee != 0 {
 					traceCtx.Txid = traceCtx.MCallee
+					if traceCtx.Ctx != nil {
+						traceCtx.Ctx.Txid = traceCtx.MCallee
+					}
 				}
 
 			case conf.TraceMtraceSpecKey1:
@@ -470,7 +459,7 @@ func HandlerFunc(handler func(http.ResponseWriter, *http.Request)) http.HandlerF
 // wrapping handler function, example : http.HandleFunc(func(http.ResponseWriter, *http.Request))
 func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		conf := config.GetConfig()
+		conf := agentconfig.GetConfig()
 		if !conf.TransactionEnabled {
 			handler(w, r)
 			return
@@ -499,9 +488,18 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 					SetParameter(ctx, wRequest.Form)
 				}
 			}
+
+			// Set Whatap Cookie
+			// if conf.TraceUserSetCookie {
+			// 	if cookie, exists := GetWhatapCookie(r); !exists {
+			// 		SetWhatapCookie(w, cookie)
+			// 	}
+			// }
 			End(ctx, err)
 			if x != nil {
-				panic(x)
+				if !conf.GoRecoverEnabled {
+					panic(x)
+				}
 			}
 		}()
 		handler(wrw, wRequest)
@@ -516,11 +514,48 @@ func GetTxid(ctx context.Context) int64 {
 	return 0
 }
 
-func GetGID() uint64 {
+func GetGID() int64 {
 	b := make([]byte, 64)
 	b = b[:runtime.Stack(b, false)]
 	b = bytes.TrimPrefix(b, []byte("goroutine "))
 	b = b[:bytes.IndexByte(b, ' ')]
 	n, _ := strconv.ParseUint(string(b), 10, 64)
-	return n
+	return int64(n)
+}
+func ParseParameter(m map[string][]string) string {
+	rt := ""
+	if m != nil && len(m) > 0 {
+		sb := stringutil.NewStringBuffer()
+		for k, v := range m {
+			sb.Append(k).Append("=")
+			if len(v) > 0 {
+				sb.AppendLine(v[0])
+			}
+		}
+		rt = sb.ToString()
+		sb.Clear()
+	}
+	return rt
+}
+
+func ParseHeader(m map[string][]string) string {
+	conf := agentconfig.GetConfig()
+	rt := ""
+	if m != nil && len(m) > 0 {
+		sb := stringutil.NewStringBuffer()
+		for k, v := range m {
+			sb.Append(k).Append("=")
+			if len(v) > 0 {
+				key := strings.ReplaceAll(strings.ToLower(k), "-", "_")
+				if !conf.ProfileHttpHeaderIgnoreKeys.HasKey(key) {
+					sb.AppendLine(v[0])
+				} else {
+					sb.AppendLine("#")
+				}
+			}
+		}
+		rt = sb.ToString()
+		sb.Clear()
+	}
+	return rt
 }

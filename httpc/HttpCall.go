@@ -7,14 +7,14 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/whatap/golib/lang/pack/udp"
-	whatapnet "github.com/whatap/golib/net"
-	"github.com/whatap/golib/util/dateutil"
-
-	// "github.com/whatap/golib/util/urlutil"
-	"github.com/whatap/go-api/config"
+	agentconfig "github.com/whatap/go-api/agent/agent/config"
+	agenttrace "github.com/whatap/go-api/agent/agent/trace"
+	agentapi "github.com/whatap/go-api/agent/agent/trace/api"
 	"github.com/whatap/go-api/trace"
-	"github.com/whatap/golib/util/stringutil"
+
+	"github.com/whatap/golib/lang/step"
+	"github.com/whatap/golib/util/dateutil"
+	"github.com/whatap/golib/util/keygen"
 )
 
 const (
@@ -50,96 +50,90 @@ const (
 
 func GetMTrace(httpcCtx *HttpcCtx) http.Header {
 	rt := make(http.Header)
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if conf.MtraceEnabled && httpcCtx.TraceMtraceCallerValue != "" {
 		rt.Set(conf.TraceMtraceCallerKey, httpcCtx.TraceMtraceCallerValue)
 		rt.Set(conf.TraceMtracePoidKey, httpcCtx.TraceMtracePoidValue)
 		rt.Set(conf.TraceMtraceSpecKey1, httpcCtx.TraceMtraceSpecValue)
 	}
+	// Mcallee
+	if conf.MtraceCalleeTxidEnabled {
+		httpcCtx.TraceMtraceMcallee = keygen.Next()
+		rt.Set(conf.TraceMtraceCalleeKey, fmt.Sprintf("%d", httpcCtx.TraceMtraceMcallee))
+	}
+
 	return rt
 }
 
 func Start(ctx context.Context, url string) (*HttpcCtx, error) {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
-		return NewHttpcCtx(), nil
+		return PoolHttpcContext(), nil
 	}
-	httpcCtx := NewHttpcCtx()
-	if pack := udp.CreatePack(udp.TX_HTTPC, udp.UDP_PACK_VERSION); pack != nil {
-		p := pack.(*udp.UdpTxHttpcPack)
-		p.Time = dateutil.SystemNow()
-		p.Url = stringutil.Truncate(url, PACKET_HTTPC_MAX_SIZE)
-		httpcCtx.step = p
-		if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-			traceCtx.ActiveHTTPC = true
-			httpcCtx.ctx = traceCtx
-			p.Txid = traceCtx.Txid
+	httpcCtx := PoolHttpcContext()
 
-			if conf.MtraceEnabled {
-				// multi trace info
-				httpcCtx.TraceMtraceCallerValue = traceCtx.TraceMtraceCallerValue
-				httpcCtx.TraceMtracePoidValue = traceCtx.TraceMtracePoidValue
-				httpcCtx.TraceMtraceSpecValue = traceCtx.TraceMtraceSpecValue
-			}
+	httpcCtx.StartTime = dateutil.SystemNow()
+	httpcCtx.Url = url
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+		httpcCtx.ctx = traceCtx
+		httpcCtx.Txid = traceCtx.Txid
+		httpcCtx.ServiceName = traceCtx.Name
+
+		if conf.MtraceEnabled {
+			// multi trace info
+			httpcCtx.TraceMtraceCallerValue = traceCtx.TraceMtraceCallerValue
+			httpcCtx.TraceMtracePoidValue = traceCtx.TraceMtracePoidValue
+			httpcCtx.TraceMtraceSpecValue = traceCtx.TraceMtraceSpecValue
 		}
+
+		httpcCtx.step = agentapi.StartHttpc(traceCtx.Ctx, httpcCtx.StartTime, httpcCtx.Url)
 	}
 
 	return httpcCtx, nil
 }
 func End(httpcCtx *HttpcCtx, status int, reason string, err error) error {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return nil
 	}
-	udpClient := whatapnet.GetUdpClient()
-	if httpcCtx != nil && httpcCtx.step != nil {
-		p := httpcCtx.step
-		p.Elapsed = int32(dateutil.SystemNow() - p.Time)
-		if err != nil {
-			p.ErrorType = stringutil.Truncate(fmt.Sprintf("%T", err), STEP_ERROR_MESSAGE_MAX_SIZE)
-			p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
-		}
-		serviceName := ""
-		if httpcCtx.ctx != nil {
-			httpcCtx.ctx.ActiveHTTPC = false
-			serviceName = httpcCtx.ctx.Name
-		}
 
+	elapsed := int32(dateutil.SystemNow() - httpcCtx.StartTime)
+	if httpcCtx != nil && httpcCtx.step != nil {
+		wCtx := trace.GetAgentTraceContext(httpcCtx.ctx)
 		if conf.Debug {
-			log.Println("[WA-HTTPC-02001] txid: ", p.Txid, ", uri: ", serviceName, "\n http url: ", p.Url, "\n elapsed: ", p.Elapsed, "ms ", "\n status: ", status, "\n error:  ", err)
+			log.Println("[WA-HTTPC-02001] txid: ", httpcCtx.Txid, ", uri: ", httpcCtx.ServiceName, "\n http url: ", httpcCtx.Url, "\n elapsed: ", elapsed, "ms ", "\n status: ", status, "\n mcallee: ", httpcCtx.TraceMtraceMcallee, "\n error:  ", err)
 		}
-		udpClient.Send(p)
+		if st, ok := httpcCtx.step.(*step.HttpcStepX); ok {
+			agentapi.EndHttpc(wCtx, st, elapsed, int32(status), reason, 0, 0, httpcCtx.TraceMtraceMcallee, err)
+		}
+		CloseHttpcContext(httpcCtx)
 		return nil
 	}
+
 	if conf.Debug {
 		log.Println("[WA-HTTPC-02002] End: Not found Txid ", "\n status: ", status, "\n error:  ", err)
 	}
 	return fmt.Errorf("HttpcCtx is nil")
 }
 func Trace(ctx context.Context, host string, port int, url string, elapsed int, status int, reason string, err error) error {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return nil
 	}
-	udpClient := whatapnet.GetUdpClient()
-	if pack := udp.CreatePack(udp.TX_HTTPC, udp.UDP_PACK_VERSION); pack != nil {
-		p := pack.(*udp.UdpTxHttpcPack)
-		p.Time = dateutil.SystemNow()
-		p.Elapsed = int32(elapsed)
-		p.Url = stringutil.Truncate(url, PACKET_HTTPC_MAX_SIZE)
-		if err != nil {
-			p.ErrorType = stringutil.Truncate(fmt.Sprintf("%T", err), STEP_ERROR_MESSAGE_MAX_SIZE)
-			p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
-		}
-		serviceName := ""
-		if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-			p.Txid = traceCtx.Txid
-			serviceName = traceCtx.Name
-		}
-		if conf.Debug {
-			log.Println("[WA-HTTPC-03001] txid: ", p.Txid, ", uri: ", serviceName, "\n http url: ", url, "\n time: ", p.Elapsed, "ms ", "\n status: ", status, "\n error:  ", err)
-		}
-		udpClient.Send(p)
+
+	var txid int64
+	var serviceName string
+	var wCtx *agenttrace.TraceContext
+	var mcallee int64
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+		wCtx = traceCtx.Ctx
+		txid = traceCtx.Txid
+		serviceName = traceCtx.Name
 	}
+
+	if conf.Debug {
+		log.Println("[WA-HTTPC-02001] txid: ", txid, ", uri: ", serviceName, "\n http url: ", url, "\n elapsed: ", elapsed, "ms ", "\n status: ", status, "\n mcallee: ", mcallee, "\n error:  ", err)
+	}
+	agentapi.ProfileHttpc(wCtx, dateutil.SystemNow(), url, int32(elapsed), int32(status), reason, 0, 0, mcallee, err)
 	return nil
 }

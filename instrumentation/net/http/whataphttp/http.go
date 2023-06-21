@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/whatap/go-api/config"
+	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/httpc"
 	"github.com/whatap/go-api/trace"
 )
@@ -52,6 +52,9 @@ func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err
 		httpc.End(httpcCtx, -1, "", err)
 	}
 	return res, err
+}
+func NewWrapRoundTrip(ctx context.Context, t http.RoundTripper) *WrapRoundTrip {
+	return &WrapRoundTrip{ctx, t}
 }
 
 func NewRoundTrip(ctx context.Context, t http.RoundTripper) http.RoundTripper {

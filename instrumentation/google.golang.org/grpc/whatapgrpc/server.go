@@ -6,7 +6,7 @@ import (
 	"net"
 	"path"
 
-	"github.com/whatap/go-api/config"
+	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/trace"
 	"github.com/whatap/golib/util/dateutil"
 	"google.golang.org/grpc"
@@ -73,7 +73,7 @@ func (w *wrapServerStream) TraceStream(div string, callFunc func() error) (err e
 		div = fmt.Sprintf("/%s%s", "StreamServer", div)
 	}
 
-	if w.conf.InArray(w.Method, w.conf.GoGrpcProfileStreamMethod) {
+	if config.InArray(w.Method, w.conf.GoGrpcProfileStreamMethod) {
 		wCtx, _ := trace.Start(w.ServerStream.Context(), path.Join(div, w.Method))
 		err = callFunc()
 		trace.End(wCtx, err)
@@ -99,7 +99,7 @@ func newWrapServerStream(s grpc.ServerStream, ctx context.Context, method string
 func StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 		conf := config.GetConfig()
-		if conf.InArray(info.FullMethod, conf.GoGrpcProfileStreamMethod) {
+		if config.InArray(info.FullMethod, conf.GoGrpcProfileStreamMethod) {
 			ctx, _ := StartWithGrpcServerStream(ss.Context(), "/Start", info.FullMethod)
 			trace.End(ctx, nil)
 
@@ -138,7 +138,7 @@ func StartWithGrpcServerStream(ctx context.Context, div string, fullMethod strin
 		div = fmt.Sprintf("/%s%s", "StreamServer", div)
 	}
 
-	ctx, err := trace.StartWithContext(ctx, path.Join(div, fullMethod))
+	ctx, err := trace.StartWithContext(ctx, path.Join(traceCtx.Host, div, fullMethod))
 	trace.UpdateMtraceWithContext(ctx, map[string][]string(md))
 	trace.SetHeader(ctx, map[string][]string(md))
 

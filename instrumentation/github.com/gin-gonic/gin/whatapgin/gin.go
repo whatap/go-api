@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/whatap/go-api/config"
+	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/trace"
 )
 
@@ -51,7 +51,9 @@ func Middleware() gin.HandlerFunc {
 			}
 			trace.End(ctx, err)
 			if x != nil {
-				panic(x)
+				if !conf.GoRecoverEnabled {
+					panic(x)
+				}
 			}
 		}()
 		c.Next()

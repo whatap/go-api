@@ -3,14 +3,16 @@ package method
 import (
 	"context"
 	"fmt"
+	"log"
 	"runtime/debug"
 
-	"github.com/whatap/go-api/config"
+	agentconfig "github.com/whatap/go-api/agent/agent/config"
+	agenttrace "github.com/whatap/go-api/agent/agent/trace"
+	agentapi "github.com/whatap/go-api/agent/agent/trace/api"
 	"github.com/whatap/go-api/trace"
-	"github.com/whatap/golib/lang/pack/udp"
-	whatapnet "github.com/whatap/golib/net"
+
+	"github.com/whatap/golib/lang/step"
 	"github.com/whatap/golib/util/dateutil"
-	"github.com/whatap/golib/util/stringutil"
 )
 
 const (
@@ -45,65 +47,70 @@ const (
 )
 
 func Start(ctx context.Context, name string) (*MethodCtx, error) {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.ProfileMethodEnabled {
-		return NewMethodCtx(), nil
+		return PoolMethodContext(), nil
 	}
+	methodCtx := PoolMethodContext()
+
 	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-		methodCtx := NewMethodCtx()
+		methodCtx.StartTime = dateutil.SystemNow()
+		methodCtx.Method = name
+
 		methodCtx.ctx = traceCtx
-		if pack := udp.CreatePack(udp.TX_METHOD, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxMethodPack)
-			p.Txid = traceCtx.Txid
-			p.Time = dateutil.SystemNow()
-			p.Method = stringutil.Truncate(name, HTTP_URI_MAX_SIZE)
-			methodCtx.step = p
-		}
+		methodCtx.Txid = traceCtx.Txid
+		methodCtx.ServiceName = traceCtx.Name
+		methodCtx.step = agentapi.StartMethod(traceCtx.Ctx, methodCtx.StartTime, methodCtx.Method)
 		return methodCtx, nil
 	}
 
-	return nil, fmt.Errorf("Not found Txid ")
+	return methodCtx, nil
 }
 func End(methodCtx *MethodCtx, err error) error {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.ProfileMethodEnabled {
-		return nil
-	}
-	udpClient := whatapnet.GetUdpClient()
-	if methodCtx != nil && methodCtx.step != nil {
-		p := methodCtx.step
-		p.Elapsed = int32(dateutil.SystemNow() - p.Time)
-		// if err != nil {
-		// 	p.ErrorMessage = err.Error()
-		// 	p.ErrorType = fmt.Sprintf("%d:%s", status, reason)
-		// }
-		if conf.ProfileMethodStackEnabled {
-			p.Stack = stringutil.Truncate(string(debug.Stack()), PACKET_METHOD_STACK_MAX_SIZE)
-		}
-		udpClient.Send(p)
 		return nil
 	}
 
-	return fmt.Errorf("HttpcCtx is nil")
+	if methodCtx != nil && methodCtx.step != nil {
+		elapsed := int32(dateutil.SystemNow() - methodCtx.StartTime)
+		wCtx := trace.GetAgentTraceContext(methodCtx.ctx)
+
+		if conf.ProfileMethodStackEnabled {
+			methodCtx.Stack = string(debug.Stack())
+		}
+		if conf.Debug {
+			log.Println("[WA-METHOD-01001] txid: ", methodCtx.Txid, ", uri: ", methodCtx.ServiceName, "\n method: ", methodCtx.Method, "\n elapsed: ", elapsed, "ms ", "\n error:  ", err)
+		}
+		if st, ok := methodCtx.step.(*step.MethodStepX); ok {
+			agentapi.EndMethod(wCtx, st, "", elapsed, methodCtx.Cpu, methodCtx.Mem, err)
+		}
+
+		CloseMethodContext(methodCtx)
+		return nil
+	}
+
+	return fmt.Errorf("MethodCtx is nil")
 }
 func Trace(ctx context.Context, name string, elapsed int, err error) error {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.ProfileMethodEnabled {
 		return nil
 	}
-	udpClient := whatapnet.GetUdpClient()
+	var txid int64
+	var serviceName string
+	var wCtx *agenttrace.TraceContext
 	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-		if pack := udp.CreatePack(udp.TX_METHOD, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxMethodPack)
-			p.Txid = traceCtx.Txid
-			p.Time = dateutil.SystemNow()
-			p.Elapsed = int32(elapsed)
-			p.Method = stringutil.Truncate(name, HTTP_URI_MAX_SIZE)
-			if conf.ProfileMethodStackEnabled {
-				p.Stack = stringutil.Truncate(string(debug.Stack()), PACKET_METHOD_STACK_MAX_SIZE)
-			}
-			udpClient.Send(p)
+		wCtx = traceCtx.Ctx
+		txid = traceCtx.Txid
+		serviceName = traceCtx.Name
+		if conf.Debug {
+			log.Println("[WA-METHOD-02001] txid: ", txid, ", uri: ", serviceName, "\n method: ", name, "\n elapsed: ", elapsed, "ms ", "\n error:  ", err)
 		}
+
+		agentapi.ProfileMethod(wCtx, dateutil.SystemNow(), name, "", int32(elapsed), 0, 0, err)
+
+		return nil
 	}
 
 	return fmt.Errorf("Not found Txid ")

@@ -6,7 +6,7 @@ import (
 	"database/sql/driver"
 	"sync"
 
-	"github.com/whatap/go-api/config"
+	"github.com/whatap/go-api/agent/agent/config"
 )
 
 var (

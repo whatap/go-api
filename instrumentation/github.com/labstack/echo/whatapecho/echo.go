@@ -7,7 +7,7 @@ import (
 
 	"github.com/labstack/echo"
 
-	"github.com/whatap/go-api/config"
+	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/trace"
 )
 
@@ -69,7 +69,9 @@ func Middleware() echo.MiddlewareFunc {
 				}
 				trace.End(ctx, err)
 				if x != nil {
-					panic(x)
+					if !conf.GoRecoverEnabled {
+						panic(x)
+					}
 				}
 			}()
 			err = next(c)

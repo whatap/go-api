@@ -13,10 +13,12 @@ import (
 	//"runtime/debug"
 	"strings"
 
-	"github.com/whatap/go-api/config"
+	agentconfig "github.com/whatap/go-api/agent/agent/config"
+	agenttrace "github.com/whatap/go-api/agent/agent/trace"
+	agentapi "github.com/whatap/go-api/agent/agent/trace/api"
 	"github.com/whatap/go-api/trace"
-	"github.com/whatap/golib/lang/pack/udp"
-	whatapnet "github.com/whatap/golib/net"
+
+	"github.com/whatap/golib/lang/step"
 	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/golib/util/stringutil"
 )
@@ -52,81 +54,80 @@ const (
 	STEP_ERROR_MESSAGE_MAX_SIZE = 4 * 1024
 )
 
-func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
-	conf := config.GetConfig()
+const (
+	SQL_TYPE_DBC       = 1
+	SQL_TYPE_SQL       = 2
+	SQL_TYPE_SQL_PARAM = 3
+)
+
+func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
-		return NewSqlCtx(), nil
+		return PoolSqlContext(), nil
 	}
-	sqlCtx := NewSqlCtx()
-	if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
-		p := pack.(*udp.UdpTxSqlPack)
-		p.Time = dateutil.SystemNow()
-		p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
-		p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
-		sqlCtx.step = p
-		if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-			traceCtx.ActiveSQL = true
-			sqlCtx.ctx = traceCtx
-			p.Txid = traceCtx.Txid
-		}
+	sqlCtx := PoolSqlContext()
+	var wCtx *agenttrace.TraceContext
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+		sqlCtx.ctx = traceCtx
+		sqlCtx.Txid = traceCtx.Txid
+		sqlCtx.ServiceName = traceCtx.Name
+		wCtx = traceCtx.Ctx
 	}
+	sqlCtx.StartTime = dateutil.SystemNow()
+	sqlCtx.Dbc = hidePwd(dbhost)
+	sqlCtx.Type = SQL_TYPE_DBC
+
+	sqlCtx.step = agentapi.StartDBC(wCtx, sqlCtx.StartTime, sqlCtx.Dbc)
 	return sqlCtx, nil
 }
 
-func StartOpen(ctx context.Context, dbhost string) (*SqlCtx, error) {
-	conf := config.GetConfig()
+func Start(ctx context.Context, dbhost, sql string) (*SqlCtx, error) {
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
-		return NewSqlCtx(), nil
+		return PoolSqlContext(), nil
 	}
-	sqlCtx := NewSqlCtx()
-	if pack := udp.CreatePack(udp.TX_DB_CONN, udp.UDP_PACK_VERSION); pack != nil {
-		p := pack.(*udp.UdpTxDbcPack)
-		p.Time = dateutil.SystemNow()
-		p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
-		sqlCtx.step = p
-		if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-			traceCtx.ActiveDBC = true
-			sqlCtx.ctx = traceCtx
-			p.Txid = traceCtx.Txid
-		}
+	sqlCtx := PoolSqlContext()
+	var wCtx *agenttrace.TraceContext
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+		sqlCtx.ctx = traceCtx
+		sqlCtx.Txid = traceCtx.Txid
+		sqlCtx.ServiceName = traceCtx.Name
+		wCtx = traceCtx.Ctx
 	}
+	sqlCtx.StartTime = dateutil.SystemNow()
+	sqlCtx.Dbc = hidePwd(dbhost)
+	sqlCtx.Sql = sql
+	sqlCtx.Type = SQL_TYPE_SQL
+
+	sqlCtx.step = agentapi.StartSql(wCtx, sqlCtx.StartTime, sqlCtx.Dbc, sqlCtx.Sql, "")
+
 	return sqlCtx, nil
 }
 
 func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{}) (*SqlCtx, error) {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
-		return NewSqlCtx(), nil
+		return PoolSqlContext(), nil
 	}
-	sqlCtx := NewSqlCtx()
+	sqlCtx := PoolSqlContext()
+	var wCtx *agenttrace.TraceContext
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+		sqlCtx.ctx = traceCtx
+		sqlCtx.Txid = traceCtx.Txid
+		sqlCtx.ServiceName = traceCtx.Name
+		wCtx = traceCtx.Ctx
+	}
+	sqlCtx.StartTime = dateutil.SystemNow()
+	sqlCtx.Dbc = hidePwd(dbhost)
+	sqlCtx.Sql = sql
 	if conf.ProfileSqlParamEnabled {
-		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxSqlParamPack)
-			p.Time = dateutil.SystemNow()
-			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
-			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
-			p.Param = paramsToString(param...)
-			sqlCtx.step = p
-			if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-				traceCtx.ActiveSQL = true
-				p.Txid = traceCtx.Txid
-				sqlCtx.ctx = traceCtx
-			}
-		}
+		sqlCtx.Type = SQL_TYPE_SQL
 	} else {
-		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxSqlPack)
-			p.Time = dateutil.SystemNow()
-			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
-			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
-			sqlCtx.step = p
-			if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-				traceCtx.ActiveSQL = true
-				p.Txid = traceCtx.Txid
-				sqlCtx.ctx = traceCtx
-			}
-		}
+		sqlCtx.Type = SQL_TYPE_SQL_PARAM
+		sqlCtx.Param = paramsToString(param...)
 	}
+
+	sqlCtx.step = agentapi.StartSql(wCtx, sqlCtx.StartTime, sqlCtx.Dbc, sqlCtx.Sql, sqlCtx.Param)
 	return sqlCtx, nil
 }
 
@@ -135,7 +136,7 @@ func StartWithParamArray(ctx context.Context, dbhost, sql string, param []interf
 }
 
 func End(sqlCtx *SqlCtx, err error) error {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return nil
 	}
@@ -144,64 +145,34 @@ func End(sqlCtx *SqlCtx, err error) error {
 		if conf.Debug {
 			log.Println("[WA-SQL-04001] End: Error Skip ", err)
 		}
-		return nil
+		//return nil
+		err = nil
 	}
-	udpClient := whatapnet.GetUdpClient()
+
 	if sqlCtx != nil && sqlCtx.step != nil {
-		up := sqlCtx.step
-		switch up.GetPackType() {
-		case udp.TX_DB_CONN:
-			serviceName := ""
-			if sqlCtx.ctx != nil {
-				sqlCtx.ctx.ActiveDBC = false
-				serviceName = sqlCtx.ctx.Name
-			}
-			p := up.(*udp.UdpTxDbcPack)
-			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
-			if err != nil {
-				p.ErrorType = stringutil.Truncate(fmt.Sprintf("%T", err), STEP_ERROR_MESSAGE_MAX_SIZE)
-				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+		elapsed := int32(dateutil.SystemNow() - sqlCtx.StartTime)
+		wCtx := trace.GetAgentTraceContext(sqlCtx.ctx)
+
+		switch sqlCtx.Type {
+		case SQL_TYPE_DBC:
+			//agentapi.ProfileDBC(wCtx, sqlCtx.StartTime, sqlCtx.Dbc, elapsed, sqlCtx.Cpu, sqlCtx.Mem, err)
+			if st, ok := sqlCtx.step.(*step.DBCStep); ok {
+				agentapi.EndDBC(wCtx, st, elapsed, sqlCtx.Cpu, sqlCtx.Mem, err)
 			}
 			if conf.Debug {
-				log.Println("[WA-SQL-04002] Open DB txid: ", p.Txid, ", uri: ", serviceName, "\n dbhost: ", p.Dbc, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
+				log.Println("[WA-SQL-04002] Open DB txid: ", sqlCtx.Txid, ", uri: ", sqlCtx.ServiceName, "\n dbhost: ", sqlCtx.Dbc, "\n time: ", elapsed, "ms ", "\n error: ", err)
 			}
-			udpClient.Send(p)
-
-		case udp.TX_SQL:
-			serviceName := ""
-			if sqlCtx.ctx != nil {
-				sqlCtx.ctx.ActiveSQL = false
-				serviceName = sqlCtx.ctx.Name
-			}
-			p := up.(*udp.UdpTxSqlPack)
-			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
-			if err != nil {
-				p.ErrorType = stringutil.Truncate(fmt.Sprintf("%T", err), STEP_ERROR_MESSAGE_MAX_SIZE)
-				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
+		case SQL_TYPE_SQL, SQL_TYPE_SQL_PARAM:
+			//agentapi.ProfileSql(wCtx, sqlCtx.StartTime, sqlCtx.Dbc, sqlCtx.Sql, elapsed, sqlCtx.Cpu, sqlCtx.Mem, err)
+			if st, ok := sqlCtx.step.(*step.SqlStepX); ok {
+				agentapi.EndSql(wCtx, st, elapsed, sqlCtx.Cpu, sqlCtx.Mem, err)
 			}
 			if conf.Debug {
-				log.Println("[WA-SQL-04003] Sql txid: ", p.Txid, ", uri: ", serviceName, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
+				log.Println("[WA-SQL-04003] Sql txid: ", sqlCtx.Txid, ", uri: ", sqlCtx.ServiceName, "\n dbhost: ", sqlCtx.Dbc, "\n sql: ", sqlCtx.Sql, "\n time: ", elapsed, "ms ", "\n error: ", err)
 			}
-			udpClient.Send(p)
-
-		case udp.TX_SQL_PARAM:
-			serviceName := ""
-			if sqlCtx.ctx != nil {
-				sqlCtx.ctx.ActiveSQL = false
-				serviceName = sqlCtx.ctx.Name
-			}
-			p := up.(*udp.UdpTxSqlParamPack)
-			p.Elapsed = int32(dateutil.SystemNow() - p.Time)
-			if err != nil {
-				p.ErrorType = stringutil.Truncate(fmt.Sprintf("%T", err), STEP_ERROR_MESSAGE_MAX_SIZE)
-				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
-			}
-			if conf.Debug {
-				log.Println("[WA-SQL-04004] Sql, Param txid: ", p.Txid, ", uri: ", serviceName, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n args: ", p.Param, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
-			}
-			udpClient.Send(p)
-
 		}
+
+		CloseSqlContext(sqlCtx)
 		return nil
 	}
 	if conf.Debug {
@@ -211,56 +182,31 @@ func End(sqlCtx *SqlCtx, err error) error {
 }
 
 func Trace(ctx context.Context, dbhost, sql string, param []interface{}, elapsed int, err error) error {
-	conf := config.GetConfig()
+	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return nil
 	}
-	udpClient := whatapnet.GetUdpClient()
+	var txid int64
+	var serviceName string
+	var wCtx *agenttrace.TraceContext
+	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
+		wCtx = traceCtx.Ctx
+		txid = traceCtx.Txid
+		serviceName = traceCtx.Name
+	}
+	sqlParam := paramsToString(param...)
+	dbhost = hidePwd(dbhost)
+	//udpClient := whatapnet.GetUdpClient()
 	if conf.ProfileSqlParamEnabled && (param != nil && len(param) > 0) {
-		if pack := udp.CreatePack(udp.TX_SQL_PARAM, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxSqlParamPack)
-			p.Time = dateutil.SystemNow()
-			p.Elapsed = int32(elapsed)
-			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
-			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
-			if err != nil {
-				p.ErrorType = stringutil.Truncate(fmt.Sprintf("%T", err), STEP_ERROR_MESSAGE_MAX_SIZE)
-				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
-			}
-			p.Param = paramsToString(param...)
-			serviceName := ""
-			if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-				p.Txid = traceCtx.Txid
-				serviceName = traceCtx.Name
-			}
-
-			if conf.Debug {
-				log.Println("[WA-SQL-05001] txid: ", p.Txid, ", uri: ", serviceName, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n args: ", p.Param, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
-			}
-			udpClient.Send(p)
-
+		if conf.Debug {
+			log.Println("[WA-SQL-05001] txid: ", txid, ", uri: ", serviceName, "\n dbhost: ", dbhost, "\n sql: ", sql, "\n args: ", sqlParam, "\n time: ", elapsed, "ms ", "\n error: ", err)
 		}
+		agentapi.ProfileSql(wCtx, dateutil.SystemNow(), dbhost, sql, sqlParam, int32(elapsed), 0, 0, err)
 	} else {
-		if pack := udp.CreatePack(udp.TX_SQL, udp.UDP_PACK_VERSION); pack != nil {
-			p := pack.(*udp.UdpTxSqlPack)
-			p.Time = dateutil.SystemNow()
-			p.Elapsed = int32(elapsed)
-			p.Dbc = stringutil.Truncate(hidePwd(dbhost), PACKET_DB_MAX_SIZE)
-			p.Sql = stringutil.Truncate(sql, PACKET_SQL_MAX_SIZE)
-			if err != nil {
-				p.ErrorType = stringutil.Truncate(fmt.Sprintf("%T", err), STEP_ERROR_MESSAGE_MAX_SIZE)
-				p.ErrorMessage = stringutil.Truncate(err.Error(), STEP_ERROR_MESSAGE_MAX_SIZE)
-			}
-			serviceName := ""
-			if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-				p.Txid = traceCtx.Txid
-				serviceName = traceCtx.Name
-			}
-			if conf.Debug {
-				log.Println("[WA-SQL-05002] txid: ", p.Txid, ", uri: ", serviceName, "\n dbhost: ", p.Dbc, "\n sql: ", p.Sql, "\n time: ", p.Elapsed, "ms ", "\n error: ", err)
-			}
-			udpClient.Send(p)
+		if conf.Debug {
+			log.Println("[WA-SQL-05002] txid: ", txid, ", uri: ", serviceName, "\n dbhost: ", dbhost, "\n sql: ", sql, "\n time: ", int32(elapsed), "ms ", "\n error: ", err)
 		}
+		agentapi.ProfileSql(wCtx, dateutil.SystemNow(), dbhost, sql, "", int32(elapsed), 0, 0, err)
 	}
 	return nil
 }
@@ -312,18 +258,6 @@ func hidePwd(connStr string) string {
 			return fmt.Sprintf("%spassword=#%s", connStr[0:first], (connStr[first:])[last:])
 		}
 	}
-	// var firstCopy []rune
-	// copy(firstCopy, []rune(connStr[first:]))
-	// last := strings.Index(connStr[first:], "@")
-	// if first > -1 && last > -1 && first < last {
-	// 	return fmt.Sprintf("%s:#%s", connStr[0:first], firstCopy[last:])
-	// }
 
-	// first = strings.Index(connStr, "password=")
-	// copy(firstCopy, []rune(connStr[first:]))
-	// last = strings.Index(connStr[first:], " ")
-	// if first > -1 && last > -1 && first < last {
-	// 	return fmt.Sprintf("%spassword=#%s", connStr[0:first], firstCopy[last:])
-	// }
 	return connStr
 }

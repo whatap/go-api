@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/whatap/go-api/config"
+	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/httpc"
 	"github.com/whatap/go-api/trace"
 	"github.com/whatap/golib/util/dateutil"
@@ -82,7 +82,7 @@ func (w *wrapClientStream) TraceStream(div string, callFunc func() error) (err e
 		div = fmt.Sprintf("/%s%s", "StreamClient", div)
 	}
 
-	if w.conf.InArray(w.Method, w.conf.GoGrpcProfileStreamMethod) {
+	if config.InArray(w.Method, w.conf.GoGrpcProfileStreamMethod) {
 		traceCtx, _ := trace.Start(w.ClientStream.Context(), path.Join(div, w.Target, w.Method))
 		err = callFunc()
 		trace.End(traceCtx, err)
@@ -114,7 +114,7 @@ func StreamClientInterceptor() grpc.StreamClientInterceptor {
 		if conf.GoGrpcProfileStreamIdentify {
 			div = fmt.Sprintf("/%s%s", "StreamClient", div)
 		}
-		if conf.InArray(method, conf.GoGrpcProfileStreamMethod) {
+		if config.InArray(method, conf.GoGrpcProfileStreamMethod) {
 			ctx, _ := trace.Start(ctx, path.Join(div, cc.Target(), method))
 			// stream
 			s, err = streamer(ctx, desc, cc, method, opts...)
