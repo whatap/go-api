@@ -806,17 +806,17 @@ func apply() {
 	// conf.QueueUdpProcessSleepCount = getLong("queue_udp_process_sleep_count", 0)
 
 	// TraceMain 에서 SendProfile 처리할 channel, queue 사용, 기본 channel
-	conf.QueueProfileEnabled = getBoolean("queue_profile_enabled", false)
+	conf.QueueProfileEnabled = getBoolean("queue_profile_enabled", true)
 	// profile channel , queue 버퍼 크기
-	conf.QueueProfileSize = getInt("queue_profile_size", 512)
+	conf.QueueProfileSize = getInt("queue_profile_size", 8192)
 	// profile 처리 (ctx를 확인하고 tcp send 처리하는 과정)을 빠르게 하기 위한 스레드 개수 설정
 	conf.QueueProfileProcessThreadCount = getInt("queue_profile_process_thread_count", 1)
 	// conf.QueueProfileProcessSleepTime = getInt("queue_profile_process_sleep_time", 0)
 	// conf.QueueProfileProcessSleepCount = getLong("queue_profile_process_sleep_count", 0)
 
 	// TextPacke channel, queue 사용, 기본 channel
-	conf.QueueTextEnabled = getBoolean("queue_text_enabled", false)
-	conf.QueueTextSize = getInt("queue_text_size", 512)
+	conf.QueueTextEnabled = getBoolean("queue_text_enabled", true)
+	conf.QueueTextSize = getInt("queue_text_size", 4096)
 	conf.QueueTextProcessThreadCount = getInt("queue_text_process_thread_count", 1)
 	// conf.QueueTextProcessSleepTime = getInt("queue_text_process_sleep_time", 1)
 	// conf.QueueTextProcessSleepCount = getLong("queue_text_process_sleep_count", 0)

@@ -1,0 +1,64 @@
+2023/06/21 08:49:36 
+2023/06/21 08:49:36 ## OPEN LOG FILE  boot  20230621 08:49:36.309 ##
+2023/06/21 08:49:36 
+2023/06/21 08:49:36 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 08:49:36 [WA181]  Close TCP connection
+2023/06/21 08:49:36 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 08:49:36 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 08:49:36 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 08:49:36 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 08:52:02 
+2023/06/21 08:52:02 ## OPEN LOG FILE  boot  20230621 08:52:02.414 ##
+2023/06/21 08:52:02 
+2023/06/21 08:52:02 [WA212] fail to load license file
+2023/06/21 08:52:02 [WA811] ERROR crypto/aes: invalid key size 0
+2023/06/21 08:52:02 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 08:52:02 [WA181]  Close TCP connection
+2023/06/21 08:52:02 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 08:52:02 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 08:52:02 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 08:52:02 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:02:27 
+2023/06/21 09:02:27 ## OPEN LOG FILE  boot  20230621 09:02:27.182 ##
+2023/06/21 09:02:27 
+2023/06/21 09:02:27 [WA212] fail to load license file
+2023/06/21 09:02:27 [WA811] ERROR crypto/aes: invalid key size 0
+2023/06/21 09:02:27 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:02:27 [WA181]  Close TCP connection
+2023/06/21 09:02:27 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:02:27 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:02:27 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:02:27 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:04:53 
+2023/06/21 09:04:53 ## OPEN LOG FILE  boot  20230621 09:04:53.340 ##
+2023/06/21 09:04:53 
+2023/06/21 09:04:53 [WA212] fail to load license file
+2023/06/21 09:04:53 [WA811] ERROR crypto/aes: invalid key size 0
+2023/06/21 09:04:53 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:04:53 [WA181]  Close TCP connection
+2023/06/21 09:04:53 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:04:53 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:04:53 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:04:53 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:13:43 
+2023/06/21 09:13:43 ## OPEN LOG FILE  boot  20230621 09:13:43.349 ##
+2023/06/21 09:13:43 
+2023/06/21 09:13:43 [WA212] fail to load license file
+2023/06/21 09:13:43 [WA811] ERROR crypto/aes: invalid key size 0
+2023/06/21 09:13:43 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:13:43 [WA181]  Close TCP connection
+2023/06/21 09:13:43 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:13:43 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:13:43 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:13:43 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:20:23 
+2023/06/21 09:20:23 ## OPEN LOG FILE  boot  20230621 09:20:23.530 ##
+2023/06/21 09:20:23 
+2023/06/21 09:20:23 [WA212] fail to load license file
+2023/06/21 09:20:23 [WA811] ERROR crypto/aes: invalid key size 0
+2023/06/21 09:20:23 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:20:23 [WA181]  Close TCP connection
+2023/06/21 09:20:23 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:20:23 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:20:23 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2023/06/21 09:20:23 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m

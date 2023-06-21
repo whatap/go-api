@@ -395,7 +395,9 @@ func endTx(p *udp.UdpTxEndPack) {
 	if conf.QueueProfileEnabled == false {
 		sendTransactionQue <- ctx
 	} else {
-		profileQueue.PutForce(ctx)
+		if profileQueue != nil {
+			profileQueue.PutForce(ctx)
+		}
 	}
 
 	// DEBUG
@@ -633,7 +635,9 @@ func startEndTx(p *udp.UdpTxStartEndPack) {
 	if conf.QueueProfileEnabled == false {
 		sendTransactionQue <- ctx
 	} else {
-		profileQueue.PutForce(ctx)
+		if profileQueue != nil {
+			profileQueue.PutForce(ctx)
+		}
 	}
 }
 
@@ -1410,6 +1414,8 @@ func SendTransaction(ctx *TraceContext) {
 	if conf.QueueProfileEnabled == false {
 		sendTransactionQue <- ctx
 	} else {
-		profileQueue.PutForce(ctx)
+		if profileQueue != nil {
+			profileQueue.PutForce(ctx)
+		}
 	}
 }

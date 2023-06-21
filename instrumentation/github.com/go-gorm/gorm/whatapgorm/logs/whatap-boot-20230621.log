@@ -1,0 +1,28 @@
+2023/06/21 08:50:09 
+2023/06/21 08:50:09 ## OPEN LOG FILE  boot  20230621 08:50:09.61 ##
+2023/06/21 08:50:09 
+2023/06/21 08:50:09 [WA212] fail to load license file
+2023/06/21 08:50:09 [WA811] ERROR crypto/aes: invalid key size 0
+2023/06/21 08:53:01 
+2023/06/21 08:53:01 ## OPEN LOG FILE  boot  20230621 08:53:01.388 ##
+2023/06/21 08:53:01 
+2023/06/21 08:53:01 [WA212] fail to load license file
+2023/06/21 08:53:01 [WA811] ERROR crypto/aes: invalid key size 0
+2023/06/21 09:02:58 
+2023/06/21 09:02:58 ## OPEN LOG FILE  boot  20230621 09:02:58.899 ##
+2023/06/21 09:02:58 
+2023/06/21 09:02:58 [WA212] fail to load license file
+2023/06/21 09:02:58 [WA811] ERROR crypto/aes: invalid key size 0
+2023/06/21 09:05:52 
+2023/06/21 09:05:52 ## OPEN LOG FILE  boot  20230621 09:05:52.681 ##
+2023/06/21 09:05:52 
+2023/06/21 09:05:52 [WA212] fail to load license file
+2023/06/21 09:05:52 [WA811] ERROR crypto/aes: invalid key size 0
+2023/06/21 09:14:15 
+2023/06/21 09:14:15 ## OPEN LOG FILE  boot  20230621 09:14:15.416 ##
+2023/06/21 09:14:15 
+2023/06/21 09:14:15 [WA811] ERROR crypto/aes: invalid key size 0
+2023/06/21 09:21:37 
+2023/06/21 09:21:37 ## OPEN LOG FILE  boot  20230621 09:21:37.675 ##
+2023/06/21 09:21:37 
+2023/06/21 09:21:37 [WA811] ERROR crypto/aes: invalid key size 0
