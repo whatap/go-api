@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strings"
 
 	agentconfig "github.com/whatap/go-api/agent/agent/config"
@@ -10,6 +11,7 @@ import (
 	"github.com/whatap/go-api/agent/agent/secure"
 	"github.com/whatap/go-api/agent/agent/stat"
 	agenttrace "github.com/whatap/go-api/agent/agent/trace"
+	"github.com/whatap/go-api/agent/util/logutil"
 
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/lang/ref"
@@ -28,6 +30,12 @@ var (
 )
 
 func StartTx(ctx *agenttrace.TraceContext) {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11010", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
+
 	if ctx == nil {
 		return
 	}
@@ -106,6 +114,12 @@ func StartTx(ctx *agenttrace.TraceContext) {
 }
 
 func EndTx(ctx *agenttrace.TraceContext) {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11020", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
+
 	if ctx == nil {
 		return
 	}
@@ -197,6 +211,11 @@ func EndTx(ctx *agenttrace.TraceContext) {
 }
 
 func ProfileMsg(ctx *agenttrace.TraceContext, title, message string, elapsed, value int32) {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11030", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
 	if ctx == nil {
 		return
 	}
@@ -213,6 +232,11 @@ func ProfileMsg(ctx *agenttrace.TraceContext, title, message string, elapsed, va
 }
 
 func ProfileSecureMsg(ctx *agenttrace.TraceContext, title, message string, elapsed, value int32) {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11040", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
 	if ctx == nil {
 		return
 	}
@@ -252,6 +276,11 @@ func ProfileSecureMsg(ctx *agenttrace.TraceContext, title, message string, elaps
 }
 
 func ProfileErrorStep(thr *stat.ErrorThrowable, ctx *agenttrace.TraceContext) {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11050", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
 	conf := agentconfig.GetConfig()
 	if agenttrace.IsIgnoreException(thr) {
 		return
@@ -268,7 +297,11 @@ func ProfileErrorStep(thr *stat.ErrorThrowable, ctx *agenttrace.TraceContext) {
 }
 
 func ProfileError(ctx *agenttrace.TraceContext, err error) {
-
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11060", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
 	thr := stat.NewErrorThrowable()
 	thr.ErrorClassName = fmt.Sprintf("%T", err)
 	thr.ErrorMessage = err.Error()
@@ -317,6 +350,11 @@ func ProfileError(ctx *agenttrace.TraceContext, err error) {
 }
 
 func ErrorToThr(err error) *stat.ErrorThrowable {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11070", " Recover ", r) //, string(debug.Stack()))
+		}
+	}()
 	if err == nil {
 		return nil
 	}

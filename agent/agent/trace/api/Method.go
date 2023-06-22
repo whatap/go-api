@@ -1,11 +1,13 @@
 package api
 
 import (
+	"runtime/debug"
 	"strings"
 
 	agentconfig "github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/data"
 	agenttrace "github.com/whatap/go-api/agent/agent/trace"
+	"github.com/whatap/go-api/agent/util/logutil"
 
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/lang/step"
@@ -13,6 +15,11 @@ import (
 )
 
 func StartMethod(ctx *agenttrace.TraceContext, startTime int64, method string) *step.MethodStepX {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11210", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
 	st := step.NewMethodStepX()
 
 	if !strings.HasSuffix(method, ")") {
@@ -28,6 +35,12 @@ func StartMethod(ctx *agenttrace.TraceContext, startTime int64, method string) *
 	return st
 }
 func EndMethod(ctx *agenttrace.TraceContext, st *step.MethodStepX, methodStack string, elapsed int32, cpu, mem int64, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11220", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
+
 	if ctx == nil || st == nil {
 		return
 	}
@@ -48,38 +61,11 @@ func EndMethod(ctx *agenttrace.TraceContext, st *step.MethodStepX, methodStack s
 }
 
 func ProfileMethod(ctx *agenttrace.TraceContext, startTime int64, method, methodStack string, elapsed int32, cpu, mem int64, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11230", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
 	st := StartMethod(ctx, startTime, method)
 	EndMethod(ctx, st, methodStack, elapsed, cpu, mem, err)
 }
-
-// func ProfileMethod1(ctx *agenttrace.TraceContext, startTime int64, method, methodStack string, elapsed int32, cpu, mem int64, err error) {
-// 	// ctx interface 변환 전에 먼저 nil 체크, 기존 panic 보완
-// 	if ctx == nil {
-// 		return
-// 	}
-
-// 	conf := agentconfig.GetConfig()
-// 	st := step.NewMethodStepX()
-
-// 	if !strings.HasSuffix(method, ")") {
-// 		method = method + "()"
-// 	}
-
-// 	st.Hash = hash.HashStr(method)
-// 	data.SendHashText(pack.TEXT_METHOD, st.Hash, method)
-
-// 	st.StartTime = int32(startTime - ctx.StartTime)
-// 	st.Elapsed = elapsed
-
-// 	if conf.ProfileMethodResourceEnabled {
-// 		st.SetTrue(1)
-// 		st.StartCpu = int32(cpu)
-// 		st.StartMem = int32(mem)
-// 	}
-
-// 	if methodStack != "" {
-// 		st.SetTrue(2)
-// 		st.Stack = agenttrace.StackToArray(methodStack)
-// 	}
-// 	ctx.Profile.Add(st)
-// }

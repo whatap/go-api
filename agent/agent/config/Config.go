@@ -560,8 +560,6 @@ func GetConfig() *Config {
 		return conf
 	}
 	conf = new(Config)
-	//init
-	prop = properties.NewProperties()
 
 	// GetConfig 이 main() 보다 먼저 호출되는 경우 -t 옵션으로 APP_TYPE을 설정.
 	argsAppType := ""
@@ -615,6 +613,10 @@ func GetConfig() *Config {
 	if conf.AppType == lang.APP_TYPE_BSM_PHP || conf.AppType == lang.APP_TYPE_BSM_PYTHON || conf.AppType == lang.APP_TYPE_BSM_DOTNET {
 		logutil.SetLogID("opsnowbsm")
 	}
+
+	//init
+	prop = properties.NewProperties()
+	apply()
 
 	reload()
 	go run()
@@ -1716,6 +1718,10 @@ func toStringSet(key, def string) *hmap.StringSet {
 }
 
 func IsIgnoreTrace(hash int32, service string) bool {
+	if conf.TraceIgnoreUrlSet == nil {
+		return false
+	}
+
 	if conf.TraceIgnoreUrlSet.Contains(hash) {
 		return true
 	}

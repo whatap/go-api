@@ -1,11 +1,14 @@
 package api
 
 import (
+	"runtime/debug"
+
 	agentconfig "github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/counter/meter"
 	"github.com/whatap/go-api/agent/agent/data"
 	"github.com/whatap/go-api/agent/agent/stat"
 	agenttrace "github.com/whatap/go-api/agent/agent/trace"
+	"github.com/whatap/go-api/agent/util/logutil"
 
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/lang/step"
@@ -14,6 +17,11 @@ import (
 )
 
 func StartHttpc(ctx *agenttrace.TraceContext, startTime int64, url string) *step.HttpcStepX {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11310", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
 	st := step.NewHttpcStepX()
 
 	HttpcURL := urlutil.NewURL(url)
@@ -33,6 +41,11 @@ func StartHttpc(ctx *agenttrace.TraceContext, startTime int64, url string) *step
 }
 
 func EndHttpc(ctx *agenttrace.TraceContext, st *step.HttpcStepX, elapsed int32, status int32, reason string, cpu, mem, mcallee int64, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11320", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
 	if st == nil {
 		return
 	}
@@ -82,11 +95,21 @@ func EndHttpc(ctx *agenttrace.TraceContext, st *step.HttpcStepX, elapsed int32, 
 }
 
 func ProfileHttpc(ctx *agenttrace.TraceContext, startTime int64, url string, elapsed int32, status int32, reason string, cpu, mem, mcallee int64, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11330", " Recover ", r, "/n", string(debug.Stack()))
+		}
+	}()
 	st := StartHttpc(ctx, startTime, url)
 	EndHttpc(ctx, st, elapsed, status, reason, cpu, mem, mcallee, err)
 }
 
 func ProfileHttpc1(ctx *agenttrace.TraceContext, startTime int64, url string, elapsed int32, status int32, reason string, cpu, mem, mcallee int64, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA-API11340", " Recover ", r) //, string(debug.Stack()))
+		}
+	}()
 	conf := agentconfig.GetConfig()
 	st := step.NewHttpcStepX()
 
