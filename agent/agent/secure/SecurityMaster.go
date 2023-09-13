@@ -85,6 +85,7 @@ func UpdateNetCypherKey(data []byte) {
 	if conf.CypherLevel > 0 {
 		data = GetSecurityMaster().Cypher.Decrypt(data)
 	}
+	
 	in := io.NewDataInputX(data)
 	session.TRANSFER_KEY = in.ReadInt()
 	session.SECURE_KEY = in.ReadBlob()

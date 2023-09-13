@@ -4,8 +4,8 @@ import (
 	"sort"
 	"sync"
 
+	// "github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/golib/lang/step"
-	"github.com/whatap/go-api/agent/agent/config"
 )
 
 type ProfileCollector struct {
@@ -20,20 +20,20 @@ type ProfileCollector struct {
 	mutex      sync.Mutex
 }
 
-func NewProfileCollector() *ProfileCollector {
-	p := new(ProfileCollector)
+// func NewProfileCollector() *ProfileCollector {
+// 	p := new(ProfileCollector)
 
-	conf := config.GetConfig()
-	p.buffer = make([]step.Step, 0, conf.ProfileStepMaxCount)
-	p.position = 0
-	p.parent_index = -1
-	p.buffer_len = conf.ProfileStepMaxCount
-	p.normal_len = conf.ProfileStepNormalCount
-	p.heavy_len = conf.ProfileStepHeavyCount
-	p.heavy_time = conf.ProfileStepHeavyTime
+// 	conf := config.GetConfig()
+// 	p.buffer = make([]step.Step, 0, conf.ProfileStepMaxCount)
+// 	p.position = 0
+// 	p.parent_index = -1
+// 	p.buffer_len = conf.ProfileStepMaxCount
+// 	p.normal_len = conf.ProfileStepNormalCount
+// 	p.heavy_len = conf.ProfileStepHeavyCount
+// 	p.heavy_time = conf.ProfileStepHeavyTime
 
-	return p
-}
+// 	return p
+// }
 
 //func (this *ProfileCollector) HasStep() bool {
 //	return (this.position > 0)

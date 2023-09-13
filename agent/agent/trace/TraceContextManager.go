@@ -188,11 +188,9 @@ func startTx(p *udp.UdpTxStartPack) {
 	}
 
 	// 특정 url 에 대해서 http method를 판단해서 수집 제외 여부를 판단합니다.
-	if stringutil.InArray(normalizeServiceName, conf.IgnoreHttpMethodUrls) || stringutil.InArray(p.ServiceURL.Path, conf.IgnoreHttpMethodUrls) {
-		if stringutil.InArray(p.HttpMethod, conf.IgnoreHttpMethod) {
-			//logutil.Println("WA560-02", "Ignore Http method  ", p.HttpMethod, ",", normalizeServiceName, ",", p.ServiceURL.Path)
-			return
-		}
+	if stringutil.InArray(p.HttpMethod, conf.IgnoreHttpMethod) {
+		//logutil.Println("WA560-02", "Ignore Http method  ", p.HttpMethod, ",", normalizeServiceName, ",", p.ServiceURL.Path)
+		return
 	}
 
 	// Http ServiceName을 기존 URI에서 HOST를 포함한 형식으로 출력   /HOST/URI , Default false
@@ -386,7 +384,7 @@ func endTx(p *udp.UdpTxEndPack) {
 		tx.HttpMethod = service.WebMethodName[ctx.HttpMethod]
 	}
 
-	tx.Fields = ctx.GetFields()
+	tx.Fields = ctx.ExtraFields()
 
 	// ctx를 보내고 싶지만, import cycle 오류 발생.
 	meter.GetInstanceMeterService().Add(tx, ctx.McallerPcode, ctx.McallerOkind, ctx.McallerOid)
@@ -451,11 +449,9 @@ func startEndTx(p *udp.UdpTxStartEndPack) {
 		addMessage(ctx, 0, 0, "OriginURL", "", p.ServiceURL.Path, 0, false)
 	}
 	// 특정 url 에 대해서 http method를 판단해서 수집 제외 여부를 판단합니다.
-	if config.InArray(normalizeServiceName, conf.IgnoreHttpMethodUrls) || config.InArray(p.ServiceURL.Path, conf.IgnoreHttpMethodUrls) {
-		if config.InArray(p.HttpMethod, conf.IgnoreHttpMethod) {
-			//logutil.Println("WA560-03", "Ignore Http method  ", p.HttpMethod, ",", normalizeServiceName, ",", p.ServiceURL.Path)
-			return
-		}
+	if config.InArray(p.HttpMethod, conf.IgnoreHttpMethod) {
+		//logutil.Println("WA560-03", "Ignore Http method  ", p.HttpMethod, ",", normalizeServiceName, ",", p.ServiceURL.Path)
+		return
 	}
 	// Http ServiceName을 기존 URI에서 HOST를 포함한 형식으로 출력   /HOST/URI , Default false
 	// 위에서 결정된 ServiceURL 에 /HOST 추가
@@ -626,7 +622,7 @@ func startEndTx(p *udp.UdpTxStartEndPack) {
 		tx.HttpMethod = service.WebMethodName[ctx.HttpMethod]
 	}
 
-	tx.Fields = ctx.GetFields()
+	tx.Fields = ctx.ExtraFields()
 
 	// ctx를 보내고 싶지만, import cycle 오류 발생.
 	meter.GetInstanceMeterService().Add(tx, ctx.McallerPcode, ctx.McallerOkind, ctx.McallerOid)

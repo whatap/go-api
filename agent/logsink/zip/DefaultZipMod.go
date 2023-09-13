@@ -3,6 +3,7 @@ package zip
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io/ioutil"
 )
 
@@ -18,19 +19,23 @@ func (this *DefaultZipMod) ID() byte {
 	return ZIP_MOD_DEFULAT_GZIP
 }
 
-func (this *DefaultZipMod) Compress(in []byte) ([]byte, error) {
+func (this *DefaultZipMod) Compress(in []byte) (output []byte, err error) {
+	if in == nil {
+		err = fmt.Errorf("error input data is nil ")
+		return
+	}
 	buf := new(bytes.Buffer)
-	func() {
-		gz := gzip.NewWriter(buf)
-		defer gz.Close()
 
-		_, err := gz.Write(in)
-		if err != nil {
-			panic(err)
-		}
-	}()
+	gz := gzip.NewWriter(buf)
+	gz.Write(in)
+	gz.Flush()
 
-	return buf.Bytes(), nil
+	// gz.Close 가 호출 되어야만 buf.Bytes 내용이 정상 출력 됨
+	err = gz.Close()
+	if err == nil {
+		output = buf.Bytes()
+	}
+	return
 }
 
 func (this *DefaultZipMod) Decompress(in []byte) ([]byte, error) {

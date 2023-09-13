@@ -137,6 +137,7 @@ type Config struct {
 	NetSendQueue1Size  int32
 	NetSendQueue2Size  int32
 
+	NetUdpHost      string
 	NetUdpPort      int32
 	NetUdpReadBytes int32
 
@@ -500,8 +501,7 @@ type Config struct {
 	NvidiasmiEnabled bool
 	PidLockEnabled   bool
 
-	IgnoreHttpMethodUrls []string
-	IgnoreHttpMethod     []string
+	IgnoreHttpMethod []string
 
 	//	// LogSink
 	//	WatchLogEnabled       bool
@@ -546,6 +546,8 @@ type Config struct {
 
 	// Fowarder
 	ConfFowarder
+
+	ConfTrace
 }
 
 var conf *Config = nil
@@ -909,6 +911,7 @@ func apply() {
 
 	conf.NetWriteLockEnabled = getBoolean("net_write_lock_enabled", true)
 
+	conf.NetUdpHost = getValueDef("net_udp_host", "127.0.0.1")
 	conf.NetUdpPort = getInt("net_udp_port", 6600)
 	conf.NetUdpReadBytes = getInt("net_udp_read_bytes", 2*1024*1024)
 	conf.UdpFlushStart = getBoolean("net_udp_flush_start", true)
@@ -1325,8 +1328,7 @@ func apply() {
 	conf.PidLockEnabled = getBoolean("pidlock_enabled", false)
 
 	//
-	conf.IgnoreHttpMethodUrls = getStringArray("ignore_http_method_urls", ",")
-	conf.IgnoreHttpMethod = getStringArray("ignore_http_method", ",")
+	conf.IgnoreHttpMethod = getStringArrayDef("ignore_http_method", ",", "PATCH, OPTIONS, HEAD, TRACE")
 
 	// LogSink
 	conf.ConfLogSink.Apply(conf)
@@ -1346,6 +1348,7 @@ func apply() {
 	// Fowarder
 	conf.ConfFowarder.Apply(conf)
 
+	conf.ConfTrace.Apply(conf)
 }
 func GetValue(key string) string { return getValue(key) }
 func getValue(key string) string {
@@ -1486,8 +1489,23 @@ func getLong(key string, def int64) int64 {
 func GetStringArray(key string, deli string) []string {
 	return getStringArray(key, deli)
 }
+
 func getStringArray(key string, deli string) []string {
 	v := getValue(key)
+	if v == "" {
+		return []string{}
+	}
+	tokens := stringutil.Tokenizer(v, deli)
+	// trim Space
+	trimTokens := make([]string, 0)
+	for _, v := range tokens {
+		trimTokens = append(trimTokens, strings.TrimSpace(v))
+	}
+	return trimTokens
+}
+
+func getStringArrayDef(key string, deli string, def string) []string {
+	v := getValueDef(key, def)
 	if v == "" {
 		return []string{}
 	}

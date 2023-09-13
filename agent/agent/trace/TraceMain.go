@@ -11,6 +11,11 @@ import (
 	"time"
 
 	//	"github.com/whatap/go-api/agent/agent/counter/meter"
+	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/go-api/agent/agent/data"
+	"github.com/whatap/go-api/agent/agent/secure"
+	"github.com/whatap/go-api/agent/agent/stat"
+	"github.com/whatap/go-api/agent/util/logutil"
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/lang/service"
 	"github.com/whatap/golib/util/bitutil"
@@ -18,11 +23,6 @@ import (
 	"github.com/whatap/golib/util/hash"
 	"github.com/whatap/golib/util/queue"
 	"github.com/whatap/golib/util/stringutil"
-	"github.com/whatap/go-api/agent/agent/config"
-	"github.com/whatap/go-api/agent/agent/data"
-	"github.com/whatap/go-api/agent/agent/secure"
-	"github.com/whatap/go-api/agent/agent/stat"
-	"github.com/whatap/go-api/agent/util/logutil"
 )
 
 // SQL 일반화 ParsedSQL (Java TraceSQL) 의 해시를 reset
@@ -188,7 +188,7 @@ func process() {
 		tx.HttpMethod = service.WebMethodName[ctx.HttpMethod]
 	}
 
-	tx.Fields = ctx.GetFields()
+	tx.Fields = ctx.ExtraFields()
 
 	// 2021.06.28 StatTx 관련 apdex 추가
 	err := (tx.ErrorLevel >= pack.WARNING)
@@ -426,11 +426,19 @@ func SendProfile(ctx *TraceContext, profile *pack.ProfilePack, rejected bool) {
 
 	steps := ctx.Profile.GetSteps()
 
+	// add splitcount 202.07.20
+	transaction.StepSplitCount = ctx.Profile.GetSplitCount()
 	transaction.Active = ctx.ProfileActive > 0
 	profile.SetProfile(steps)
 	// profile 우선순위 낮게 처리
 	//data.Send(profile)
-	data.SendProfile(profile)
+	// data.SendProfile(profile)
+
+	if conf.TraceZipEnabled {
+		GetInstanceZipProfileThread().Add(profile)
+	} else {
+		data.SendProfile(profile)
+	}
 }
 
 // SQL 일반화 ParsedSQL (Java TraceSQL) 의 해시를 reset

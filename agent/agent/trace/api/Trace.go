@@ -60,10 +60,8 @@ func StartTx(ctx *agenttrace.TraceContext) {
 		agenttrace.AddMessage(ctx, 0, 0, "OriginURL", "", ctx.ServiceURL.Path, 0, false)
 	}
 
-	if stringutil.InArray(normalizeServiceName, conf.IgnoreHttpMethodUrls) || stringutil.InArray(ctx.ServiceURL.Path, conf.IgnoreHttpMethodUrls) {
-		if stringutil.InArray(ctx.HttpMethod, conf.IgnoreHttpMethod) {
-			return
-		}
+	if stringutil.InArray(ctx.HttpMethod, conf.IgnoreHttpMethod) {
+		return
 	}
 
 	if conf.ProfileHttpHostEnabled {
@@ -202,7 +200,7 @@ func EndTx(ctx *agenttrace.TraceContext) {
 		tx.HttpMethod = service.WebMethodName[ctx.HttpMethod]
 	}
 
-	tx.Fields = ctx.GetFields()
+	tx.Fields = ctx.ExtraFields()
 
 	// ctx를 보내고 싶지만, import cycle 오류 발생.
 	meter.GetInstanceMeterService().Add(tx, ctx.McallerPcode, ctx.McallerOkind, ctx.McallerOid)

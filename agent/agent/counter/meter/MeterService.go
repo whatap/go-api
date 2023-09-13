@@ -1,6 +1,8 @@
 package meter
 
 import (
+	"sync"
+
 	"github.com/whatap/go-api/agent/agent/alert"
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/golib/lang"
@@ -49,6 +51,10 @@ func (this *MeterService) GetAndResetBucket() *HitBucket {
 	return b
 }
 
+func (this *MeterService) AddVirtualTx(tx *service.TxRecord) {
+	this.Bucket.Hitmap.Add(int(tx.Elapsed), tx.ErrorLevel >= pack.WARNING)
+}
+
 // func (this *MeterService) Add(serviceHash int32, elapsed int32, err bool, mCallerPcode int64, mCallerOkind int32, mCallerOid int32) {
 // func (this *MeterService) Add(serviceHash int32, elapsed int32, err bool, errLevel byte, mCallerPcode int64, mCallerOkind int32, mCallerOid int32) {
 func (this *MeterService) Add(tx *service.TxRecord, mCallerPcode int64, mCallerOkind int32, mCallerOid int32) {
@@ -57,7 +63,10 @@ func (this *MeterService) Add(tx *service.TxRecord, mCallerPcode int64, mCallerO
 	if tx.Elapsed < 0 {
 		tx.Elapsed = 0
 	}
-	this.Bucket.Count++
+	//this.Bucket.Count++
+	// sync, instead of atomic
+	this.Bucket.GetAndIncrement()
+
 	this.Bucket.Timesum += int64(tx.Elapsed)
 	this.Bucket.DbcSum += int64(tx.DbcTime)
 	this.Bucket.SqlSum += int64(tx.SqlTime)
@@ -200,12 +209,21 @@ type HitBucket struct {
 	LastVerOverStart   int64
 	LastHorizEvent     int64
 	LastHorizOverStart int64
+
+	lock sync.Mutex
 }
 
 func NewHitBucket() *HitBucket {
 	p := &HitBucket{}
 	p.Hitmap = pack.NewHitMapPack1()
 	return p
+}
+
+func (this *HitBucket) GetAndIncrement() int32 {
+	this.lock.Lock()
+	defer this.lock.Unlock()
+	this.Count++
+	return this.Count
 }
 
 func (this *HitBucket) Reset() {

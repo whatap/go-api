@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/whatap/go-api/agent/agent/config"
-	"github.com/whatap/go-api/agent/agent/stat"
-	"github.com/whatap/golib/lang/service"
 	"github.com/whatap/golib/lang/step"
+	"github.com/whatap/golib/lang/value"
+	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/golib/util/hexa32"
 	"github.com/whatap/golib/util/urlutil"
-	//"github.com/whatap/go-api/agent/util/logutil"
+
+	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/go-api/agent/agent/stat"
 )
 
 type TraceContext struct {
@@ -40,7 +41,8 @@ type TraceContext struct {
 	CallerSeq int64
 
 	// *ProfileCollector
-	Profile *ProfileCollector
+	// Profile *ProfileCollector
+	Profile IProfileCollector
 
 	// int64
 	StartCpu int64
@@ -200,7 +202,8 @@ type TraceContext struct {
 	McallerOkind   int32
 	McallerPoidKey string
 
-	Fields []*service.FIELD
+	//Fields []*service.FIELD
+	Fields *value.MapValue
 
 	//PoolNewInstance string
 }
@@ -213,7 +216,7 @@ var ctxPool = sync.Pool{
 
 func NewTraceContext() *TraceContext {
 	p := new(TraceContext)
-	p.Profile = NewProfileCollector()
+	p.Profile = NewProfileCollector(conf.InternalTraceCollectingMode, p)
 	//p.PoolNewInstance = "new"
 	return p
 }
@@ -258,7 +261,7 @@ func (this *TraceContext) Clear() {
 	this.CallerSeq = 0
 
 	// *ProfileCollector
-	this.Profile = NewProfileCollector()
+	this.Profile = NewProfileCollector(conf.InternalTraceCollectingMode, this)
 
 	// int64
 	this.StartCpu = 0
@@ -419,22 +422,46 @@ func (this *TraceContext) Clear() {
 
 	this.Fields = nil
 }
-func (this *TraceContext) Add(id int, value string) {
+
+// func (this *TraceContext) Add(id int, value string) {
+// 	if this.Fields == nil {
+// 		this.Fields = make([]*service.FIELD, 0)
+// 	}
+// 	f := service.NewFIELD()
+// 	f.Id = byte(id)
+// 	f.Value = value
+// 	this.Fields = append(this.Fields, f)
+// }
+// func (this *TraceContext) GetFields() []*service.FIELD {
+// 	if this.Fields == nil {
+// 		return nil
+// 	}
+// 	out := make([]*service.FIELD, 0)
+// 	out = append(out, this.Fields...)
+// 	return out
+// }
+
+func (this *TraceContext) SetExtraField(key string, val value.Value) {
 	if this.Fields == nil {
-		this.Fields = make([]*service.FIELD, 0)
+		this.Fields = value.NewMapValue()
 	}
-	f := service.NewFIELD()
-	f.Id = byte(id)
-	f.Value = value
-	this.Fields = append(this.Fields, f)
+	this.Fields.Put(key, val)
 }
-func (this *TraceContext) GetFields() []*service.FIELD {
+func (this *TraceContext) GetExtraField(key string) value.Value {
 	if this.Fields == nil {
-		return nil
+		this.Fields = value.NewMapValue()
 	}
-	out := make([]*service.FIELD, 0)
-	out = append(out, this.Fields...)
-	return out
+	return this.Fields.Get(key)
+}
+func (this *TraceContext) ExtraFields() *value.MapValue {
+	if this.Fields == nil {
+		this.Fields = value.NewMapValue()
+	}
+	return this.Fields
+}
+
+func (this *TraceContext) GetElapsedTime() int {
+	return int(dateutil.SystemNow() - this.StartTime)
 }
 
 var transferPoid string
