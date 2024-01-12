@@ -3,15 +3,16 @@ package zip
 import (
 	"bytes"
 	"fmt"
+	"sync"
+
+	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/go-api/agent/agent/data"
+	"github.com/whatap/go-api/agent/util/logutil"
 	"github.com/whatap/golib/io"
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/util/ansi"
 	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/golib/util/queue"
-	"github.com/whatap/go-api/agent/agent/config"
-	"github.com/whatap/go-api/agent/agent/data"
-	"github.com/whatap/go-api/agent/util/logutil"
-	"sync"
 )
 
 type ZipSendProxyThread struct {
@@ -91,13 +92,13 @@ func (this *ZipSendProxyThread) sendAndClear() {
 
 	p := pack.NewZipPack()
 	p.Time = dateutil.SystemNow()
-	p.RecountCount = this.packCount
+	p.RecordCount = this.packCount
 	p.Records = this.buffer.Bytes()
 
 	this.doZip(p)
 	if ConfLogSink.DebugLogSinkZipEnabled {
 		logutil.Println("WA-LOGS-102", fmt.Sprintln("LogSink ",
-			ansi.Green(fmt.Sprintln("Zip status=", p.Status, " records=", p.RecountCount, " | ",
+			ansi.Green(fmt.Sprintln("Zip status=", p.Status, " records=", p.RecordCount, " | ",
 				this.buffer.Len(), "=>", len(p.Records)))))
 	}
 

@@ -148,6 +148,7 @@ func process() {
 	tx.Mtid = ctx.Mtid
 	tx.Mdepth = ctx.Mdepth
 	tx.Mcaller = ctx.McallerTxid
+	tx.McallerStepId = ctx.McallerStepId
 
 	tx.Cipher = secure.GetParamSecurity().KeyHash
 
@@ -467,7 +468,7 @@ func resetTraceSQL() {
 }
 
 func getDate() int64 {
-	return dateutil.Now() / dateutil.MILLIS_PER_DAY
+	return dateutil.Now() / dateutil.MILLIS_PER_HOUR
 }
 
 func IsBizException(ex *stat.ErrorThrowable) bool {

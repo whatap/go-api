@@ -3,12 +3,13 @@ package counter
 import (
 	//"log"
 
-	"github.com/whatap/golib/lang"
-	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/secure"
 	"github.com/whatap/go-api/agent/util/logutil"
 	"github.com/whatap/go-api/agent/util/sys"
+	"github.com/whatap/golib/lang"
+	"github.com/whatap/golib/lang/pack"
+	"github.com/whatap/golib/util/hash"
 )
 
 type TaskSystemPerf struct {
@@ -143,7 +144,14 @@ func (this *TaskSystemPerf) process(p *pack.CounterPack1) {
 	// CPU CORE
 	//p.cpu_cores = Runtime.getRuntime().availableProcessors();
 	p.CpuCores = int32(sys.GetCPUNum())
-	p.HostIp = secure.GetSecurityMaster().IP
+
+	// 2023.11.17 In linux, metering information is based on product uuid instead of client.LocalAddr.
+	secu := secure.GetSecurityMaster()
+	if secu.MeterIP != "" {
+		p.HostIp = hash.HashStr(secu.MeterIP)
+	} else {
+		p.HostIp = secu.IP
+	}
 
 	//fmt.Println("TaskSystemPref p.Cpu=", p.Cpu, ",p.CpuSys=" , p.CpuSys, ",p.CpuUsr=" , p.CpuUsr, ",p.CpuWait=" ,
 	//	p.CpuWait, ",p.CpuSteal=" , p.CpuSteal, ",p.CpuIrq=" , p.CpuIrq, ",p.CpuProc=" , p.CpuProc, ",p.Disk=" ,

@@ -202,7 +202,7 @@ type Config struct {
 
 	ProfileSqlResourceEnabled    bool
 	ProfileMethodResourceEnabled bool // TODO: MethodStep에서 사용 됨
-	ProfileHttpcResourceEnabbled bool
+	ProfileHttpcResourceEnabled  bool
 
 	ProfilePositionSqlHash    int32  // TODO
 	ProfilePositionHttpcHash  int32  // TODO
@@ -302,16 +302,17 @@ type Config struct {
 
 	ErrorSnapEnabled bool
 
-	MtraceEnabled           bool
-	MtraceAutoInjectEnabled bool
-	MtraceRate              int32
-	MtraceCalleeTxidEnabled bool
-	TraceMtraceCallerKey    string
-	TraceMtraceCalleeKey    string
-	TraceMtraceInfoKey      string
-	TraceMtracePoidKey      string
-	TraceMtraceSpecKey      string
-	TraceMtraceSpecKey1     string
+	MtraceEnabled             bool
+	MtraceAutoInjectEnabled   bool
+	MtraceRate                int32
+	MtraceCalleeTxidEnabled   bool
+	TraceMtraceCallerKey      string
+	TraceMtraceCalleeKey      string
+	TraceMtraceInfoKey        string
+	TraceMtracePoidKey        string
+	TraceMtraceSpecKey        string
+	TraceMtraceSpecKey1       string
+	TraceMtraceTraceparentKey string
 
 	MtraceSendUrlLength int32
 	MtraceSpec          string
@@ -963,7 +964,7 @@ func apply() {
 	conf.ProfileSqlCommentEnabled = getBoolean("profile_sql_comment_enabled", false)
 
 	conf.ProfileMethodResourceEnabled = getBoolean("profile_method_resource_enabled", false)
-	conf.ProfileHttpcResourceEnabbled = getBoolean("profile_httpc_resource_enabled", false)
+	conf.ProfileHttpcResourceEnabled = getBoolean("profile_httpc_resource_enabled", false)
 
 	// ProfilePositionxxxx ~ TODO: java참고
 	conf.ProfilePositionSqlHash = getInt("_profile_position_sql_hash", 0)
@@ -1008,7 +1009,7 @@ func apply() {
 	}
 
 	conf.TraceHttpClientIpHeaderKeyEnabled = getBoolean("trace_http_client_ip_header_key_enabled", true)
-	conf.TraceHttpClientIpHeaderKey = getValue("trace_http_client_ip_header_key")
+	conf.TraceHttpClientIpHeaderKey = getValueDef("trace_http_client_ip_header_key", "X-Forwarded-For")
 
 	conf.TraceAutoTransactionEnabled = getBoolean("trace_auto_transaction_enabled", false)
 	conf.TraceAutoTransactionBackstackEnabled = getBoolean("trace_auto_transaction_backstack_enabled", true)
@@ -1095,6 +1096,7 @@ func apply() {
 	conf.TraceMtracePoidKey = getValueDef("mtrace_poid_key", "x-wtap-po")
 	conf.TraceMtraceSpecKey = getValueDef("mtrace_spec_key", "x-wtap-sp")
 	conf.TraceMtraceSpecKey1 = getValueDef("mtrace_spec_key1", "x-wtap-sp1")
+	conf.TraceMtraceTraceparentKey = getValueDef("mtrace_traceparent_key", "traceparent")
 	conf.MtraceSendUrlLength = getInt("mtrace_send_url_length", 80)
 	conf.MtraceSpec = getValueDef("mtrace_spec", "")
 	if conf.MtraceSpec == "" {
@@ -1357,6 +1359,7 @@ func getValue(key string) string {
 			fmt.Println("getvalue recover ", r, ", \n", string(debug.Stack()))
 		}
 	}()
+	envVal := os.Getenv(key)
 
 	//php prefix whatap.
 	if conf.AppType == lang.APP_TYPE_PHP {
@@ -1371,7 +1374,7 @@ func getValue(key string) string {
 
 	value, ok := prop.Get(key)
 	if ok == false {
-		return os.Getenv(key)
+		return envVal
 	}
 
 	return strings.TrimSpace(value)

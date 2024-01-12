@@ -1,4 +1,4 @@
-//github.com/whatap/go-api/trace
+// github.com/whatap/go-api/trace
 package trace
 
 import (
@@ -52,6 +52,7 @@ type TraceCtx struct {
 
 	MTid        int64
 	MDepth      int32
+	MStepId     int64
 	MCallerTxid int64
 
 	MCallee     int64
@@ -60,10 +61,15 @@ type TraceCtx struct {
 
 	MCallerPoidKey string
 
-	TraceMtraceCallerValue string
-	TraceMtracePoidValue   string
-	TraceMtraceSpecValue   string
-	TraceMtraceMcallee     int64
+	MCallerStepId int64
+	// traceparent traceid
+	MCallerTraceId string
+
+	TraceMtraceCallerValue      string
+	TraceMtracePoidValue        string
+	TraceMtraceSpecValue        string
+	TraceMtraceMcallee          int64
+	TraceMtraceTraceparentValue string
 }
 
 var ctxPool = sync.Pool{
@@ -119,9 +125,12 @@ func (this *TraceCtx) Clear() {
 	this.MCallerUrl = ""
 
 	this.MCallerPoidKey = ""
+	this.MCallerStepId = 0
+	this.MCallerTraceId = ""
 
 	this.TraceMtraceCallerValue = ""
 	this.TraceMtracePoidValue = ""
 	this.TraceMtraceSpecValue = ""
 	this.TraceMtraceMcallee = 0
+	this.TraceMtraceTraceparentValue = ""
 }

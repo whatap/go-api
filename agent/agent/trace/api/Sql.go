@@ -148,8 +148,8 @@ func EndSql(ctx *agenttrace.TraceContext, st *step.SqlStepX, elapsed int32, cpu,
 	}
 
 	if conf.ProfileSqlResourceEnabled {
-		st.StartCpu = int32(cpu)
-		st.StartMem = mem
+		st.StartCpu = int32(cpu - ctx.StartCpu)
+		st.StartMem = int64(mem - ctx.StartMalloc)
 	}
 
 	if thr != nil {
@@ -239,8 +239,8 @@ func ProfileSql1(ctx *agenttrace.TraceContext, startTime int64, dbhost, sql, sql
 	}
 
 	if conf.ProfileSqlResourceEnabled {
-		st.StartCpu = int32(cpu)
-		st.StartMem = mem
+		st.StartCpu = int32(cpu - ctx.StartCpu)
+		st.StartMem = int64(mem - ctx.StartMalloc)
 	}
 
 	if thr != nil {

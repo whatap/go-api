@@ -38,13 +38,13 @@ func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err
 	}
 	ctx := req.Context()
 	wCtx := selectContext(ctx, this.ctx)
-	httpcCtx, _ := httpc.Start(wCtx, req.URL.String())
 	if conf.MtraceEnabled {
 		headers := trace.GetMTrace(wCtx)
 		for key, _ := range headers {
 			req.Header.Add(key, headers.Get(key))
 		}
 	}
+	httpcCtx, _ := httpc.Start(wCtx, req.URL.String())
 	res, err = this.transport.RoundTrip(req)
 	if res != nil {
 		httpc.End(httpcCtx, res.StatusCode, "", err)

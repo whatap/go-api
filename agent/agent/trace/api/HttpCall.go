@@ -40,7 +40,7 @@ func StartHttpc(ctx *agenttrace.TraceContext, startTime int64, url string) *step
 	return st
 }
 
-func EndHttpc(ctx *agenttrace.TraceContext, st *step.HttpcStepX, elapsed int32, status int32, reason string, cpu, mem, mcallee int64, err error) {
+func EndHttpc(ctx *agenttrace.TraceContext, st *step.HttpcStepX, elapsed int32, status int32, reason string, cpu, mem, stepId int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logutil.Println("WA-API11320", " Recover ", r, "/n", string(debug.Stack()))
@@ -51,7 +51,7 @@ func EndHttpc(ctx *agenttrace.TraceContext, st *step.HttpcStepX, elapsed int32, 
 	}
 	conf := agentconfig.GetConfig()
 	st.Elapsed = elapsed
-	st.Callee = mcallee
+	st.StepId = stepId
 	thr := ErrorToThr(err)
 
 	if ctx == nil {
@@ -66,9 +66,9 @@ func EndHttpc(ctx *agenttrace.TraceContext, st *step.HttpcStepX, elapsed int32, 
 		return
 	}
 
-	if conf.ProfileHttpcResourceEnabbled {
-		st.StartCpu = int32(cpu)
-		st.StartMem = int64(mem)
+	if conf.ProfileHttpcResourceEnabled {
+		st.StartCpu = int32(cpu - ctx.StartCpu)
+		st.StartMem = int64(mem - ctx.StartMalloc)
 	}
 
 	if thr != nil {
@@ -104,7 +104,7 @@ func ProfileHttpc(ctx *agenttrace.TraceContext, startTime int64, url string, ela
 	EndHttpc(ctx, st, elapsed, status, reason, cpu, mem, mcallee, err)
 }
 
-func ProfileHttpc1(ctx *agenttrace.TraceContext, startTime int64, url string, elapsed int32, status int32, reason string, cpu, mem, mcallee int64, err error) {
+func ProfileHttpc1(ctx *agenttrace.TraceContext, startTime int64, url string, elapsed int32, status int32, reason string, cpu, mem, stepId int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logutil.Println("WA-API11340", " Recover ", r) //, string(debug.Stack()))
@@ -119,7 +119,7 @@ func ProfileHttpc1(ctx *agenttrace.TraceContext, startTime int64, url string, el
 	st.Host = hash.HashStr(HttpcURL.Host)
 	st.Port = int32(HttpcURL.Port)
 	st.Elapsed = elapsed
-	st.Callee = mcallee
+	st.StepId = stepId
 
 	data.SendHashText(pack.TEXT_HTTPC_URL, st.Url, nUrl)
 	data.SendHashText(pack.TEXT_HTTPC_HOST, st.Host, HttpcURL.Host)
@@ -140,9 +140,9 @@ func ProfileHttpc1(ctx *agenttrace.TraceContext, startTime int64, url string, el
 
 	st.StartTime = int32(startTime - ctx.StartTime)
 
-	if conf.ProfileHttpcResourceEnabbled {
-		st.StartCpu = int32(cpu)
-		st.StartMem = int64(mem)
+	if conf.ProfileHttpcResourceEnabled {
+		st.StartCpu = int32(cpu - ctx.StartCpu)
+		st.StartMem = int64(mem - ctx.StartMalloc)
 	}
 
 	if thr != nil {

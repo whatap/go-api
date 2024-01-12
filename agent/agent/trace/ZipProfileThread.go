@@ -126,13 +126,13 @@ func (this *ZipProfileThread) sendAndClear() {
 	}
 	p := pack.NewZipPack()
 	p.Time = dateutil.SystemNow()
-	p.RecountCount = this.packCount
+	p.RecordCount = this.packCount
 	p.Records = this.buffer.Bytes()
 
 	this.doZip(p)
 	if this.conf.DebugTraceZipEnabled {
 		if this.conf.DebugTraceZipInterval <= 0 {
-			logutil.Infoln("PROFILE " + ansi.Green(fmt.Sprintln(" status=", p.Status, " records=", p.RecountCount,
+			logutil.Infoln("PROFILE " + ansi.Green(fmt.Sprintln(" status=", p.Status, " records=", p.RecordCount,
 				" | ", this.buffer.Len(), "=>", len(p.Records), " queue=", this.Queue.Size())))
 		} else {
 			this.zipSent += 1
@@ -163,7 +163,7 @@ func (this *ZipProfileThread) log(p *pack.ZipPack) {
 	sb := stringutil.NewStringBuffer()
 	sb.Append("PROFILE ").Append(ansi.ANSI_GREEN)
 	sb.Append("zip_sent=").AppendFormat("%d", this.zipSent)
-	sb.Append(" records=").AppendFormat("%d", p.RecountCount)
+	sb.Append(" records=").AppendFormat("%d", p.RecordCount)
 	sb.Append(" | ").AppendFormat("%d", this.buffer.Len()).Append("=>").AppendFormat("%d", len(p.Records))
 	sb.Append(" queue=").AppendFormat("%d", this.Queue.Size())
 	if this.noZipSent > 0 {

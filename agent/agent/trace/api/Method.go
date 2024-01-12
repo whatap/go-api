@@ -54,8 +54,8 @@ func EndMethod(ctx *agenttrace.TraceContext, st *step.MethodStepX, methodStack s
 
 	if conf.ProfileMethodResourceEnabled {
 		st.SetTrue(1)
-		st.StartCpu = int32(cpu)
-		st.StartMem = int32(mem)
+		st.StartCpu = int32(cpu - ctx.StartCpu)
+		st.StartMem = int32(mem - ctx.StartMalloc)
 	}
 	ctx.Profile.Add(st)
 }

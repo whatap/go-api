@@ -25,10 +25,13 @@ type HttpcCtx struct {
 	Cpu         int64
 	Mem         int64
 
-	TraceMtraceCallerValue string
-	TraceMtracePoidValue   string
-	TraceMtraceSpecValue   string
-	TraceMtraceMcallee     int64
+	StepId int64
+
+	TraceMtraceTraceparentValue string
+	TraceMtraceCallerValue      string
+	TraceMtracePoidValue        string
+	TraceMtraceSpecValue        string
+	TraceMtraceMcallee          int64
 }
 
 func NewHttpcCtx() *HttpcCtx {
@@ -59,6 +62,9 @@ func (this *HttpcCtx) Clear() {
 	this.Cpu = 0
 	this.Mem = 0
 
+	this.StepId = 0
+
+	this.TraceMtraceTraceparentValue = ""
 	this.TraceMtraceCallerValue = ""
 	this.TraceMtracePoidValue = ""
 	this.TraceMtraceSpecValue = ""

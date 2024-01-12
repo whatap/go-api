@@ -1,0 +1,21 @@
+2024/01/10 01:31:37 
+2024/01/10 01:31:37 ## OPEN LOG FILE  boot  20240110 01:31:37.894 ##
+2024/01/10 01:31:37 
+2024/01/10 01:31:37 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2024/01/10 01:31:37 [WA181]  Close TCP connection
+2024/01/10 01:31:37 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2024/01/10 01:31:37 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2024/01/10 01:31:37 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2024/01/10 01:31:37 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2024/01/10 01:41:26 
+2024/01/10 01:41:26 ## OPEN LOG FILE  boot  20240110 01:41:26.72 ##
+2024/01/10 01:41:26 
+2024/01/10 01:41:26 [APP_TYPE] 8
+2024/01/10 01:41:26 [Config] okind_name=, onode_name=
+2024/01/10 01:41:26 [WA212] fail to load license file
+2024/01/10 01:41:26 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2024/01/10 01:41:26 [WA181]  Close TCP connection
+2024/01/10 01:41:26 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2024/01/10 01:41:26 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2024/01/10 01:41:26 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m
+2024/01/10 01:41:26 [31m[WA21901] error load properties open whatap.conf: no such file or directory[0m

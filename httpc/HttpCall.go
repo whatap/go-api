@@ -1,4 +1,4 @@
-//github.com/whatap/go-api/httpc
+// github.com/whatap/go-api/httpc
 package httpc
 
 import (
@@ -14,7 +14,6 @@ import (
 
 	"github.com/whatap/golib/lang/step"
 	"github.com/whatap/golib/util/dateutil"
-	"github.com/whatap/golib/util/keygen"
 )
 
 const (
@@ -52,15 +51,17 @@ func GetMTrace(httpcCtx *HttpcCtx) http.Header {
 	rt := make(http.Header)
 	conf := agentconfig.GetConfig()
 	if conf.MtraceEnabled && httpcCtx.TraceMtraceCallerValue != "" {
+		rt.Set(conf.TraceMtraceTraceparentKey, httpcCtx.TraceMtraceTraceparentValue)
 		rt.Set(conf.TraceMtraceCallerKey, httpcCtx.TraceMtraceCallerValue)
 		rt.Set(conf.TraceMtracePoidKey, httpcCtx.TraceMtracePoidValue)
 		rt.Set(conf.TraceMtraceSpecKey1, httpcCtx.TraceMtraceSpecValue)
 	}
+	// 2023.11.07 deprcated
 	// Mcallee
-	if conf.MtraceCalleeTxidEnabled {
-		httpcCtx.TraceMtraceMcallee = keygen.Next()
-		rt.Set(conf.TraceMtraceCalleeKey, fmt.Sprintf("%d", httpcCtx.TraceMtraceMcallee))
-	}
+	// if conf.MtraceCalleeTxidEnabled {
+	// 	httpcCtx.TraceMtraceMcallee = keygen.Next()
+	// 	rt.Set(conf.TraceMtraceCalleeKey, fmt.Sprintf("%d", httpcCtx.TraceMtraceMcallee))
+	// }
 
 	return rt
 }
@@ -78,15 +79,10 @@ func Start(ctx context.Context, url string) (*HttpcCtx, error) {
 		httpcCtx.ctx = traceCtx
 		httpcCtx.Txid = traceCtx.Txid
 		httpcCtx.ServiceName = traceCtx.Name
-
-		if conf.MtraceEnabled {
-			// multi trace info
-			httpcCtx.TraceMtraceCallerValue = traceCtx.TraceMtraceCallerValue
-			httpcCtx.TraceMtracePoidValue = traceCtx.TraceMtracePoidValue
-			httpcCtx.TraceMtraceSpecValue = traceCtx.TraceMtraceSpecValue
-		}
-
-		httpcCtx.step = agentapi.StartHttpc(traceCtx.Ctx, httpcCtx.StartTime, httpcCtx.Url)
+		st := agentapi.StartHttpc(traceCtx.Ctx, httpcCtx.StartTime, httpcCtx.Url)
+		st.StepId = traceCtx.MStepId
+		httpcCtx.StepId = traceCtx.MStepId
+		httpcCtx.step = st
 	}
 
 	return httpcCtx, nil
@@ -98,13 +94,15 @@ func End(httpcCtx *HttpcCtx, status int, reason string, err error) error {
 	}
 
 	elapsed := int32(dateutil.SystemNow() - httpcCtx.StartTime)
-	if httpcCtx != nil && httpcCtx.step != nil {
+	if httpcCtx != nil {
 		wCtx := trace.GetAgentTraceContext(httpcCtx.ctx)
 		if conf.Debug {
-			log.Println("[WA-HTTPC-02001] txid: ", httpcCtx.Txid, ", uri: ", httpcCtx.ServiceName, "\n http url: ", httpcCtx.Url, "\n elapsed: ", elapsed, "ms ", "\n status: ", status, "\n mcallee: ", httpcCtx.TraceMtraceMcallee, "\n error:  ", err)
+			log.Println("[WA-HTTPC-02001] txid: ", httpcCtx.Txid, ", uri: ", httpcCtx.ServiceName, "\n http url: ", httpcCtx.Url, "\n elapsed: ", elapsed, "ms ", "\n status: ", status, "\n step id: ", httpcCtx.StepId, "\n error:  ", err)
 		}
-		if st, ok := httpcCtx.step.(*step.HttpcStepX); ok {
-			agentapi.EndHttpc(wCtx, st, elapsed, int32(status), reason, 0, 0, httpcCtx.TraceMtraceMcallee, err)
+		if httpcCtx.step != nil {
+			if st, ok := httpcCtx.step.(*step.HttpcStepX); ok {
+				agentapi.EndHttpc(wCtx, st, elapsed, int32(status), reason, 0, 0, httpcCtx.StepId, err)
+			}
 		}
 		CloseHttpcContext(httpcCtx)
 		return nil

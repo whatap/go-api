@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math"
+
 	"net/http"
 	"path/filepath"
-	"strconv"
+
 	"strings"
 
 	"github.com/valyala/fasthttp"
@@ -17,10 +17,11 @@ import (
 	"github.com/whatap/golib/io"
 	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/golib/util/hash"
-	"github.com/whatap/golib/util/hexa32"
+
 	"github.com/whatap/golib/util/iputil"
 	"github.com/whatap/golib/util/keygen"
-	"github.com/whatap/golib/util/stringutil"
+
+	// "github.com/whatap/golib/util/stringutil"
 	"github.com/whatap/golib/util/urlutil"
 )
 
@@ -122,134 +123,47 @@ func StartWithFastHttpRequest(r *fasthttp.RequestCtx) (context.Context, error) {
 	wCtx := traceCtx.Ctx
 	wCtx.StartTime = traceCtx.StartTime
 	wCtx.ServiceURL = urlutil.NewURL(filepath.Join(string(r.Host()), "/", string(r.RequestURI())))
-	ipaddr := r.RemoteAddr().String()
-	if strings.Index(ipaddr, ",") > -1 {
-		ipArray := strings.Split(ipaddr, ",")
-		if len(ipArray) > 1 {
-			ipaddr = ipArray[0]
-		}
-	}
+
+	ipaddr := trace.GetRemoteIP(r.RemoteAddr().String(), HeaderToMap(&r.Request.Header))
 	wCtx.RemoteIp = io.ToInt(iputil.ToBytes(ipaddr), 0)
 	wCtx.HttpMethod = string(r.Method())
 	wCtx.RefererURL = urlutil.NewURL(string(r.Referer()))
 	wCtx.UserAgentString = string(r.UserAgent())
-	wCtx.WClientId = int64(hash.HashStr(GetClientId(r)))
+	wCtx.WClientId = int64(hash.HashStr(GetClientId(r, ipaddr)))
 	if conf.Debug {
 		log.Println("[WA-TX-02001] StartWithFastHttpRequest: ", traceCtx.Txid, ", ", traceCtx.Name)
 	}
 	agentapi.StartTx(wCtx)
 
-	// if pack := udp.CreatePack(udp.TX_START, udp.UDP_PACK_VERSION); pack != nil {
-	// 	p := pack.(*udp.UdpTxStartPack)
-
-	// 	p.Txid = traceCtx.Txid
-	// 	p.Time = traceCtx.StartTime
-	// 	p.Host = string(r.Host())
-	// 	p.Uri = string(r.RequestURI())
-	// 	p.Ipaddr = r.RemoteAddr().String()
-	// 	p.HttpMethod = string(r.Method())
-	// 	p.Ref = string(r.Referer())
-	// 	p.UAgent = string(r.UserAgent())
-
-	// 	udpClient.Send(p)
-	// }
 	SetFastHttpHeader(r, &r.Request.Header)
 
 	return r, nil
 }
 
 func SetFastHttpHeader(ctx context.Context, header *fasthttp.RequestHeader) {
-	conf := config.GetConfig()
-	if !conf.ProfileHttpHeaderEnabled {
-		return
-	}
-	if _, traceCtx := trace.GetTraceContext(ctx); traceCtx != nil {
-		if strings.HasPrefix(traceCtx.Name, conf.ProfileHttpHeaderUrlPrefix) {
-			parsedHeader := trace.ParseHeader(HeaderToMap(header))
-			agentapi.ProfileMsg(traceCtx.Ctx, "HTTP_HEADERS", parsedHeader, 0, 0)
-			if conf.Debug {
-				log.Println("[WA-TX-06001] txid:", traceCtx.Txid, ", uri: ", traceCtx.Name, "\n headers: ", parsedHeader)
-			}
-		}
-	}
+	trace.SetHeader(ctx, HeaderToMap(header))
 }
-
-// func SetParameter(ctx context.Context, m map[string][]string) {
-// 	conf := agentconfig.GetConfig()
-// 	if !conf.ProfileHttpParameterEnabled {
-// 		return
-// 	}
-// 	if m == nil && len(m) <= 0 {
-// 		return
-// 	}
-// 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
-// 		if strings.HasPrefix(traceCtx.Name, conf.ProfileHttpParameterUrlPrefix) {
-// 			parsedParam := ParseParameter(m)
-// 			agentapi.ProfileSecureMsg(traceCtx.Ctx, "HTTP-PARAMS", parsedParam, 0, 0)
-// 			if conf.Debug {
-// 				log.Println("[WA-TX-07001] HTTP-PARAMS txid:", traceCtx.Txid, ", uri: ", traceCtx.Name, "\n params: ", parsedParam)
-// 			}
-// 		}
-// 	}
-// }
 
 func UpdateFastHttpMtrace(traceCtx *trace.TraceCtx, header fasthttp.RequestHeader) {
 	conf := config.GetConfig()
 	if !conf.MtraceEnabled {
 		return
 	}
-
+	// convert fasthttp header to http.Header(map[string][]string)
+	h := make(map[string][]string)
 	header.VisitAll(func(keyRaw, valueRaw []byte) {
 		if len(valueRaw) <= 0 {
 			return
 		}
-
 		key, val := string(keyRaw), string(valueRaw)
-
-		v := strings.TrimSpace(val)
-		switch strings.ToLower(strings.TrimSpace(key)) {
-		case conf.TraceMtraceCallerKey:
-			arr := stringutil.Split(v, ",")
-			if len(arr) >= 3 {
-				traceCtx.MTid = hexa32.ToLong32(arr[0])
-
-				if val, err := strconv.Atoi(arr[1]); err == nil {
-					traceCtx.MDepth = int32(val)
-				}
-				traceCtx.MCallerTxid = hexa32.ToLong32(arr[2])
-			}
-		case conf.TraceMtraceCalleeKey:
-			traceCtx.MCallee = hexa32.ToLong32(v)
-			if traceCtx.MCallee != 0 {
-				traceCtx.Txid = traceCtx.MCallee
-			}
-
-		case conf.TraceMtraceSpecKey1:
-			arr := stringutil.Split(v, ",")
-			if len(arr) >= 2 {
-				traceCtx.MCallerSpec = arr[0]
-				traceCtx.MCallerUrl = arr[1]
-			}
-		case conf.TraceMtracePoidKey:
-			traceCtx.MCallerPoidKey = v
-		}
-	},
-	)
-
-	if traceCtx.MTid == 0 {
-		checkSeq := keygen.Next()
-		if int32(math.Abs(float64(checkSeq/100%100))) < conf.MtraceRate {
-			traceCtx.MTid = checkSeq
-		}
-	}
-	traceCtx.TraceMtraceCallerValue = fmt.Sprintf("%s,%s,%s", hexa32.ToString32(traceCtx.MTid), strconv.Itoa(int(traceCtx.MDepth)+1), hexa32.ToString32(traceCtx.Txid))
-	traceCtx.TraceMtraceSpecValue = fmt.Sprintf("%s, %s", conf.MtraceSpec, strconv.Itoa(int(hash.HashStr(traceCtx.Name))))
-	traceCtx.TraceMtracePoidValue = fmt.Sprintf("%s, %s, %s", hexa32.ToString32(conf.PCODE), hexa32.ToString32(int64(conf.OKIND)), hexa32.ToString32(conf.OID))
+		h[key] = []string{val}
+	})
+	trace.UpdateMtrace(traceCtx, h)
 }
 
-func GetClientId(ctx *fasthttp.RequestCtx) string {
+func GetClientId(ctx *fasthttp.RequestCtx, remoteIP string) string {
 	r := ctx.Request
-	clientID := ctx.RemoteAddr().String()
+	clientID := remoteIP
 	conf := config.GetConfig()
 	if !conf.Enabled || !conf.TraceUserEnabled {
 		return clientID

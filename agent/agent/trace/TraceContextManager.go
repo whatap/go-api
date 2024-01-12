@@ -716,8 +716,8 @@ func profileSql(p *udp.UdpTxSqlPack) {
 		//		st.SetTrue(2)
 		//		st.Cpu = int32(p.Cpu)
 		//		st.Mem = int32(p.Mem)
-		st.StartCpu = int32(p.Cpu)
-		st.StartMem = p.Mem
+		st.StartCpu = int32(p.Cpu - ctx.StartCpu)
+		st.StartMem = int64(p.Mem - ctx.StartMalloc)
 	}
 
 	if ctx.ErrorStep {
@@ -847,8 +847,8 @@ func profileSqlParam(p *udp.UdpTxSqlParamPack) {
 		//		st.SetTrue(2)
 		//		st.Cpu = int32(p.Cpu)
 		//		st.Mem = int32(p.Mem)
-		st.StartCpu = int32(p.Cpu)
-		st.StartMem = p.Mem
+		st.StartCpu = int32(p.Cpu - ctx.StartCpu)
+		st.StartMem = int64(p.Mem - ctx.StartMalloc)
 	}
 
 	if ctx.ErrorStep {
@@ -923,7 +923,7 @@ func profileHttpc(p *udp.UdpTxHttpcPack) {
 	st.Host = hash.HashStr(p.HttpcURL.Host)
 	st.Port = int32(p.HttpcURL.Port)
 	st.Elapsed = p.Elapsed
-	st.Callee = p.Mcallee
+	st.StepId = p.StepId
 
 	// ctx interface 변환 전에 먼저 nil 체크, 기존 panic 보완
 	ctx := GetContext(p.Txid)
@@ -946,9 +946,9 @@ func profileHttpc(p *udp.UdpTxHttpcPack) {
 
 	st.StartTime = int32(p.Time - ctx.StartTime)
 
-	if conf.ProfileHttpcResourceEnabbled {
-		st.StartCpu = int32(p.Cpu)
-		st.StartMem = int64(p.Mem)
+	if conf.ProfileHttpcResourceEnabled {
+		st.StartCpu = int32(p.Cpu - ctx.StartCpu)
+		st.StartMem = int64(p.Mem - ctx.StartMalloc)
 	}
 
 	if ctx.ErrorStep {
@@ -1172,8 +1172,8 @@ func profileMethod(p *udp.UdpTxMethodPack) {
 
 	if conf.ProfileMethodResourceEnabled {
 		st.SetTrue(1)
-		st.StartCpu = int32(p.Cpu)
-		st.StartMem = int32(p.Mem)
+		st.StartCpu = int32(p.Cpu - ctx.StartCpu)
+		st.StartMem = int32(p.Mem - ctx.StartMalloc)
 	}
 
 	if p.Stack != "" {

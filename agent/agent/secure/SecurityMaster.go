@@ -3,7 +3,9 @@ package secure
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,6 +36,7 @@ type SecurityMaster struct {
 	//lastLicense   string
 	lastAccessKey string
 	lastOid       int64
+	MeterIP       string
 }
 
 type SecuritySession struct {
@@ -85,7 +88,7 @@ func UpdateNetCypherKey(data []byte) {
 	if conf.CypherLevel > 0 {
 		data = GetSecurityMaster().Cypher.Decrypt(data)
 	}
-	
+
 	in := io.NewDataInputX(data)
 	session.TRANSFER_KEY = in.ReadInt()
 	session.SECURE_KEY = in.ReadBlob()
@@ -109,6 +112,7 @@ func (this *SecurityMaster) update() {
 		this.lastAccessKey = conf.AccessKey
 		this.resetLicense(conf.AccessKey)
 	}
+	this.MeterIP = GetLinuxProductUUID()
 }
 
 func (this *SecurityMaster) DecideAgentOnameOid(myIp string) {
@@ -181,7 +185,6 @@ func (this *SecurityMaster) resetLicense(lic string) {
 	// session.TRANSFER_KEY = 0
 }
 
-//
 func (this *SecurityMaster) UpdateLicense(pcode int64, security_key []byte) {
 	conf := config.GetConfig()
 	this.PCODE = pcode
@@ -201,4 +204,16 @@ func (this *SecurityMaster) WaitForInitFor(timeoutSec float64) {
 	for this.Cypher == nil && time.Now().Sub(started).Seconds() < timeoutSec {
 		time.Sleep(1000 * time.Millisecond)
 	}
+}
+
+// TODO move to golib/util/cmdutil
+func GetLinuxProductUUID() string {
+	if runtime.GOOS == "linux" {
+		cmd := exec.Command("cat", "/sys/class/dmi/id/product_uuid")
+		out, err := cmd.Output()
+		if err == nil {
+			return string(out)
+		}
+	}
+	return ""
 }

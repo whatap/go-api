@@ -5,6 +5,9 @@ import (
 	//"log"
 	"strings"
 
+	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/go-api/agent/agent/data"
+	"github.com/whatap/go-api/agent/agent/trace"
 	"github.com/whatap/golib/lang"
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/lang/step"
@@ -13,9 +16,6 @@ import (
 	"github.com/whatap/golib/util/hash"
 	"github.com/whatap/golib/util/keygen"
 	"github.com/whatap/golib/util/stringutil"
-	"github.com/whatap/go-api/agent/agent/config"
-	"github.com/whatap/go-api/agent/agent/data"
-	"github.com/whatap/go-api/agent/agent/trace"
 )
 
 // Java whatap.agent.counter.meter -> whatap.agent.active 로 변경
@@ -123,7 +123,7 @@ func GetActiveTxList() *value.MapValue {
 		malloc.AddLong(int64(ctx.EndMalloc - ctx.StartMalloc))
 		sqlCount.AddLong(int64(ctx.SqlCount))
 		sqlTime.AddLong(int64(ctx.SqlTime))
-		httpcCount.AddLong(int64(ctx.HttpcTime))
+		httpcCount.AddLong(int64(ctx.HttpcCount))
 		httpcTime.AddLong(int64(ctx.HttpcTime))
 
 		threadId.AddLong(int64(ctx.ThreadId))

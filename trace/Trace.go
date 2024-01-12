@@ -1,4 +1,4 @@
-//github.com/whatap/go-api/trace
+// github.com/whatap/go-api/trace
 package trace
 
 import (
@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 	agentapi "github.com/whatap/go-api/agent/agent/trace/api"
 
 	"github.com/whatap/golib/io"
+	langvalue "github.com/whatap/golib/lang/value"
 	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/golib/util/hash"
 	"github.com/whatap/golib/util/hexa32"
@@ -80,6 +82,7 @@ func Init(m map[string]string) {
 	if m != nil {
 		agentconfig.SetValues(&m)
 	}
+	keygen.AddSeed(os.Getpid())
 	// embeded
 	go whatapboot.Boot()
 }
@@ -97,9 +100,9 @@ func GetTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
 	}
 
 	// TO-DO goroutine id
-	// if v := GetGIDTraceCtx(GetGID()); v != nil {
-	// 	return ctx, v
-	// }
+	if v := GetGIDTraceCtx(GetGID()); v != nil {
+		return ctx, v
+	}
 
 	return ctx, nil
 }
@@ -126,7 +129,7 @@ func NewTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
 
 	ctx = context.WithValue(ctx, "whatap", traceCtx)
 	// TO-DO goroutine id
-	// AddGIDTraceCtx(traceCtx.GID, traceCtx)
+	AddGIDTraceCtx(traceCtx.GID, traceCtx)
 	return ctx, traceCtx
 }
 
@@ -165,18 +168,12 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 	wCtx := traceCtx.Ctx
 	wCtx.StartTime = traceCtx.StartTime
 	wCtx.ServiceURL = urlutil.NewURL(filepath.Join(r.Host, "/", r.RequestURI))
-	ipaddr := r.RemoteAddr
-	if strings.Index(ipaddr, ",") > -1 {
-		ipArray := strings.Split(ipaddr, ",")
-		if len(ipArray) > 1 {
-			ipaddr = ipArray[0]
-		}
-	}
+	ipaddr := GetRemoteIP(r.RemoteAddr, r.Header)
 	wCtx.RemoteIp = io.ToInt(iputil.ToBytes(ipaddr), 0)
 	wCtx.HttpMethod = r.Method
 	wCtx.RefererURL = urlutil.NewURL(r.Referer())
 	wCtx.UserAgentString = r.UserAgent()
-	wCtx.WClientId = int64(hash.HashStr(GetClientId(r)))
+	wCtx.WClientId = int64(hash.HashStr(GetClientId(r, ipaddr)))
 	if conf.Debug {
 		log.Println("[WA-TX-02001] StartWithRequest: ", traceCtx.Txid, ", ", traceCtx.Name)
 	}
@@ -255,18 +252,19 @@ func SetParameter(ctx context.Context, m map[string][]string) {
 		}
 	}
 }
-func GetClientId(r *http.Request) string {
+func GetClientId(r *http.Request, remoteIP string) string {
 	conf := agentconfig.GetConfig()
+
 	if !conf.Enabled || !conf.TraceUserEnabled {
-		return r.RemoteAddr
+		return strings.TrimSpace(remoteIP)
 	}
 	if conf.TraceUserUsingIp {
-		return r.RemoteAddr
+		return strings.TrimSpace(remoteIP)
 	}
 	if conf.TraceUserHeaderTicketEnabled {
 		for k, v := range r.Header {
 			if strings.ToLower(strings.TrimSpace(k)) == strings.ToLower(strings.TrimSpace(conf.TraceUserHeaderTicket)) && len(v) > 0 {
-				return v[0]
+				return strings.TrimSpace(v[0])
 			}
 		}
 	}
@@ -274,7 +272,7 @@ func GetClientId(r *http.Request) string {
 	for _, cookie := range r.Cookies() {
 		for _, v := range conf.TraceUserCookieKeys {
 			if strings.ToLower(strings.TrimSpace(cookie.Name)) == strings.ToLower(strings.TrimSpace(v)) {
-				return cookie.Value
+				return strings.TrimSpace(cookie.Value)
 			}
 		}
 	}
@@ -282,11 +280,11 @@ func GetClientId(r *http.Request) string {
 	// WhaTap Cookie name is constant WHATAP_COOKIE_NAME(WHATAP)
 	for _, cookie := range r.Cookies() {
 		if strings.ToUpper(strings.TrimSpace(cookie.Name)) == WHATAP_COOKIE_NAME {
-			return cookie.Value
+			return strings.TrimSpace(cookie.Value)
 		}
 	}
 
-	return r.RemoteAddr
+	return strings.TrimSpace(remoteIP)
 }
 func GetWhatapCookie(r *http.Request) (cookie *http.Cookie, exists bool) {
 	for _, c := range r.Cookies() {
@@ -327,7 +325,6 @@ func Error(ctx context.Context, err error) error {
 	if !conf.Enabled {
 		return nil
 	}
-	// udpClient := whatapnet.GetUdpClient()
 	if err != nil {
 		var txid int64
 		var serviceName string
@@ -361,14 +358,23 @@ func End(ctx context.Context, err error) error {
 		wCtx.McallerPoidKey = traceCtx.MCallerPoidKey
 		wCtx.McallerSpec = traceCtx.MCallerSpec
 		wCtx.McallerUrl = traceCtx.MCallerUrl
+		wCtx.McallerStepId = traceCtx.MCallerStepId
 		wCtx.Status = traceCtx.Status
+
 		if conf.Debug {
 			log.Println("[WA-TX-05001] txid: ", traceCtx.Txid, ", uri: ", traceCtx.Name,
 				"\n time: ", (dateutil.SystemNow() - traceCtx.StartTime), "ms ", "\n error: ", err)
 		}
+
+		// tracecontext traceparent
+		wCtx.SetExtraFieldString("x-trace-id", traceCtx.MCallerTraceId)
+		if wCtx.McallerTxid == 0 && wCtx.McallerStepId != 0 {
+			wCtx.SetExtraField("x-parent-id", langvalue.NewDecimalValue(wCtx.McallerStepId))
+		}
+
 		agentapi.EndTx(wCtx)
 		// TO-DO goroutine id
-		//RemoveGIDTraceCtx(traceCtx.GID)
+		RemoveGIDTraceCtx(traceCtx.GID)
 		CloseTraceContext(traceCtx)
 		return nil
 	}
@@ -387,15 +393,26 @@ func GetMTrace(ctx context.Context) http.Header {
 	rt := make(http.Header)
 	conf := agentconfig.GetConfig()
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
+		// create distribute trace header
+		traceCtx.MStepId = keygen.Next()
+		if traceCtx.MCallerTraceId != "" {
+			traceCtx.TraceMtraceTraceparentValue = fmt.Sprintf("00-%s-%016x-01", traceCtx.MCallerTraceId, uint64(traceCtx.MStepId))
+		} else {
+			traceCtx.TraceMtraceTraceparentValue = fmt.Sprintf("00-0000000000000000%016x-%016x-01", uint64(traceCtx.MTid), uint64(traceCtx.MStepId))
+		}
+		traceCtx.TraceMtraceCallerValue = fmt.Sprintf("%s,%s,%s,%s", hexa32.ToString32(traceCtx.MTid), strconv.Itoa(int(traceCtx.MDepth)+1), hexa32.ToString32(traceCtx.Txid), hexa32.ToString32(traceCtx.MStepId))
+
+		rt.Set(conf.TraceMtraceTraceparentKey, traceCtx.TraceMtraceTraceparentValue)
 		rt.Set(conf.TraceMtraceCallerKey, traceCtx.TraceMtraceCallerValue)
 		rt.Set(conf.TraceMtracePoidKey, traceCtx.TraceMtracePoidValue)
 		rt.Set(conf.TraceMtraceSpecKey1, traceCtx.TraceMtraceSpecValue)
 
+		// 2023.11.07 deprcated
 		// Mcallee
-		if conf.MtraceCalleeTxidEnabled {
-			traceCtx.TraceMtraceMcallee = keygen.Next()
-			rt.Set(conf.TraceMtraceCalleeKey, fmt.Sprintf("%d", traceCtx.TraceMtraceMcallee))
-		}
+		// if conf.MtraceCalleeTxidEnabled {
+		// 	traceCtx.TraceMtraceMcallee = keygen.Next()
+		// 	rt.Set(conf.TraceMtraceCalleeKey, fmt.Sprintf("%d", traceCtx.TraceMtraceMcallee))
+		// }
 	}
 
 	return rt
@@ -405,38 +422,88 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 	if !conf.MtraceEnabled {
 		return
 	}
-	for k, val := range header {
-		if len(val) > 0 {
-			v := strings.TrimSpace(val[0])
-			switch strings.ToLower(strings.TrimSpace(k)) {
-			case conf.TraceMtraceCallerKey:
-				arr := stringutil.Split(v, ",")
-				if len(arr) >= 3 {
-					traceCtx.MTid = hexa32.ToLong32(arr[0])
-
-					if val, err := strconv.Atoi(arr[1]); err == nil {
-						traceCtx.MDepth = int32(val)
-					}
-					traceCtx.MCallerTxid = hexa32.ToLong32(arr[2])
-				}
-			case conf.TraceMtraceCalleeKey:
-				traceCtx.MCallee = hexa32.ToLong32(v)
-				if traceCtx.MCallee != 0 {
-					traceCtx.Txid = traceCtx.MCallee
-					if traceCtx.Ctx != nil {
-						traceCtx.Ctx.Txid = traceCtx.MCallee
-					}
-				}
-
-			case conf.TraceMtraceSpecKey1:
-				arr := stringutil.Split(v, ",")
-				if len(arr) >= 2 {
-					traceCtx.MCallerSpec = arr[0]
-					traceCtx.MCallerUrl = arr[1]
-				}
-			case conf.TraceMtracePoidKey:
-				traceCtx.MCallerPoidKey = v
+	isTraceparent := false
+	useWhatap := true
+	// W3C Trace Context traceparent
+	if val := header.Get(conf.TraceMtraceTraceparentKey); val != "" {
+		isTraceparent = true
+		v := strings.TrimSpace(val)
+		arr := stringutil.Split(v, "-")
+		if len(arr) >= 4 {
+			traceCtx.MCallerTraceId = arr[1]
+			if val, err := strconv.ParseUint(traceCtx.MCallerTraceId[16:], 16, 64); err == nil {
+				traceCtx.MTid = int64(val)
+			} else {
+				traceCtx.MTid = 0
 			}
+
+			if val, err := strconv.ParseUint(arr[2], 16, 64); err == nil {
+				traceCtx.MCallerStepId = int64(val)
+			} else {
+				traceCtx.MCallerStepId = 0
+			}
+		}
+	}
+	// x-wtap-mst
+	if val := header.Get(conf.TraceMtraceCallerKey); val != "" {
+		v := strings.TrimSpace(val)
+		arr := stringutil.Split(v, ",")
+		var mtid, stepId, mcallerTxid int64
+		if len(arr) >= 3 {
+			mtid = hexa32.ToLong32(arr[0])
+			if val, err := strconv.Atoi(arr[1]); err == nil {
+				traceCtx.MDepth = int32(val)
+			}
+			mcallerTxid = hexa32.ToLong32(arr[2])
+		}
+		if len(arr) >= 4 {
+			stepId = hexa32.ToLong32(arr[3])
+		}
+
+		// traceparent , whatap header 모두 있을 때, 가능한 caller txid를 설정.
+		// gateway에서 받은 header를 그대로 전달해 줄 경우 callertxid가 다르게 설정될 수 있음.
+		if isTraceparent {
+			if traceCtx.MCallerStepId == stepId {
+				traceCtx.MCallerTxid = mcallerTxid
+			} else {
+				// parent id != whatap.stepid . don't use whatap header
+				if conf.Debug {
+					log.Printf("[WA-TX-05003] stepid(%s) is not equal traceparent stepid(%s), mtid=(%d), traceparent mtid=(%d)", traceCtx.MCallerStepId, stepId, mtid, traceCtx.MTid)
+				}
+				useWhatap = false
+			}
+		} else {
+			traceCtx.MTid = mtid
+			traceCtx.MCallerTxid = mcallerTxid
+			traceCtx.MCallerStepId = stepId
+		}
+	}
+
+	if useWhatap {
+		// 2023.11.07 deprcated
+		// if val := header.Get(conf.TraceMtraceCalleeKey); val != "" {
+		// 	traceCtx.MCallee = hexa32.ToLong32(v)
+		// 	if traceCtx.MCallee != 0 {
+		// 		traceCtx.Txid = traceCtx.MCallee
+		// 		if traceCtx.Ctx != nil {
+		// 			traceCtx.Ctx.Txid = traceCtx.MCallee
+		// 		}
+		// 	}
+		// }
+
+		// x-wtap-spec1
+		if val := header.Get(conf.TraceMtraceSpecKey1); val != "" {
+			v := strings.TrimSpace(val)
+			arr := stringutil.Split(v, ",")
+			if len(arr) >= 2 {
+				traceCtx.MCallerSpec = arr[0]
+				traceCtx.MCallerUrl = arr[1]
+			}
+		}
+		// x-wtap-poid
+		if val := header.Get(conf.TraceMtracePoidKey); val != "" {
+			v := strings.TrimSpace(val)
+			traceCtx.MCallerPoidKey = v
 		}
 	}
 
@@ -446,7 +513,16 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 			traceCtx.MTid = checkSeq
 		}
 	}
-	traceCtx.TraceMtraceCallerValue = fmt.Sprintf("%s,%s,%s", hexa32.ToString32(traceCtx.MTid), strconv.Itoa(int(traceCtx.MDepth)+1), hexa32.ToString32(traceCtx.Txid))
+
+	traceCtx.MStepId = keygen.Next()
+	// traceCtx.TraceMtraceTraceparentValue = fmt.Sprintf()
+
+	if traceCtx.MCallerTraceId != "" {
+		traceCtx.TraceMtraceTraceparentValue = fmt.Sprintf("00-%s-%016x-01", traceCtx.MCallerTraceId, uint64(traceCtx.MStepId))
+	} else {
+		traceCtx.TraceMtraceTraceparentValue = fmt.Sprintf("00-0000000000000000%016x-%016x-01", uint64(traceCtx.MTid), uint64(traceCtx.MStepId))
+	}
+	traceCtx.TraceMtraceCallerValue = fmt.Sprintf("%s,%s,%s,%s", hexa32.ToString32(traceCtx.MTid), strconv.Itoa(int(traceCtx.MDepth)+1), hexa32.ToString32(traceCtx.Txid), hexa32.ToString32(traceCtx.MStepId))
 	traceCtx.TraceMtraceSpecValue = fmt.Sprintf("%s, %s", conf.MtraceSpec, strconv.Itoa(int(hash.HashStr(traceCtx.Name))))
 	traceCtx.TraceMtracePoidValue = fmt.Sprintf("%s, %s, %s", hexa32.ToString32(conf.PCODE), hexa32.ToString32(int64(conf.OKIND)), hexa32.ToString32(conf.OID))
 }
@@ -490,11 +566,11 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 			}
 
 			// Set Whatap Cookie
-			// if conf.TraceUserSetCookie {
-			// 	if cookie, exists := GetWhatapCookie(r); !exists {
-			// 		SetWhatapCookie(w, cookie)
-			// 	}
-			// }
+			if conf.TraceUserSetCookie {
+				if cookie, exists := GetWhatapCookie(r); !exists {
+					SetWhatapCookie(w, cookie)
+				}
+			}
 			End(ctx, err)
 			if x != nil {
 				if !conf.GoRecoverEnabled {
@@ -558,4 +634,28 @@ func ParseHeader(m map[string][]string) string {
 		sb.Clear()
 	}
 	return rt
+}
+
+func GetRemoteIP(remoteAddr string, header map[string][]string) string {
+	conf := agentconfig.GetConfig()
+	if conf.TraceHttpClientIpHeaderKeyEnabled && header != nil {
+		val, ok := header[conf.TraceHttpClientIpHeaderKey]
+		if ok && len(val) > 0 {
+			ipaddr := val[0]
+			// X-Forwarded-For
+			if strings.Index(ipaddr, ",") > -1 {
+				ipArray := strings.Split(ipaddr, ",")
+				if len(ipArray) > 1 {
+					ipaddr = ipArray[0]
+					return strings.TrimSpace(ipaddr)
+				}
+			}
+		}
+	}
+
+	arr := strings.Split(remoteAddr, ":")
+	if len(arr) > 0 {
+		return arr[0]
+	}
+	return strings.TrimSpace(remoteAddr)
 }

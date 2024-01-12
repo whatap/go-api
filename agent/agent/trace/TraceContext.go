@@ -191,6 +191,7 @@ type TraceContext struct {
 	Mtid    int64
 	Mdepth  int32
 	Mcallee int64
+	MStepId int64
 
 	McallerTxid    int64
 	McallerPcode   int64
@@ -201,6 +202,7 @@ type TraceContext struct {
 	McallerOid     int32
 	McallerOkind   int32
 	McallerPoidKey string
+	McallerStepId  int64
 
 	//Fields []*service.FIELD
 	Fields *value.MapValue
@@ -410,6 +412,7 @@ func (this *TraceContext) Clear() {
 	this.Mtid = 0
 	this.Mdepth = 0
 	this.Mcallee = 0
+	this.MStepId = 0
 
 	this.McallerTxid = 0
 	this.McallerPcode = 0
@@ -419,6 +422,8 @@ func (this *TraceContext) Clear() {
 
 	this.McallerOid = 0
 	this.McallerOkind = 0
+	this.McallerPoidKey = ""
+	this.McallerStepId = 0
 
 	this.Fields = nil
 }
@@ -440,6 +445,13 @@ func (this *TraceContext) Clear() {
 // 	out = append(out, this.Fields...)
 // 	return out
 // }
+
+func (this *TraceContext) SetExtraFieldString(key string, val string) {
+	if this.Fields == nil {
+		this.Fields = value.NewMapValue()
+	}
+	this.Fields.PutString(key, val)
+}
 
 func (this *TraceContext) SetExtraField(key string, val value.Value) {
 	if this.Fields == nil {

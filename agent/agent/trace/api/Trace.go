@@ -160,6 +160,7 @@ func EndTx(ctx *agenttrace.TraceContext) {
 	tx.Mtid = ctx.Mtid
 	tx.Mdepth = ctx.Mdepth
 	tx.Mcaller = ctx.McallerTxid
+	tx.McallerStepId = ctx.McallerStepId
 
 	tx.Cipher = secure.GetParamSecurity().KeyHash
 

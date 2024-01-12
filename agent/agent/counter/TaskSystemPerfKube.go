@@ -3,13 +3,13 @@ package counter
 import (
 	//"log"
 
-	"github.com/whatap/golib/lang/pack"
-	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/kube"
 	"github.com/whatap/go-api/agent/agent/secure"
 	"github.com/whatap/go-api/agent/util/logutil"
 	"github.com/whatap/go-api/agent/util/sys"
+	"github.com/whatap/golib/lang/pack"
+	"github.com/whatap/golib/util/dateutil"
 )
 
 type TaskSystemPerfKube struct {
@@ -42,8 +42,11 @@ func (this *TaskSystemPerfKube) process(p *pack.CounterPack1) {
 
 	now := dateutil.Now()
 	if now < kube.NodeRecvTime+10000 {
-		p.Cpu = kube.Cpu * conf.CorrectionFactorCpu
-		p.Mem = float32(kube.Memory) * conf.CorrectionFactorPCpu
+		// p.Cpu = kube.Cpu * conf.CorrectionFactorCpu
+		// p.Mem = float32(kube.Memory) * conf.CorrectionFactorPCpu
+		// kuber 환경에서는 어플리케이션 cpu,mem 수집 안함.
+		p.Cpu = 0
+		p.Mem = 0
 		if kube.Metering == 0 {
 			p.Metering = float32(p.CpuCores)
 		} else {

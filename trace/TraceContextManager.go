@@ -18,9 +18,16 @@ var conf *agentconfig.Config = agentconfig.GetConfig()
 var ctxTable *hmap.LongKeyLinkedMap = hmap.NewLongKeyLinkedMapDefault().SetMax(int(conf.TxMaxCount))
 
 func AddGIDTraceCtx(GID int64, traceCtx *TraceCtx) {
+	if !conf.GoUseGoroutineIDEnabled {
+		return
+	}
 	ctxTable.Put(GID, traceCtx)
 }
 func GetGIDTraceCtx(GID int64) *TraceCtx {
+	if !conf.GoUseGoroutineIDEnabled {
+		return nil
+	}
+
 	if obj := ctxTable.Get(GID); obj != nil {
 		if v, ok := obj.(*TraceCtx); ok {
 			return v
@@ -30,5 +37,8 @@ func GetGIDTraceCtx(GID int64) *TraceCtx {
 }
 
 func RemoveGIDTraceCtx(GID int64) {
+	if !conf.GoUseGoroutineIDEnabled {
+		return
+	}
 	ctxTable.Remove(GID)
 }

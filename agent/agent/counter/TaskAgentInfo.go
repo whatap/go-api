@@ -2,27 +2,28 @@ package counter
 
 import (
 	//"log"
-	"github.com/whatap/golib/lang/pack"
-	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/data"
 	"github.com/whatap/go-api/agent/agent/kube"
 	"github.com/whatap/go-api/agent/agent/secure"
 	"github.com/whatap/go-api/agent/net"
 	"github.com/whatap/go-api/agent/util/logutil"
+	"github.com/whatap/golib/lang/pack"
+	"github.com/whatap/golib/util/dateutil"
 )
 
 var CounterStaticAgentBootInfo *pack.ParamPack
 
 type TaskAgentInfo struct {
-	startTime      int64
+	first          bool
+	nextTime       int64
 	lastNameSent   int64
 	firstConnected bool
 }
 
 func NewTaskAgentInfo() *TaskAgentInfo {
 	p := new(TaskAgentInfo)
-	p.startTime = dateutil.SystemNow()
+	p.nextTime = dateutil.SystemNow() + dateutil.MILLIS_PER_FIVE_MINUTE
 	p.firstConnected = true
 	return p
 }
@@ -46,10 +47,10 @@ func (this *TaskAgentInfo) process(p *pack.CounterPack1) {
 	}
 
 	now := dateutil.SystemNow()
-
-	if now >= this.startTime+dateutil.MILLIS_PER_FIVE_MINUTE {
-		// 12시간 발송.
-		this.startTime = now + dateutil.MILLIS_PER_HOUR*12
+	// now := getDate()
+	if now >= this.nextTime {
+		// 12시간 발송 -> 1시간 정시 근처 발송.
+		this.nextTime = now/dateutil.MILLIS_PER_HOUR*dateutil.MILLIS_PER_HOUR + dateutil.MILLIS_PER_HOUR
 
 		CounterStaticAgentBootInfo.Id = net.AGENT_BOOT_ENV
 		CounterStaticAgentBootInfo.Time = now
@@ -116,4 +117,8 @@ func (this *TaskAgentInfo) sendName(now int64) {
 	}
 
 	//logutil.Infoln("WA321-04", "AgentInfo sendName")
+}
+
+func getDate() int64 {
+	return dateutil.Now() / dateutil.MILLIS_PER_HOUR
 }
