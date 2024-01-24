@@ -104,7 +104,7 @@ func (this *TaskAgentInfo) sendName(now int64) {
 	}
 
 	if conf.ONODE != 0 {
-		data.AddHashText(pack.TEXT_ONAME, conf.ONODE, conf.ONODE_NAME)
+		data.AddHashText(pack.ONODE_NAME, conf.ONODE, conf.ONODE_NAME)
 	}
 
 	// Java

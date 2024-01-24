@@ -2,12 +2,12 @@ package counter
 
 import (
 	//"log"
-	"github.com/whatap/golib/lang/pack"
-	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/data"
 	"github.com/whatap/go-api/agent/agent/secure"
 	"github.com/whatap/go-api/agent/util/logutil"
+	"github.com/whatap/golib/lang/pack"
+	"github.com/whatap/golib/util/dateutil"
 )
 
 type TaskExtraINFO struct {
@@ -52,7 +52,7 @@ func (this *TaskExtraINFO) process(p *pack.CounterPack1) {
 	}
 
 	if conf.ONODE != 0 {
-		data.AddHashText(pack.TEXT_ONAME, conf.ONODE, conf.ONODE_NAME)
+		data.AddHashText(pack.ONODE_NAME, conf.ONODE, conf.ONODE_NAME)
 	}
 
 }

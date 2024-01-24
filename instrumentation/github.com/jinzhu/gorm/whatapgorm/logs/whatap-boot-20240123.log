@@ -1,0 +1,14 @@
+2024/01/23 08:15:33 
+2024/01/23 08:15:33 ## OPEN LOG FILE  boot  20240123 08:15:33.845 ##
+2024/01/23 08:15:33 
+2024/01/23 08:15:33 [WA212] fail to load license file
+2024/01/23 08:15:33 [WA212-02] create file path &{0xc000068240}
+2024/01/23 08:15:33 [WA181]  Close TCP connection
+2024/01/23 08:27:08 
+2024/01/23 08:27:08 ## OPEN LOG FILE  boot  20240123 08:27:08.967 ##
+2024/01/23 08:27:08 
+2024/01/23 08:27:08 [APP_TYPE] 8
+2024/01/23 08:27:08 [Config] okind_name=, onode_name=
+2024/01/23 08:27:08 [Config] okind_name=, onode_name=
+2024/01/23 08:27:08 [WA214] Config: whatap.conf
+2024/01/23 08:27:08 [WA181]  Close TCP connection

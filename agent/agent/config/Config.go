@@ -556,6 +556,17 @@ var mutex = sync.Mutex{}
 var prop *properties.Properties = nil
 var AppType int16 = 8
 
+// whatap.server.host 같은 경우 dot(.) 문자 때문에 환경변수로 인식이 안되는 경우 지정 이름 사용.
+var envKeys = map[string]string{
+	"accesskey":             "WHATAP_ACCESSKEY",
+	"license":               "WHATAP_LICENSE",
+	"whatap.server.host":    "WHATAP_SERVER_HOST",
+	"whatap.server.port":    "WHATAP_SERVER_PORT",
+	"net_ipc_port":          "WHATAP_NET_IPC_PORT",
+	"net_udp_port":          "WHATAP_NET_UDP_PORT",
+	"otel_grpc_server_port": "WHATAP_OTEL_GRPC_SERVER_PORT",
+}
+
 func GetConfig() *Config {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -659,6 +670,12 @@ func reload() {
 	if os.IsNotExist(err) {
 		if last_file_time == -1 {
 			logutil.Println("WA212", "fail to load license file")
+			if f, err := os.Create(path); err != nil {
+				logutil.Println("WA212-01", "create file error ", err)
+				return
+			} else {
+				logutil.Println("WA212-02", "create file path ", f)
+			}
 			return
 		} else if last_file_time == 0 {
 			logutil.Println("WA212-01", "fail to load license file")
@@ -1360,7 +1377,12 @@ func getValue(key string) string {
 		}
 	}()
 	envVal := os.Getenv(key)
-
+	if envVal == "" {
+		// 동일한 이름의 env 값이 없으면, 지정된 env key 이름으로 값을 가져옴.
+		if v, ok := envKeys[key]; ok {
+			envVal = os.Getenv(v)
+		}
+	}
 	//php prefix whatap.
 	if conf.AppType == lang.APP_TYPE_PHP {
 		if !strings.HasPrefix(key, "whatap.") {
@@ -1374,7 +1396,7 @@ func getValue(key string) string {
 
 	value, ok := prop.Get(key)
 	if ok == false {
-		return envVal
+		return strings.TrimSpace(envVal)
 	}
 
 	return strings.TrimSpace(value)
