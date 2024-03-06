@@ -48,12 +48,11 @@ func (this *ZipSendProxyThread) run() {
 	ConfLogSink := config.GetConfig().ConfLogSink
 	for true {
 		if tmp := this.Queue.GetTimeout(int(ConfLogSink.MaxWaitTime)); tmp != nil {
-			log := tmp.(*pack.LogSinkPack)
-			if log != nil {
+			if log, ok := tmp.(*pack.LogSinkPack); ok {
 				this.Append(log)
-			} else {
-				this.sendAndClear()
 			}
+		} else {
+			this.sendAndClear()
 		}
 	}
 }

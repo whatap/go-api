@@ -138,7 +138,7 @@ func StartWithGrpcServerStream(ctx context.Context, div string, fullMethod strin
 		div = fmt.Sprintf("/%s%s", "StreamServer", div)
 	}
 
-	ctx, err := trace.StartWithContext(ctx, path.Join(traceCtx.Host, div, fullMethod))
+	ctx, err := trace.StartWithContext(ctx, path.Join(fmt.Sprintf("/%s", traceCtx.Host), div, fullMethod))
 	trace.UpdateMtraceWithContext(ctx, map[string][]string(md))
 	trace.SetHeader(ctx, map[string][]string(md))
 
@@ -158,6 +158,7 @@ func StartWithGrpcServerStream(ctx context.Context, div string, fullMethod strin
 
 	return ctx, err
 }
+
 func GetValueFromMetadata(md metadata.MD, k string) string {
 	if md == nil {
 		return ""

@@ -422,10 +422,18 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 	if !conf.MtraceEnabled {
 		return
 	}
+	// convert new header, header key syntax is canoncail convention
+	h := make(http.Header)
+	for k, v := range header {
+		for _, it := range v {
+			h.Add(k, it)
+		}
+	}
+
 	isTraceparent := false
 	useWhatap := true
 	// W3C Trace Context traceparent
-	if val := header.Get(conf.TraceMtraceTraceparentKey); val != "" {
+	if val := h.Get(conf.TraceMtraceTraceparentKey); val != "" {
 		isTraceparent = true
 		v := strings.TrimSpace(val)
 		arr := stringutil.Split(v, "-")
@@ -442,10 +450,14 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 			} else {
 				traceCtx.MCallerStepId = 0
 			}
+
+			if conf.Debug {
+				log.Println("[WA-TX-08001] update mtrace traceparent ", v, ", mtid=", traceCtx.MTid, ", mcaller_step=", traceCtx.MCallerStepId)
+			}
 		}
 	}
 	// x-wtap-mst
-	if val := header.Get(conf.TraceMtraceCallerKey); val != "" {
+	if val := h.Get(conf.TraceMtraceCallerKey); val != "" {
 		v := strings.TrimSpace(val)
 		arr := stringutil.Split(v, ",")
 		var mtid, stepId, mcallerTxid int64
@@ -468,7 +480,7 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 			} else {
 				// parent id != whatap.stepid . don't use whatap header
 				if conf.Debug {
-					log.Printf("[WA-TX-05003] stepid(%s) is not equal traceparent stepid(%s), mtid=(%d), traceparent mtid=(%d)", traceCtx.MCallerStepId, stepId, mtid, traceCtx.MTid)
+					log.Printf("[WA-TX-08002] stepid(%s) is not equal traceparent stepid(%s), mtid=(%d), traceparent mtid=(%d)", traceCtx.MCallerStepId, stepId, mtid, traceCtx.MTid)
 				}
 				useWhatap = false
 			}
@@ -476,6 +488,10 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 			traceCtx.MTid = mtid
 			traceCtx.MCallerTxid = mcallerTxid
 			traceCtx.MCallerStepId = stepId
+		}
+
+		if conf.Debug {
+			log.Println("[WA-TX-08003] update mtrace x-wtap-mst ", v, ", mtid=", traceCtx.MTid, ", mcaller=", traceCtx.MCallerTxid, ", mcaller_step=", traceCtx.MCallerStepId)
 		}
 	}
 
@@ -492,19 +508,26 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 		// }
 
 		// x-wtap-spec1
-		if val := header.Get(conf.TraceMtraceSpecKey1); val != "" {
+		if val := h.Get(conf.TraceMtraceSpecKey1); val != "" {
 			v := strings.TrimSpace(val)
 			arr := stringutil.Split(v, ",")
 			if len(arr) >= 2 {
 				traceCtx.MCallerSpec = arr[0]
 				traceCtx.MCallerUrl = arr[1]
 			}
+			if conf.Debug {
+				log.Println("[WA-TX-08004] update mtrace x-wtap-spec1 ", v, ", mcaller_spec=", traceCtx.MCallerSpec, ", mcaller_url=", traceCtx.MCallerUrl)
+			}
 		}
 		// x-wtap-poid
-		if val := header.Get(conf.TraceMtracePoidKey); val != "" {
+		if val := h.Get(conf.TraceMtracePoidKey); val != "" {
 			v := strings.TrimSpace(val)
 			traceCtx.MCallerPoidKey = v
+			if conf.Debug {
+				log.Println("[WA-TX-08004] update mtrace poid ", v)
+			}
 		}
+
 	}
 
 	if traceCtx.MTid == 0 {
@@ -639,7 +662,15 @@ func ParseHeader(m map[string][]string) string {
 func GetRemoteIP(remoteAddr string, header map[string][]string) string {
 	conf := agentconfig.GetConfig()
 	if conf.TraceHttpClientIpHeaderKeyEnabled && header != nil {
-		val, ok := header[conf.TraceHttpClientIpHeaderKey]
+		var val []string
+		var ok bool = false
+		for k, v := range header {
+			if strings.ToLower(strings.TrimSpace(k)) == strings.ToLower(strings.TrimSpace(conf.TraceHttpClientIpHeaderKey)) {
+				val = v
+				ok = true
+				break
+			}
+		}
 		if ok && len(val) > 0 {
 			ipaddr := val[0]
 			// X-Forwarded-For

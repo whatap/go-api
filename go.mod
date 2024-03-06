@@ -12,6 +12,7 @@ require (
 	github.com/jinzhu/gorm v1.9.16
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/echo/v4 v4.7.2
+	github.com/lestrrat-go/strftime v1.0.6
 	github.com/magiconair/properties v1.8.7
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/shirou/gopsutil v3.21.11+incompatible
@@ -61,6 +62,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pierrec/lz4/v4 v4.1.14 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
@@ -79,4 +81,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-//replace github.com/whatap/golib => ../golib
+replace github.com/whatap/golib => ../golib

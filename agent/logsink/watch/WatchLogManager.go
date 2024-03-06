@@ -2,6 +2,7 @@ package watch
 
 import (
 	"math"
+	"path/filepath"
 	"regexp"
 	"runtime/debug"
 	"sort"
@@ -9,18 +10,36 @@ import (
 	"sync"
 	"time"
 
-	"github.com/whatap/golib/util/hmap"
-	"github.com/whatap/golib/util/stringutil"
+	"github.com/lestrrat-go/strftime"
+
 	"github.com/whatap/go-api/agent/agent/config"
 	langconf "github.com/whatap/go-api/agent/lang/conf"
 	"github.com/whatap/go-api/agent/util/logutil"
+	"github.com/whatap/golib/util/hmap"
+	"github.com/whatap/golib/util/stringutil"
 )
+
+type DateFormatFile struct {
+	fileName     string
+	prevFileName string
+	curFileName  string
+}
+
+func NewDateFormatFile(fileName, curFileName string) *DateFormatFile {
+	p := new(DateFormatFile)
+	p.fileName = fileName
+	p.prevFileName = curFileName
+	p.curFileName = curFileName
+	return p
+}
 
 type WatchLogManager struct {
 	watchEnabled bool
 	conf         *config.Config
 
 	table *hmap.StringKeyLinkedMap
+
+	dateFormatFiles *hmap.StringKeyLinkedMap
 }
 
 var watchLogManager *WatchLogManager
@@ -36,6 +55,7 @@ func GetInstance() *WatchLogManager {
 	watchLogManager.watchEnabled = false
 	watchLogManager.conf = config.GetConfig()
 	watchLogManager.table = hmap.NewStringKeyLinkedMap()
+	watchLogManager.dateFormatFiles = hmap.NewStringKeyLinkedMap()
 
 	langconf.AddConfObserver("WatchLogManager", watchLogManager)
 
@@ -81,11 +101,21 @@ func (this *WatchLogManager) run() {
 }
 
 func (this *WatchLogManager) process() {
+	// check dateformat files
+	this.processDateFormatFiles()
+	now := time.Now().UnixMilli()
 	en := this.table.Values()
+	if this.conf.DebugLogSinkEnabled {
+		logutil.Infoln("WA-LOGS-201", " process ids size ", this.table.Size())
+	}
+
 	for en.HasMoreElements() {
 		var dog *WatchLog
 		if el := en.NextElement(); el != nil {
 			dog = el.(*WatchLog)
+			if this.conf.DebugLogSinkEnabled {
+				logutil.Infoln("WA-LOGS-202", "process execute dog ", dog.Id)
+			}
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
@@ -95,15 +125,87 @@ func (this *WatchLogManager) process() {
 				if dog.IsActive() {
 					dog.Process()
 				}
+				// expire dog
+				if dog.ExpirationTime != 0 && dog.ExpirationTime < now {
+					dog.Stop()
+					this.table.Remove(dog.Id)
+					if this.conf.DebugLogSinkEnabled {
+						logutil.Infoln("WA-LOGS-203", "expire dog id=", dog.Id, ", ", dog.ExpirationTime)
+					}
+				}
 			}()
 		}
 	}
 }
 
+func (this *WatchLogManager) processDateFormatFiles() {
+	conf := config.GetConfig()
+	// check dateformat files
+	en := this.dateFormatFiles.Values()
+	for en.HasMoreElements() {
+		var dff *DateFormatFile
+		if el := en.NextElement(); el != nil {
+			dff = el.(*DateFormatFile)
+			if str, err := strftime.Format(dff.fileName, time.Now()); err == nil {
+				// add new file
+				if str != dff.curFileName {
+					dff.prevFileName = dff.curFileName
+					dff.curFileName = str
+
+					// new and activate
+					dog := this.Add(dff.curFileName, dff.curFileName, filepath.Base(dff.fileName), []string{}, conf.LogSinkInterval)
+					dog.ActivateFirst()
+
+					if this.conf.DebugLogSinkEnabled {
+						logutil.Infoln("WA-LOGS-204", "add new dateformatfile to WatchLog ", dff.fileName, ", id=", dff.curFileName)
+					}
+					// set stop sign after interval .
+					if tmp := this.table.Get(dff.prevFileName); tmp != nil {
+						if dog, ok := tmp.(*WatchLog); ok {
+							dog.ExpirationTime = time.Now().UnixMilli() + conf.LogSinkStopInterval
+							if this.conf.DebugLogSinkEnabled {
+								logutil.Infoln("WA-LOGS-205", "set expiration time ", dff.fileName, ",id=", dff.prevFileName, ", interval=", conf.LogSinkStopInterval)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func (this *WatchLogManager) Add(id string, file string, category string, words []string, checkInterval int32) *WatchLog {
+	// java intern, 이미 있는 건 그대로 사용.
+	var dog *WatchLog
+	if tmp := this.table.Get(id); tmp != nil {
+		if dog_tmp, ok := tmp.(*WatchLog); ok {
+			dog = dog_tmp
+			if this.conf.DebugLogSinkEnabled {
+				logutil.Infoln("WA-LOGS-206", "exists ", id)
+			}
+		}
+	}
+	if dog == nil {
+		dog = NewWatchLog(id)
+		this.table.Put(id, dog)
+		if this.conf.DebugLogSinkEnabled {
+			logutil.Infoln("WA-LOGS-207", "add ", id)
+		}
+	}
+
+	dog.Config(id, file)
+	dog.Words = words
+	dog.CheckInterval = int(math.Max(float64(checkInterval), float64(1000)))
+	if category != "" {
+		dog.Category = category
+	}
+	return dog
+}
+
 func (this *WatchLogManager) resetDogList(reset bool) {
 	defer func() {
 		if r := recover(); r != nil {
-			logutil.Println("WA-LOGS-201", "resetDogList Recover", r, ",stack=", string(debug.Stack()))
+			logutil.Println("WA-LOGS-208", "resetDogList Recover", r, ",stack=", string(debug.Stack()))
 		}
 	}()
 	ids := make([]string, 0)
@@ -118,30 +220,42 @@ func (this *WatchLogManager) resetDogList(reset bool) {
 			enabled := true
 			file := sl[i]
 			words := make([]string, 0)
+			category := ""
 			checkInterval := this.conf.LogSinkInterval
 
 			if this.conf.DebugLogSinkEnabled {
-				logutil.Println("WA-LOGS-202", "resetDogList logsink ", "id=", id, ",file=", file, ",enabled=", enabled)
+				logutil.Println("WA-LOGS-209", "resetDogList logsink ", "id=", id, ",file=", file, ",enabled=", enabled)
 			}
 			if file != "" {
-				dog := NewWatchLog(id)
-				this.table.Put(id, dog)
+				if str, err := strftime.Format(file, time.Now()); err == nil {
+					// dateformat file
+					if file != str {
+						this.dateFormatFiles.Put(file, NewDateFormatFile(file, str))
+						if this.conf.DebugLogSinkEnabled {
+							logutil.Infoln("WA-LOGS-210", "resetDogList add dateformatFile ", file, ", ", str)
+						}
+						// dateformat 이름을 카테고리로 지정
+						category = filepath.Base(file)
+						id = str
+						file = str
+						// 변경된 파일명을 다시 ids에 넣어줌. 밑에서 삭제 되지 않도록
+						sl[i] = id
+					}
+				}
+				dog := this.Add(id, file, category, words, checkInterval)
 
-				dog.Config(id, file)
-				dog.Words = words
-				dog.CheckInterval = int(math.Max(float64(checkInterval), float64(1000)))
 				if reset {
 					dog.Reset()
 				}
 
 				if enabled {
 					if this.conf.DebugLogSinkEnabled {
-						logutil.Println("WA-LOGS-203", "Activate ", "id=", id, ",file=", file, ",enabled=", enabled)
+						logutil.Println("WA-LOGS-211", "Activate ", "id=", id, ",file=", file, ",enabled=", enabled)
 					}
 					dog.Activate()
 				} else {
 					if this.conf.DebugLogSinkEnabled {
-						logutil.Println("WA-LOGS-204", "Stop ", "id=", id, ",file=", file, ",enabled=", enabled)
+						logutil.Println("WA-LOGS-212", "Stop ", "id=", id, ",file=", file, ",enabled=", enabled)
 					}
 					dog.Stop()
 				}
@@ -169,7 +283,7 @@ func (this *WatchLogManager) resetDogList(reset bool) {
 			checkInterval := config.GetInt("watchlog."+id+".check_interval", 1000)
 
 			if this.conf.DebugLogSinkEnabled {
-				logutil.Println("WA-LOGS-202", "resetDogList ", "id=", id, ",file=", file, ",enabled=", enabled)
+				logutil.Println("WA-LOGS-213", "resetDogList ", "id=", id, ",file=", file, ",enabled=", enabled)
 			}
 			// DEBUG
 			//if file != "" && len(words) > 0 {
@@ -186,12 +300,12 @@ func (this *WatchLogManager) resetDogList(reset bool) {
 
 				if enabled {
 					if this.conf.DebugLogSinkEnabled {
-						logutil.Println("WA-LOGS-203", "Activate ", "id=", id, ",file=", file, ",enabled=", enabled)
+						logutil.Println("WA-LOGS-214", "Activate ", "id=", id, ",file=", file, ",enabled=", enabled)
 					}
 					dog.Activate()
 				} else {
 					if this.conf.DebugLogSinkEnabled {
-						logutil.Println("WA-LOGS-204", "Stop ", "id=", id, ",file=", file, ",enabled=", enabled)
+						logutil.Println("WA-LOGS-215", "Stop ", "id=", id, ",file=", file, ",enabled=", enabled)
 					}
 					dog.Stop()
 				}
@@ -211,6 +325,9 @@ func (this *WatchLogManager) resetDogList(reset bool) {
 		}
 		if exists == false {
 			this.table.Remove(id)
+			if this.conf.DebugLogSinkEnabled {
+				logutil.Println("WA-LOGS-216", "clear. ", "remove ", id)
+			}
 		}
 	}
 }

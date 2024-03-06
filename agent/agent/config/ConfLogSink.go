@@ -34,6 +34,8 @@ type ConfLogSink struct {
 	AppLogCategory   string
 	AppLogPattern    string
 	LogSendThreshold int32
+
+	LogSinkStopInterval int64
 }
 
 func (this *ConfLogSink) Apply(conf *Config) {
@@ -79,4 +81,7 @@ func (this *ConfLogSink) Apply(conf *Config) {
 	this.AppLogCategory = GetValue("logsink_applogcategory")
 	this.AppLogPattern = GetValue("logsink_applogpattern")
 	this.LogSendThreshold = GetInt("logsink_sendthreshold", 500)
+
+	//Interval until end time, default 30 minutes
+	this.LogSinkStopInterval = GetLong("logsink_stop_interval", 60000*30)
 }

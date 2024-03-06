@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/whatap/golib/lang/pack"
-	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/data"
 	"github.com/whatap/go-api/agent/agent/secure"
 	logsink_zip "github.com/whatap/go-api/agent/logsink/zip"
 	"github.com/whatap/go-api/agent/util/logutil"
+	"github.com/whatap/golib/lang/pack"
+	"github.com/whatap/golib/util/dateutil"
 	"golang.org/x/text/encoding/korean"
 	"golang.org/x/text/transform"
 )
@@ -34,12 +34,15 @@ type WatchLog struct {
 	Words         []string
 	CheckInterval int
 
-	LastCheckTime int64
+	ExpirationTime int64
+	LastCheckTime  int64
 
 	encoding         string
 	logsendThreshold int32
 
 	trxLogFound bool
+
+	Category string
 }
 
 func NewWatchLog(id string) *WatchLog {
@@ -47,11 +50,12 @@ func NewWatchLog(id string) *WatchLog {
 	p.Id = id
 	p.Words = make([]string, 0)
 	p.logsendThreshold = LogSendThreshold
+	p.Category = filepath.Base(id)
 	return p
 }
 
 func (wl *WatchLog) Config(id string, fileName string) {
-
+	wl.Category = filepath.Base(id)
 	wl.FileName = fileName
 	wl.file = nil
 	if fi, err := os.Stat(fileName); err == nil {
@@ -280,8 +284,10 @@ func (wl *WatchLog) read(lineLimit int) []string {
 
 	for scanner.Scan() && lineCount < lineLimit {
 		line := strings.TrimSpace(scanner.Text())
-		result = append(result, line)
-		lineCount++
+		if line != "" {
+			result = append(result, line)
+			lineCount++
+		}
 	}
 	//if wl.Debug {
 	//logutil.Infoln("read elpased=", dateutil.SystemNow()-sT, ",len=", len(result))
@@ -293,7 +299,7 @@ func (wl *WatchLog) read(lineLimit int) []string {
 func (wl *WatchLog) send(word string, wlog *WatchLog, line string) {
 	p := pack.NewLogSinkPack()
 	p.Time = dateutil.Now()
-	p.Category = filepath.Base(wlog.Id)
+	p.Category = wl.Category
 	p.Tags.PutString("file", wlog.FileName)
 	// Java ONAME, OKIND, ONODE
 	conf := config.GetConfig()
@@ -326,6 +332,17 @@ func (wl *WatchLog) Activate() {
 	if wl.Activated == false {
 		if wl.FileInfo != nil {
 			wl.FilePos = wl.FileInfo.Size()
+		} else {
+			wl.FilePos = -1
+		}
+	}
+	wl.Activated = true
+}
+
+func (wl *WatchLog) ActivateFirst() {
+	if wl.Activated == false {
+		if wl.FileInfo != nil {
+			wl.FilePos = 0
 		} else {
 			wl.FilePos = -1
 		}

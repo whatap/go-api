@@ -22,8 +22,8 @@ func UnaryClientInterceptor() grpc.UnaryClientInterceptor {
 			return invoker(ctx, method, req, reply, cc, opts...)
 		}
 
+		mt := trace.GetMTrace(ctx)
 		httpcCtx, _ := httpc.Start(ctx, fmt.Sprintf("grpc://%s%s", strings.TrimSpace(cc.Target()), strings.TrimSpace(method)))
-		mt := httpc.GetMTrace(httpcCtx)
 		md, ok := metadata.FromOutgoingContext(ctx)
 		if ok {
 			for k, v := range mt {
