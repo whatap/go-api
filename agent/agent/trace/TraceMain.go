@@ -6,7 +6,6 @@ import (
 	//"log"
 	//"runtime"
 	"sync"
-
 	//"runtime/debug"
 	"time"
 
@@ -34,32 +33,21 @@ var textReset int32
 // data.DataProfileAgent 를  옮겨옴 import cycle 오류
 var LastReject int64
 
-var sendTransactionQue chan *TraceContext
 var traceMainLock sync.Mutex
 var profileQueue *queue.RequestQueue
 
 func StartProfileSender() {
 	conf := config.GetConfig()
-	// DEBUG Queue
-	if conf.QueueProfileEnabled == false {
-		if sendTransactionQue == nil {
-			sendTransactionQue = make(chan *TraceContext, int(conf.QueueProfileSize))
-		}
-		if conf.QueueLogEnabled {
-			logutil.Println("WA550-00", "Profile channel size=", cap(sendTransactionQue), ",conf.size=", conf.QueueProfileSize)
-		}
-	} else {
-		if profileQueue == nil {
-			profileQueue = queue.NewRequestQueue(int(conf.QueueProfileSize))
-			profileQueue.Overflowed = func(o interface{}) {
-				if conf.QueueLogEnabled {
-					logutil.Println("WA550-01", "Profile Queue overflowed")
-				}
+	if profileQueue == nil {
+		profileQueue = queue.NewRequestQueue(int(conf.QueueProfileSize))
+		profileQueue.Overflowed = func(o interface{}) {
+			if conf.QueueLogEnabled {
+				logutil.Println("WA550-01", "Profile Queue overflowed")
 			}
 		}
-		if conf.QueueLogEnabled {
-			logutil.Println("WA550-02", "Profile Queue=", profileQueue.GetCapacity())
-		}
+	}
+	if conf.QueueLogEnabled {
+		logutil.Println("WA550-02", "Profile Queue=", profileQueue.GetCapacity())
 	}
 	if conf.QueueLogEnabled {
 		logutil.Println("WA550-03", "Profile Queue thread count=", conf.QueueProfileProcessThreadCount)
@@ -67,6 +55,13 @@ func StartProfileSender() {
 	for i := 0; i < int(conf.QueueProfileProcessThreadCount); i++ {
 		go func() {
 			for {
+				// shutdown
+				if config.GetConfig().Shutdown {
+					logutil.Infoln("WA211-11", "Shutdown TraceMain")
+					profileQueue.Clear()
+					GetTraceContextManager().Clear()
+					return
+				}
 				process()
 			}
 		}()
@@ -79,6 +74,12 @@ func StartProfileSender() {
 	textReset = config.GetConfig().TextReset
 	go func() {
 		for {
+			// shutdown
+			if config.GetConfig().Shutdown {
+				logutil.Infoln("WA211-12", "Shutdown textReset")
+				resetSqlText()
+				return
+			}
 			// DEBUG goroutine 로그
 			//logutil.Println("SQL reset ")
 			resetTraceSQL()
@@ -99,31 +100,21 @@ func process() {
 			}
 		}
 	}()
-
+	conf := config.GetConfig()
 	var ctx *TraceContext
 
-	// DEBUG Queue
-	if conf.QueueProfileEnabled == false {
-		if conf.QueueLogEnabled {
-			logutil.Println("WA551-00", "Profile channel len=", len(sendTransactionQue))
-		}
-		if len(sendTransactionQue) == cap(sendTransactionQue) {
-			logutil.Println("W551-01", "Profile Channle Full", len(sendTransactionQue))
-		}
-		ctx = <-sendTransactionQue
-	} else {
-		if conf.QueueLogEnabled {
-			logutil.Println("WA551-02", "Profile Queue len=", profileQueue.Size())
-		}
-		if profileQueue.Size() == profileQueue.GetCapacity() {
-			logutil.Println("W551-03", "Profile Queue Full", profileQueue.Size())
-		}
-		v := profileQueue.Get()
-		if v == nil {
-			return
-		}
-		ctx = v.(*TraceContext)
+	if conf.QueueLogEnabled {
+		logutil.Println("WA551-02", "Profile Queue len=", profileQueue.Size())
 	}
+	if profileQueue.Size() == profileQueue.GetCapacity() {
+		logutil.Println("W551-03", "Profile Queue Full", profileQueue.Size())
+	}
+
+	v := profileQueue.GetTimeout(5 * 1000)
+	if v == nil {
+		return
+	}
+	ctx = v.(*TraceContext)
 
 	if ctx.IsStaticContents {
 		//logutil.Infoln("Ignore", "IsStaticContents Resurn")

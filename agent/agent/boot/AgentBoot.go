@@ -19,7 +19,8 @@ import (
 	"github.com/whatap/go-api/agent/agent/trace"
 	logsinkwatch "github.com/whatap/go-api/agent/logsink/watch"
 	"github.com/whatap/go-api/agent/net"
-	"github.com/whatap/go-api/agent/thirdparty"
+
+	// "github.com/whatap/go-api/agent/thirdparty"
 	"github.com/whatap/go-api/agent/util/logutil"
 	whatapsys "github.com/whatap/go-api/agent/util/sys"
 
@@ -30,8 +31,8 @@ import (
 )
 
 var (
-	AGENT_VERSION string = "0.3.2"
-	BUILDNO       string = "20240306"
+	AGENT_VERSION string = "0.4.0"
+	BUILDNO       string = "2024019"
 )
 
 func Boot() {
@@ -41,8 +42,12 @@ func Boot() {
 			logutil.Println("WA001", " Recover", r, "stack=", string(debug.Stack()))
 		}
 	}()
-
-	config.GetConfig()
+	conf := config.GetConfig()
+	logutil.GetLogger()
+	if conf.Shutdown {
+		logutil.Infoln("WA001-01", " Shutdown. config.shutdown is true, don't start agent")
+		return
+	}
 
 	trace.StartProfileSender()
 	net.StartNet()
@@ -60,7 +65,7 @@ func Boot() {
 	//trace.StartSimula()
 	pprof.GetSlefPProf()
 
-	thirdparty.StartAll()
+	// thirdparty.StartAll()
 
 	logsinkwatch.GetInstance()
 }

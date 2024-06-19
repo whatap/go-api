@@ -35,10 +35,50 @@ import (
 	"github.com/whatap/golib/util/urlutil"
 )
 
-var conf *config.Config = config.GetConfig()
+var tcm *TraceContextManager
+var tcmLock sync.Mutex
 
-// var ctxTable *hmap.LongKeyLinkedMap = hmap.NewLongKeyLinkedMap().SetMax(5000)
-var ctxTable *hmap.LongKeyLinkedMap = hmap.NewLongKeyLinkedMap(int(conf.TxDefaultCapacity), conf.TxDefaultLoadFactor).SetMax(int(conf.TxMaxCount))
+type TraceContextManager struct {
+	ctxTable *hmap.LongKeyLinkedMap
+}
+
+func GetTraceContextManager() *TraceContextManager {
+	if tcm != nil {
+		return tcm
+	}
+	tcmLock.Lock()
+	defer tcmLock.Unlock()
+	if tcm != nil {
+		return tcm
+	}
+	tcm = newTraceContextManager()
+	return tcm
+}
+func newTraceContextManager() *TraceContextManager {
+	p := new(TraceContextManager)
+	conf := config.GetConfig()
+	p.ctxTable = hmap.NewLongKeyLinkedMap(int(conf.TxDefaultCapacity), conf.TxDefaultLoadFactor).SetMax(int(conf.TxMaxCount))
+	return p
+}
+func (tcm *TraceContextManager) Clear() {
+	keys := tcm.ctxTable.Keys()
+	for e := keys.NextLong(); keys.HasMoreElements(); e = keys.NextLong() {
+		it := tcm.ctxTable.Remove(e)
+		if it != nil {
+			if tmp, ok := it.(*TraceContext); ok {
+				CloseTraceContext(tmp)
+			}
+		}
+	}
+	tcm.ctxTable.Clear()
+}
+
+// var conf *config.Config //= config.GetConfig()
+
+// var ctxTable *hmap.LongKeyLinkedMap = hmap.NewLongKeyLinkedMapDefault().SetMax(5000)
+
+// var ctxTable *hmap.LongKeyLinkedMap = hmap.NewLongKeyLinkedMap(int(conf.TxDefaultCapacity), conf.TxDefaultLoadFactor).SetMax(int(conf.TxMaxCount))
+
 var ctxLock sync.Mutex
 
 const (
@@ -150,6 +190,7 @@ func TxPut(up udp.UdpPack) {
 }
 
 func startTx(p *udp.UdpTxStartPack) {
+	conf := config.GetConfig()
 	//logutil.Infoln(">>>>", "StartTx ", p.Txid)
 	if conf.TraceDaemonEnabled && conf.TraceDaemonUrls.Contains(p.Uri) {
 		//logutil.Println("WA560-00", "Daemon ", p.Uri)
@@ -267,13 +308,20 @@ func startTx(p *udp.UdpTxStartPack) {
 	data.SendHashText(pack.TEXT_SERVICE, ctx.ServiceHash, ctx.ServiceName)
 
 	meter.AddMeterUsers(ctx.WClientId)
-	ctxTable.Put(p.Txid, ctx)
+
+	ctxm := GetTraceContextManager()
+	ctxm.ctxTable.Put(p.Txid, ctx)
+	// ctxTable.Put(p.Txid, ctx)
 }
 
 func endTx(p *udp.UdpTxEndPack) {
+	conf := config.GetConfig()
+	ctxm := GetTraceContextManager()
+
 	// ctx interface 변환 전에 먼저 nil 체크, 기존 panic 보완
 	var ctx *TraceContext
-	ctxIf := ctxTable.Remove(p.Txid)
+	// ctxIf := ctxTable.Remove(p.Txid)
+	ctxIf := ctxm.ctxTable.Remove(p.Txid)
 	if ctxIf == nil {
 		if !conf.TraceCLIEnabled && p.Host == "CLI" {
 			//logutil.Println("WA560-02", "Ignore CLI ", p.Uri)
@@ -389,14 +437,7 @@ func endTx(p *udp.UdpTxEndPack) {
 	// ctx를 보내고 싶지만, import cycle 오류 발생.
 	meter.GetInstanceMeterService().Add(tx, ctx.McallerPcode, ctx.McallerOkind, ctx.McallerOid)
 
-	// DEBUG Queue
-	if conf.QueueProfileEnabled == false {
-		sendTransactionQue <- ctx
-	} else {
-		if profileQueue != nil {
-			profileQueue.PutForce(ctx)
-		}
-	}
+	SendTransaction(ctx)
 
 	// DEBUG
 	//log.Println("EndTx Txid=", p.Txid, "size=", ctxTable.Size(), ",len=", len(sendTransactionQue) )
@@ -408,6 +449,7 @@ func endTx(p *udp.UdpTxEndPack) {
 }
 
 func startEndTx(p *udp.UdpTxStartEndPack) {
+	conf := config.GetConfig()
 	//logutil.Infoln(">>>>", "Start End Tx ", p.Txid)
 	if conf.TraceDaemonEnabled && conf.TraceDaemonUrls.Contains(p.Uri) {
 		//logutil.Println("WA560-00", "Daemon ", p.Uri)
@@ -627,14 +669,7 @@ func startEndTx(p *udp.UdpTxStartEndPack) {
 	// ctx를 보내고 싶지만, import cycle 오류 발생.
 	meter.GetInstanceMeterService().Add(tx, ctx.McallerPcode, ctx.McallerOkind, ctx.McallerOid)
 
-	// DEBUG Queue
-	if conf.QueueProfileEnabled == false {
-		sendTransactionQue <- ctx
-	} else {
-		if profileQueue != nil {
-			profileQueue.PutForce(ctx)
-		}
-	}
+	SendTransaction(ctx)
 }
 
 var dbc int32 = hash.HashStr("php")
@@ -984,6 +1019,7 @@ func profileHttpc(p *udp.UdpTxHttpcPack) {
 }
 
 func profileErrorStep(thr *stat.ErrorThrowable, ctx *TraceContext) {
+	conf := config.GetConfig()
 	if IsIgnoreException(thr) {
 		return
 	}
@@ -1065,6 +1101,7 @@ func profileError(p *udp.UdpTxErrorPack) {
 }
 
 func profileMsg(p *udp.UdpTxMessagePack) {
+	conf := config.GetConfig()
 	// ctx interface 변환 전에 먼저 nil 체크, 기존 panic 보완
 	ctx := GetContext(p.Txid)
 	if ctx == nil {
@@ -1251,29 +1288,39 @@ func addSqlTime(ctx *TraceContext, serviceHash, dbc int32, crud byte, hash, elap
 }
 
 func GetContextEnumeration() hmap.Enumeration {
+	ctxm := GetTraceContextManager()
 	//fmt.Println("GetContextEnumeration size=", ctxTable.Size())
-	return ctxTable.Values()
+	// return ctxTable.Values()
+	return ctxm.ctxTable.Values()
 }
 
 func GetContext(key int64) *TraceContext {
-	tc := ctxTable.Get(key)
+	ctxm := GetTraceContextManager()
+	tc := ctxm.ctxTable.Get(key)
+	// tc := ctxTable.Get(key)
 	if tc == nil {
 		return nil
 	}
 	return tc.(*TraceContext)
 }
 func PutContext(key int64, v interface{}) interface{} {
-	return ctxTable.Put(key, v)
+	ctxm := GetTraceContextManager()
+	return ctxm.ctxTable.Put(key, v)
+	// return ctxTable.Put(key, v)
 }
 
 // counter.TaskActiveTranCount 에서 종료 시간이 지난 cts 를 삭제 할 때 호출
 func RemoveContext(key int64) interface{} {
+	ctxm := GetTraceContextManager()
+	return ctxm.ctxTable.Remove(key)
 	//fmt.Println("ctx Remove=", key)
-	return ctxTable.Remove(key)
+	// return ctxTable.Remove(key)
 }
 
 func ContainsTxid(txid int64) bool {
-	return ctxTable.ContainsKey(txid)
+	ctxm := GetTraceContextManager()
+	return ctxm.ctxTable.ContainsKey(txid)
+	// return ctxTable.ContainsKey(txid)
 }
 
 // counter.TaskActiveTranCount 에서 종료 시간이 지난 ctx 를 삭제 할 때 호출
@@ -1406,12 +1453,7 @@ func MatchQueryString(serviceName string, serviceURL *urlutil.URL, matchUrls []s
 	return sb.ToString()
 }
 func SendTransaction(ctx *TraceContext) {
-	// DEBUG Queue
-	if conf.QueueProfileEnabled == false {
-		sendTransactionQue <- ctx
-	} else {
-		if profileQueue != nil {
-			profileQueue.PutForce(ctx)
-		}
+	if profileQueue != nil {
+		profileQueue.PutForce(ctx)
 	}
 }

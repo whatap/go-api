@@ -5,12 +5,12 @@ import (
 	"time"
 	//"runtime/debug"
 
-	"github.com/whatap/golib/io"
-	"github.com/whatap/golib/lang/pack"
-	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/secure"
 	"github.com/whatap/go-api/agent/util/logutil"
+	"github.com/whatap/golib/io"
+	"github.com/whatap/golib/lang/pack"
+	"github.com/whatap/golib/util/dateutil"
 )
 
 var start bool = false
@@ -34,7 +34,11 @@ func run() {
 	secuMaster.WaitForInit()
 	secuSession := secure.GetSecuritySession()
 	for {
-
+		// shutdown
+		if config.GetConfig().Shutdown {
+			logutil.Infoln("WA211-15", "Shutdown net.Receiver")
+			return
+		}
 		func() {
 			// for문이 종료 되지 않도록 Recover
 			defer func() {
@@ -46,6 +50,11 @@ func run() {
 			session := GetTcpSession()
 			//logutil.Println("isOpen() = ", session.isOpen())
 			for session.isOpen() == false {
+				// shutdown
+				if config.GetConfig().Shutdown {
+					logutil.Infoln("WA211-15-01", "Shutdown net.Receiver")
+					return
+				}
 				session = GetTcpSession()
 				time.Sleep(1000 * time.Millisecond)
 			}

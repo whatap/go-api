@@ -103,6 +103,10 @@ func getCommandString(commandName string, args ...interface{}) string {
 
 // Redis는SQL은 아니지만 같은 DB 계열임.  통계 처리를 위해 SQL로 처리
 func DoRun(ctx context.Context, conn redis.Conn, connection, commandName string, args ...interface{}) (interface{}, error) {
+	if trace.DISABLE() {
+		return conn.Do(commandName, args...)
+	}
+
 	cmd := getCommandString(commandName, args...)
 	if ctx == nil {
 		ctx, _ = trace.Start(context.Background(), connection)
@@ -116,6 +120,10 @@ func DoRun(ctx context.Context, conn redis.Conn, connection, commandName string,
 }
 
 func SendRun(ctx context.Context, conn redis.Conn, connection, commandName string, args ...interface{}) error {
+	if trace.DISABLE() {
+		return conn.Send(commandName, args...)
+	}
+
 	cmd := getCommandString(commandName, args...)
 	if ctx == nil {
 		ctx, _ = trace.Start(context.Background(), connection)

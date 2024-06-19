@@ -3,8 +3,8 @@ package meter
 import (
 	"sync"
 
-	"github.com/whatap/golib/util/hmap"
 	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/golib/util/hmap"
 )
 
 type HTTPCBucket struct {
@@ -40,7 +40,10 @@ func GetInstanceMeterHTTPC() *MeterHTTPC {
 		return meterHTTPC
 	}
 }
-
+func (this *MeterHTTPC) Clear() {
+	this.Bucket = NewHTTPCBucket()
+	this.ResetStat()
+}
 func (this *MeterHTTPC) GetBucketReset() *HTTPCBucket {
 	b := this.Bucket
 	this.Bucket = NewHTTPCBucket()

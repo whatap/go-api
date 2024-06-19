@@ -1,20 +1,21 @@
 package secure
 
 import (
-	"fmt"
 	"math"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 
+	"github.com/magiconair/properties"
+	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/go-api/agent/util/logutil"
 	"github.com/whatap/golib/lang/ref"
 	"github.com/whatap/golib/util/compare"
 	"github.com/whatap/golib/util/hash"
 	"github.com/whatap/golib/util/keygen"
 	"github.com/whatap/golib/util/stringutil"
-	"github.com/whatap/go-api/agent/agent/config"
-	"github.com/whatap/go-api/agent/util/logutil"
 )
 
 type ParamSecurity struct {
@@ -51,73 +52,94 @@ func GetParamSecurity() *ParamSecurity {
 }
 
 func (this *ParamSecurity) Reload() {
-	var f *os.File
-
 	defer func() {
 		if r := recover(); r != nil {
-			logutil.Println("WA1000", " Recover ", r)
-		}
-		if f != nil {
-			f.Close()
+			logutil.Println("WA1000", " Recover ", r, ", stack \n", string(debug.Stack()))
 		}
 	}()
 	home := config.GetWhatapHome()
+	this.loadConf(home)
+}
 
-	stat, err := os.Stat(filepath.Join(home, "paramkey.txt"))
-
-	// 파일이 없으면 새로 생성.
-	if os.IsNotExist(err) {
-		f, err := os.Create(filepath.Join(home, "paramkey.txt"))
-		if err != nil {
-			logutil.Println("WA1001", " Create File Error", err)
-			return
+func (this *ParamSecurity) loadConf(home string) {
+	filename := filepath.Join(home, "security.conf")
+	stat, err := os.Stat(filename)
+	if err != nil && os.IsNotExist(err) {
+		if err := this.loadParamkey(home); err == nil {
+			this.save(filename, string(this.key))
+		} else {
+			this.save(filename, "WHATAP")
 		}
+	}
+	stat, err = os.Stat(filename)
+	// 수정사항이 없으면 종료
+	if stat.ModTime().Unix() == this.lasttime {
+		return
+	}
+	this.lasttime = stat.ModTime().Unix()
+	if err := this.load(filename); err != nil {
+		logutil.Println("WA1001", "load security.conf error ", err)
+	}
+}
 
-		b := this.getKey()
+func (this *ParamSecurity) load(filename string) error {
+	prop, err := properties.LoadFile(filename, properties.UTF8)
+	if err != nil {
+		return err
+	}
+	if pkey, ok := prop.Get("paramkey"); ok {
+		this.key = []byte(strings.TrimSpace(pkey))
+		this.KeyHash = hash.Hash(this.key)
+	} else {
+		this.key = []byte("WHATAP")
+		this.KeyHash = hash.Hash(this.key)
+	}
+	return nil
+}
 
-		f.Write(b)
-		f.Sync()
-		stat, err := f.Stat()
-		if err != nil {
-			this.lasttime = stat.ModTime().Unix()
-			this.key = b
+func (this *ParamSecurity) loadParamkey(home string) error {
+	f, err := os.Open(filepath.Join(home, "paramkey.txt"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	b := make([]byte, 512)
+	n, err := f.Read(b)
+	if err != nil {
+		logutil.Println("WA1003", " Read File Error", err)
+		return err
+	} else {
+		if n > 3 {
+			this.key = []byte(strings.TrimSpace(string(b[0:n])))
+			this.KeyHash = hash.Hash(this.key)
+		} else {
+			this.key = []byte("WHATAP")
 			this.KeyHash = hash.Hash(this.key)
 		}
+	}
+	return nil
+}
 
-	} else {
-		// 수정사항이 없으면 종료
-		if stat.ModTime().Unix() == this.lasttime {
-			return
+func (this *ParamSecurity) save(filename string, password string) error {
+	_, err := os.Stat(filename)
+	// 파일이 없으면 새로 생성.
+	if err != nil && os.IsNotExist(err) {
+		f, err1 := os.Create(filename)
+		if err1 != nil {
+			logutil.Println("WA1004", " Create File Error", err1)
+			return err1
 		}
+		defer f.Close()
 
-		f, err := os.Open(filepath.Join(home, "paramkey.txt"))
-		if err != nil {
-			logutil.Println("WA1002", " Open File Error", err)
-			return
-		}
-
-		this.lasttime = stat.ModTime().Unix()
-		b := make([]byte, 512)
-		//b := FileUtil.readAll(f);
-		n, err := f.Read(b)
-		if err != nil {
-			logutil.Println("WA1003", " Read File Error", err)
-		} else {
-			if n > 3 {
-				//this.key = []byte(strings.TrimSpace(strings.ToUpper(string(b[0:n]))))
-				// 2017.11.02 대문자 변경 삭제
-				this.key = []byte(strings.TrimSpace(string(b[0:n])))
-				this.KeyHash = hash.Hash(this.key)
-			} else {
-				this.key = []byte("WHATAP")
-				this.KeyHash = hash.Hash(this.key)
-			}
+		prop := properties.NewProperties()
+		prop.Set("paramkey", password)
+		if _, err2 := prop.Write(f, properties.UTF8); err2 != nil {
+			logutil.Println("WA1005", " Write File security.conf Error", err2)
+			return err2
 		}
 	}
-
-	if f != nil {
-		f.Close()
-	}
+	return nil
 }
 
 func (this *ParamSecurity) getKey() []byte {
@@ -165,16 +187,4 @@ func (this *ParamSecurity) Decrypt(b []byte, crc *ref.BYTE, dkey []byte) []byte 
 		j = (j + 1) % len(dkey)
 	}
 	return b
-}
-
-func ParamSecurityMain() {
-	s := "A112fda12fafa34"
-	c1 := ref.NewBYTE()
-	b := paramSecurity.Encrypt([]byte(s), c1)
-
-	c2 := ref.NewBYTE()
-
-	fmt.Println(string(paramSecurity.Decrypt(b, c2, []byte("WHATAP"))))
-	fmt.Println(len("WHATAP"))
-	fmt.Println(c1.Value == c2.Value)
 }

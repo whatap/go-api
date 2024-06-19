@@ -3,7 +3,7 @@ package data
 import (
 	//"log"
 	"sync"
-	"time"
+	// "time"
 
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/net"
@@ -20,7 +20,6 @@ const (
 )
 
 type DataText struct {
-	buffer         chan pack.TextRec
 	textQueue      *queue.RequestQueue
 	bufferPack     *pack.TextPack
 	bufferedLength int
@@ -43,18 +42,11 @@ func initial() *DataText {
 	dataText = new(DataText)
 	dataText.conf = config.GetConfig()
 
-	if dataText.conf.QueueTextEnabled == false {
-		dataText.buffer = make(chan pack.TextRec, int(dataText.conf.QueueTextSize))
-		if dataText.conf.QueueLogEnabled {
-			logutil.Println("WA10700", "dataText.buffer=", cap(dataText.buffer))
-		}
-	} else {
-		// DEBUG Queue
-		dataText.textQueue = queue.NewRequestQueue(int(dataText.conf.QueueTextSize))
-		if dataText.conf.QueueLogEnabled {
-			logutil.Println("WA10701-01", "textQueue=", dataText.textQueue.GetCapacity())
-		}
+	dataText.textQueue = queue.NewRequestQueue(int(dataText.conf.QueueTextSize))
+	if dataText.conf.QueueLogEnabled {
+		logutil.Println("WA10701-01", "textQueue=", dataText.textQueue.GetCapacity())
 	}
+
 	// 00시 기준으로 Hash Reset을 위한 설정 추가
 	dataText.lastDate = dataText.getDate()
 	dataText.textReset = dataText.conf.TextReset
@@ -65,6 +57,13 @@ func initial() *DataText {
 	// 기본 1개 실행.
 	go func() {
 		for {
+			// shutdown
+			if config.GetConfig().Shutdown {
+				logutil.Infoln("WA211-05", "Shutdown DataText")
+				dataText.reset()
+				break
+			}
+
 			dataText.process()
 		}
 	}()
@@ -263,18 +262,8 @@ func AddHashText(div byte, h int32, text string) bool {
 		this = initial()
 	}
 
-	if dataText.conf.QueueTextEnabled == false {
-		// non-block put
-		select {
-		case this.buffer <- pack.TextRec{Div: div, Hash: h, Text: text}:
-			return true
-		default:
-			return false
-		}
+	return this.textQueue.Put(pack.TextRec{Div: div, Hash: h, Text: text})
 
-	} else {
-		return this.textQueue.Put(pack.TextRec{Div: div, Hash: h, Text: text})
-	}
 }
 
 func (this *DataText) process() {
@@ -286,28 +275,13 @@ func (this *DataText) process() {
 		}
 	}()
 
-	// Non-block read
-	if dataText.conf.QueueTextEnabled == false {
-		select {
-		case r := <-this.buffer:
-			this.bufferPack.AddText(r)
-			this.bufferedLength += len(r.Text)
-			if this.bufferedLength >= BUFFERED_MAX {
-				this.send()
-			}
-		case <-time.After(1000 * time.Millisecond):
-			//			logutil.Infoln(">>>>", "channel timeout")
-		}
-
-	} else {
-		tmp := this.textQueue.GetTimeout(1000)
-		if tmp != nil {
-			r := tmp.(pack.TextRec)
-			this.bufferPack.AddText(r)
-			this.bufferedLength += len(r.Text)
-			if this.bufferedLength >= BUFFERED_MAX {
-				this.send()
-			}
+	tmp := this.textQueue.GetTimeout(1000)
+	if tmp != nil {
+		r := tmp.(pack.TextRec)
+		this.bufferPack.AddText(r)
+		this.bufferedLength += len(r.Text)
+		if this.bufferedLength >= BUFFERED_MAX {
+			this.send()
 		}
 	}
 

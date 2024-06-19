@@ -11,6 +11,7 @@ import (
 	"github.com/whatap/golib/io"
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/util/ansi"
+	"github.com/whatap/golib/util/compressutil"
 	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/golib/util/queue"
 )
@@ -47,6 +48,11 @@ func (this *ZipSendProxyThread) Add(p *pack.LogSinkPack) {
 func (this *ZipSendProxyThread) run() {
 	ConfLogSink := config.GetConfig().ConfLogSink
 	for true {
+		// shutdown
+		if config.GetConfig().Shutdown {
+			logutil.Infoln("WA211-20", "Shutdown ZipSendProxyThread")
+			break
+		}
 		if tmp := this.Queue.GetTimeout(int(ConfLogSink.MaxWaitTime)); tmp != nil {
 			if log, ok := tmp.(*pack.LogSinkPack); ok {
 				this.Append(log)
@@ -115,17 +121,9 @@ func (this *ZipSendProxyThread) doZip(p *pack.ZipPack) {
 	if len(p.Records) < int(ConfLogSink.LogSinkZipMinSize) {
 		return
 	}
-	// TODO
-	//	z := ZipModLoader.zipImpl
-	//
-	//	p.Status = z.ID()
-	//	p.Records = z.Compress(p.Records)
-
-	z := NewDefaultZipMod()
-	p.Status = z.ID()
+	p.Status = pack.ZIPPED
 	var err error
-	//logutil.Infoln(">>>>", "before len=", len(p.Records), "-", string(p.Records))
-	if p.Records, err = z.Compress(p.Records); err != nil {
+	if p.Records, err = compressutil.DoZip(p.Records); err != nil {
 		logutil.Println("WA-LOGS-103", "Compress Error ", err)
 	}
 }

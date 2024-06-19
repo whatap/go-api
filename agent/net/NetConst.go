@@ -1,7 +1,5 @@
 package net
 
-import ()
-
 const (
 	NET_SECURE_HIDE       = 0x01
 	NET_SECURE_CYPHER     = 0x02
@@ -11,6 +9,10 @@ const (
 	NET_RESERVED4         = 0x20
 	NET_RESERVED5         = 0x40
 	NET_RESERVED6         = 0x80
+
+	NET_REQ_FOWARDER   = 0x90
+	NET_RES_FOWARDER   = 0x91
+	NET_RES_FOWARDER_1 = 0x92
 
 	NET_KEY_EXTENSION = 0xfd
 	NET_TIME_SYNC     = 0xfe
@@ -26,6 +28,8 @@ const (
 	NETSRC_ZABBIX_PROXY = 37
 	NETSRC_KUBE         = 5
 	NETSRC_ONEWAY       = 10
+
+	NETSRC_FOWARDER = 40
 )
 
 const (

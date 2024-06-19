@@ -34,6 +34,12 @@ func StartClient() {
 			}
 		}()
 		for {
+			// shutdown
+			if config.GetConfig().Shutdown {
+				logutil.Infoln("WA211-06", "Shutdown kubeclient")
+				break
+			}
+
 			process(conf.PodName)
 			time.Sleep(3 * time.Second)
 		}
@@ -199,6 +205,18 @@ func loadContainerId() (err error) {
 		return
 	}
 
+	loadFromCGroup()
+	if containerKey == 0 {
+		loadFromMountinfo()
+	}
+	return
+}
+
+func loadFromCGroup() (err error) {
+	if containerKey != 0 {
+		return
+	}
+
 	filepath := "/proc/self/cgroup"
 	file, err := os.Open(filepath)
 	if err != nil {
@@ -206,6 +224,7 @@ func loadContainerId() (err error) {
 	}
 	defer file.Close()
 
+	//pattern, _ := regexp.Compile(`(\.scope)+$`)
 	pattern, _ := regexp.Compile(`(\.scope)+$`)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -213,7 +232,8 @@ func loadContainerId() (err error) {
 		if len(line) > 0 {
 			line = stringutil.CutLastString(line, "/")
 			line = stringutil.CutLastString(line, "-")
-			containerId = pattern.ReplaceAllString(line, "")
+			containerId = stringutil.CutLastString(line, ":")
+			containerId = pattern.ReplaceAllString(containerId, "")
 			if len(containerId) > 5 { // 컨테이너 아이디는 최소 5자 이상이어야 한다.
 				containerKey = hash.HashStr(containerId)
 				return
@@ -225,6 +245,38 @@ func loadContainerId() (err error) {
 	containerId = ""
 
 	return
+}
+
+func loadFromMountinfo() (bool, error) {
+	filepath := "/proc/self/mountinfo"
+	file, err := os.Open(filepath)
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSuffix(scanner.Text(), "\n")
+		if len(line) > 0 {
+			if strings.Contains(line, "/kubelet/pods/") {
+				lineParts := strings.Split(line, "/kubelet/pods/")
+				if len(lineParts) > 1 {
+					containerId = strings.Split(lineParts[1], "/")[0]
+				}
+
+				if len(containerId) > 5 { // 컨테이너 아이디는 최소 5자 이상이어야 한다.
+					containerKey = hash.HashStr(containerId)
+					return true, nil
+				}
+			}
+		}
+	}
+
+	containerKey = 0
+	containerId = ""
+
+	return false, fmt.Errorf("key not found in mountinfo")
 }
 
 func GetContainerInfo(h2 func(int32, string)) {

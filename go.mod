@@ -18,7 +18,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/stretchr/testify v1.8.1
 	github.com/valyala/fasthttp v1.40.0
-	github.com/whatap/golib v0.0.21
+	github.com/whatap/golib v0.0.24
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b
 	golang.org/x/text v0.7.0
 	google.golang.org/grpc v1.42.0
@@ -80,3 +80,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+// replace github.com/whatap/golib => ../golib

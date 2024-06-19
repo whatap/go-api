@@ -65,6 +65,10 @@ type WrapConnector struct {
 }
 
 func (ct WrapConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	if trace.DISABLE() {
+		return ct.Connector.Connect(ctx)
+	}
+
 	conf := config.GetConfig()
 	if !conf.GoSqlProfileEnabled {
 		return ct.Connector.Connect(ctx)
@@ -88,6 +92,9 @@ type WrapConn struct {
 
 func (c WrapConn) Exec(query string, args []driver.Value) (res driver.Result, err error) {
 	if exec, ok := c.Conn.(driver.Execer); ok {
+		if trace.DISABLE() {
+			return exec.Exec(query, args)
+		}
 		sqlCtx, _ := whatapsql.StartWithParam(c.ctx, c.dataSourceName, query, convertDriverValue(args)...)
 		res, err := exec.Exec(query, args)
 		whatapsql.End(sqlCtx, err)
@@ -99,6 +106,9 @@ func (c WrapConn) Exec(query string, args []driver.Value) (res driver.Result, er
 func (c WrapConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (res driver.Result, err error) {
 	wCtx := selectContext(ctx, c.ctx)
 	if execCtx, ok := c.Conn.(driver.ExecerContext); ok {
+		if trace.DISABLE() {
+			return execCtx.ExecContext(ctx, query, args)
+		}
 		sqlCtx, _ := whatapsql.StartWithParam(wCtx, c.dataSourceName, query, convertDriverNamedValue(args)...)
 		res, err := execCtx.ExecContext(ctx, query, args)
 		whatapsql.End(sqlCtx, err)
@@ -109,6 +119,9 @@ func (c WrapConn) ExecContext(ctx context.Context, query string, args []driver.N
 
 func (c WrapConn) Query(query string, args []driver.Value) (rows driver.Rows, err error) {
 	if queryer, ok := c.Conn.(driver.Queryer); ok {
+		if trace.DISABLE() {
+			return queryer.Query(query, args)
+		}
 		sqlCtx, _ := whatapsql.StartWithParam(c.ctx, c.dataSourceName, query, convertDriverValue(args)...)
 		res, err := queryer.Query(query, args)
 		whatapsql.End(sqlCtx, err)
@@ -120,6 +133,9 @@ func (c WrapConn) Query(query string, args []driver.Value) (rows driver.Rows, er
 func (c WrapConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (rows driver.Rows, err error) {
 	wCtx := selectContext(ctx, c.ctx)
 	if queryerCtx, ok := c.Conn.(driver.QueryerContext); ok {
+		if trace.DISABLE() {
+			return queryerCtx.QueryContext(ctx, query, args)
+		}
 		sqlCtx, _ := whatapsql.StartWithParam(wCtx, c.dataSourceName, query, convertDriverNamedValue(args)...)
 		res, err := queryerCtx.QueryContext(ctx, query, args)
 		whatapsql.End(sqlCtx, err)
@@ -149,6 +165,10 @@ func (c WrapConn) PrepareContext(ctx context.Context, query string) (stmt driver
 }
 
 func (c WrapConn) Close() error {
+	if trace.DISABLE() {
+		return c.Conn.Close()
+	}
+
 	st := dateutil.SystemNow()
 	err := c.Conn.Close()
 	elapsed := dateutil.SystemNow() - st
@@ -169,6 +189,10 @@ func (c WrapConn) ResetSession(ctx context.Context) error {
 	return nil
 }
 func (c WrapConn) Begin() (tx driver.Tx, err error) {
+	if trace.DISABLE() {
+		return c.Conn.Begin()
+	}
+
 	st := dateutil.SystemNow()
 	tx, err = c.Conn.Begin()
 	elapsed := dateutil.SystemNow() - st
@@ -186,6 +210,10 @@ func (c WrapConn) Begin() (tx driver.Tx, err error) {
 func (c WrapConn) BeginTx(ctx context.Context, opts driver.TxOptions) (tx driver.Tx, err error) {
 	wCtx := selectContext(ctx, c.ctx)
 	if connBeginTx, ok := c.Conn.(driver.ConnBeginTx); ok {
+		if trace.DISABLE() {
+			return connBeginTx.BeginTx(ctx, opts)
+		}
+
 		st := dateutil.SystemNow()
 		tx, err = connBeginTx.BeginTx(ctx, opts)
 		elapsed := dateutil.SystemNow() - st
@@ -214,6 +242,10 @@ type WrapStmt struct {
 }
 
 func (s WrapStmt) Exec(args []driver.Value) (res driver.Result, err error) {
+	if trace.DISABLE() {
+		return s.Stmt.Exec(args)
+	}
+
 	sqlCtx, _ := whatapsql.StartWithParam(s.ctx, s.dataSourceName, s.preparedSql, convertDriverValue(args)...)
 	res, err = s.Stmt.Exec(args)
 	whatapsql.End(sqlCtx, err)
@@ -223,6 +255,10 @@ func (s WrapStmt) Exec(args []driver.Value) (res driver.Result, err error) {
 func (s WrapStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (res driver.Result, err error) {
 	wCtx := selectContext(ctx, s.ctx)
 	if execCtx, ok := s.Stmt.(driver.StmtExecContext); ok {
+		if trace.DISABLE() {
+			return execCtx.ExecContext(ctx, args)
+		}
+
 		sqlCtx, _ := whatapsql.StartWithParam(wCtx, s.dataSourceName, s.preparedSql, convertDriverNamedValue(args)...)
 		res, err := execCtx.ExecContext(ctx, args)
 		whatapsql.End(sqlCtx, err)
@@ -236,6 +272,10 @@ func (s WrapStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (re
 }
 
 func (s WrapStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
+	if trace.DISABLE() {
+		return s.Stmt.Query(args)
+	}
+
 	sqlCtx, _ := whatapsql.StartWithParam(s.ctx, s.dataSourceName, s.preparedSql, convertDriverValue(args)...)
 	res, err := s.Stmt.Query(args)
 	whatapsql.End(sqlCtx, err)
@@ -245,6 +285,10 @@ func (s WrapStmt) Query(args []driver.Value) (rows driver.Rows, err error) {
 func (s WrapStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (rows driver.Rows, err error) {
 	wCtx := selectContext(ctx, s.ctx)
 	if queryerCtx, ok := s.Stmt.(driver.StmtQueryContext); ok {
+		if trace.DISABLE() {
+			return queryerCtx.QueryContext(ctx, args)
+		}
+
 		sqlCtx, _ := whatapsql.StartWithParam(wCtx, s.dataSourceName, s.preparedSql, convertDriverNamedValue(args)...)
 		res, err := queryerCtx.QueryContext(ctx, args)
 		whatapsql.End(sqlCtx, err)
@@ -264,6 +308,10 @@ type WrapTx struct {
 }
 
 func (t WrapTx) Commit() (err error) {
+	if trace.DISABLE() {
+		return t.Tx.Commit()
+	}
+
 	st := dateutil.SystemNow()
 	err = t.Tx.Commit()
 	elapsed := dateutil.SystemNow() - st
@@ -278,6 +326,10 @@ func (t WrapTx) Commit() (err error) {
 }
 
 func (t WrapTx) Rollback() (err error) {
+	if trace.DISABLE() {
+		return t.Tx.Rollback()
+	}
+
 	st := dateutil.SystemNow()
 	err = t.Tx.Rollback()
 	elapsed := dateutil.SystemNow() - st

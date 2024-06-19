@@ -68,10 +68,11 @@ type Config struct {
 	// e) Apache -> httpd ,
 	AppProcessName string
 
-	Shutdown           bool
-	Enabled            bool
-	Debug              bool
-	TransactionEnabled bool
+	Shutdown                     bool
+	ExitWithParentProcessEnabled bool
+	Enabled                      bool
+	Debug                        bool
+	TransactionEnabled           bool
 
 	CounterEnabled             bool
 	CounterEnabledTranx_       bool
@@ -151,9 +152,9 @@ type Config struct {
 	UdpTraceIgnoreTimeEnabled bool
 	UdpTraceIgnoreTime        int32
 
-	QueueLogEnabled           bool
-	QueueYieldEnabled         bool
-	QueueTcpEnabled           bool
+	QueueLogEnabled   bool
+	QueueYieldEnabled bool
+	// QueueTcpEnabled           bool
 	QueueTcpSenderThreadCount int32
 
 	// Udp read 데이터를 channel로 전달, false 일경우 Queue 사용
@@ -163,11 +164,11 @@ type Config struct {
 	QueueUdpReadThreadCount    int32
 	QueueUdpProcessThreadCount int32
 
-	QueueProfileEnabled            bool
+	// QueueProfileEnabled            bool
 	QueueProfileSize               int32
 	QueueProfileProcessThreadCount int32
 
-	QueueTextEnabled            bool
+	// QueueTextEnabled            bool
 	QueueTextSize               int32
 	QueueTextProcessThreadCount int32
 
@@ -504,6 +505,8 @@ type Config struct {
 
 	IgnoreHttpMethod []string
 
+	MeteringUseLinuxUUIDEnabled bool
+
 	//	// LogSink
 	//	WatchLogEnabled       bool
 	//	WatchLogCheckInterval int32
@@ -568,6 +571,9 @@ var envKeys = map[string]string{
 }
 
 func GetConfig() *Config {
+	if conf != nil {
+		return conf
+	}
 	mutex.Lock()
 	defer mutex.Unlock()
 	if conf != nil {
@@ -641,10 +647,17 @@ func GetConfig() *Config {
 func run() {
 	for {
 		// DEBUG goroutine log
-		//logutil.Println("Config.run()")
+		// fmt.Println("Config.run()")
 
 		time.Sleep(3000 * time.Millisecond)
 		reload()
+
+		// shutdown
+		if conf.Shutdown {
+			logutil.Infoln("WA211-01", "Shutdown config")
+			logutil.GetLogger().Shutdown = true
+			break
+		}
 	}
 }
 
@@ -652,10 +665,10 @@ var last_file_time int64 = -1
 var last_check int64 = 0
 
 func reload() {
-	// 종료 되지 않도록  Recover
+	// 종료 되지 않도록  Recover (Must 관련 함수는 내부에서 log.Fatal(err) 발생
 	defer func() {
 		if r := recover(); r != nil {
-			logutil.Println("WA211 Recover", r) //, string(debug.Stack()))
+			logutil.Println("WA211", " Recover", r) //, string(debug.Stack()))
 		}
 	}()
 
@@ -669,16 +682,16 @@ func reload() {
 	stat, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		if last_file_time == -1 {
-			logutil.Println("WA212", "fail to load license file")
+			logutil.Println("WA212", "Not found config file, path", path)
 			if f, err := os.Create(path); err != nil {
-				logutil.Println("WA212-01", "create file error ", err)
+				logutil.Println("WA212-01", "Create config file, error ", err)
 				return
 			} else {
-				logutil.Println("WA212-02", "create file path ", f)
+				logutil.Println("WA212-02", "Create config file, path ", f)
 			}
 			return
 		} else if last_file_time == 0 {
-			logutil.Println("WA212-01", "fail to load license file")
+			logutil.Println("WA212-03", "The config file has been deleted. Fail to load config file")
 			return
 		}
 		last_file_time = 0
@@ -737,10 +750,10 @@ func GetWhatapHome() string {
 func apply() {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("apply recover ", r, ", \n", string(debug.Stack()))
+			logutil.Println("WA215", "apply recover ", r, ", \n", string(debug.Stack()))
 		}
 	}()
-	logutil.Println("APP_TYPE", conf.AppType)
+	logutil.Println("WA216", "APP_TYPE", conf.AppType)
 	conf.License = getValue("license")
 	conf.AccessKey = getValue("accesskey")
 	if strings.TrimSpace(conf.AccessKey) == "" && !(strings.TrimSpace(conf.License) == "") {
@@ -773,7 +786,7 @@ func apply() {
 
 	conf.Shutdown = getBoolean("shutdown", false)
 
-	conf.Enabled = getBoolean("enabled", true)
+	conf.Enabled = !conf.Shutdown && getBoolean("enabled", true)
 	conf.TransactionEnabled = conf.Enabled && getBoolean("transaction_enabled", true)
 	conf.CounterEnabled = conf.Enabled && getBoolean("counter_enabled", true)
 	conf.CounterVersion = byte(getInt("counter_version", 2))
@@ -808,7 +821,7 @@ func apply() {
 	conf.QueueYieldEnabled = getBoolean("queue_yield_enabled", false)
 
 	// Tcp 전송에 DoubleQueue 사용 여부 , 기본 channel
-	conf.QueueTcpEnabled = getBoolean("queue_tcp_enabled", true)
+	// conf.QueueTcpEnabled = getBoolean("queue_tcp_enabled", true)
 	//conf.NetSendBuffer, conf.NetSendQueue1Size, conf.NetSenedQueue2Size
 	conf.QueueTcpSenderThreadCount = getInt("queue_tcp_sender_thread_count", 2)
 	// conf.QueueTcpSenderSleepTime = getInt("queue_tcp_sender_sleep_time", 0)
@@ -828,7 +841,7 @@ func apply() {
 	// conf.QueueUdpProcessSleepCount = getLong("queue_udp_process_sleep_count", 0)
 
 	// TraceMain 에서 SendProfile 처리할 channel, queue 사용, 기본 channel
-	conf.QueueProfileEnabled = getBoolean("queue_profile_enabled", true)
+	// conf.QueueProfileEnabled = getBoolean("queue_profile_enabled", true)
 	// profile channel , queue 버퍼 크기
 	conf.QueueProfileSize = getInt("queue_profile_size", 8192)
 	// profile 처리 (ctx를 확인하고 tcp send 처리하는 과정)을 빠르게 하기 위한 스레드 개수 설정
@@ -837,7 +850,7 @@ func apply() {
 	// conf.QueueProfileProcessSleepCount = getLong("queue_profile_process_sleep_count", 0)
 
 	// TextPacke channel, queue 사용, 기본 channel
-	conf.QueueTextEnabled = getBoolean("queue_text_enabled", true)
+	// conf.QueueTextEnabled = getBoolean("queue_text_enabled", true)
 	conf.QueueTextSize = getInt("queue_text_size", 4096)
 	conf.QueueTextProcessThreadCount = getInt("queue_text_process_thread_count", 1)
 	// conf.QueueTextProcessSleepTime = getInt("queue_text_process_sleep_time", 1)
@@ -976,6 +989,15 @@ func apply() {
 
 	conf.ProfileBasetime = getInt("profile_basetime", 500)
 
+	// 2024.06.05 Set it to false so it cannot be changed.
+	// If it is already in use, change it to disable and then enable the sql_param_enabled option.
+	sqlNomalizedEnabled := getBoolean("trace_sql_normalize_enabled", true)
+	conf.TraceSqlNormalizeEnabled = true
+	if sqlNomalizedEnabled == false {
+		conf.ProfileSqlParamEnabled = getBoolean("profile_sql_param_enabled", true)
+	} else {
+		conf.ProfileSqlParamEnabled = getBoolean("profile_sql_param_enabled", false)
+	}
 	conf.ProfileSqlParamEnabled = getBoolean("profile_sql_param_enabled", false)
 	conf.ProfileSqlResourceEnabled = getBoolean("profile_sql_resource_enabled", false)
 	conf.ProfileSqlCommentEnabled = getBoolean("profile_sql_comment_enabled", false)
@@ -1058,7 +1080,6 @@ func apply() {
 	conf.TraceHttpcNormalizeEnabled = getBoolean("trace_httpc_normalize_enabled", true)
 	conf.TraceHttpcNormalizeUrls = getValue("trace_httpc_normalize_urls")
 
-	conf.TraceSqlNormalizeEnabled = getBoolean("trace_sql_normalize_enabled", true)
 	conf.TraceUserAgentEnabled = getBoolean("trace_useragent_enabled", false)
 	conf.TraceRefererEnabled = getBoolean("trace_referer_enabled", false)
 
@@ -1245,7 +1266,7 @@ func apply() {
 	conf.ShmSendMetricsEnabled = getBoolean("shm_send_metrics_enabled", false)
 	conf.ShmTxCounterEnabled = getBoolean("shm_tx_counter_enabled", false)
 
-	conf.MasterAgentHost = GetValueDef("master_agent_host", "whatap-master-agent.whatap-monitoring.svc.cluster.local")
+	conf.MasterAgentHost = getValueDef("master_agent_host", "whatap-master-agent.whatap-monitoring.svc.cluster.local")
 	conf.MasterAgentPort = uint16(getLong("master_agent_port", 6600))
 
 	conf.CorrectionFactorCpu = getFloat("correction_factor_cpu", float32(1))
@@ -1348,6 +1369,8 @@ func apply() {
 
 	//
 	conf.IgnoreHttpMethod = getStringArrayDef("ignore_http_method", ",", "PATCH, OPTIONS, HEAD, TRACE")
+
+	conf.MeteringUseLinuxUUIDEnabled = getBoolean("metering_use_linux_uuid_enabled", true)
 
 	// LogSink
 	conf.ConfLogSink.Apply(conf)
@@ -1556,6 +1579,14 @@ func getFloat(key string, def float32) float32 {
 }
 
 func SetValues(keyValues *map[string]string) {
+	// 종료 되지 않도록  Recover (Must 관련 함수는 내부에서 log.Fatal(err) 발생
+	defer func() {
+		if r := recover(); r != nil {
+			logutil.Println("WA215-01 Recover", r) //, string(debug.Stack()))
+		}
+	}()
+
+	GetConfig()
 	path := GetConfFile()
 	//props := properties.MustLoadFile(path, properties.UTF8)
 	props, err := properties.LoadFile(path, properties.UTF8)
@@ -1582,7 +1613,7 @@ func SetValues(keyValues *map[string]string) {
 
 	line := ""
 	if f, err := os.OpenFile(path, os.O_RDWR, 0644); err != nil {
-		logutil.Println("WA215", " Error ", err)
+		logutil.Println("WA21902", " Error ", err)
 		return
 	} else {
 		defer f.Close()
@@ -1635,7 +1666,7 @@ func SetValues(keyValues *map[string]string) {
 	}
 
 	if f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644); err != nil {
-		logutil.Println("WA216", " Error ", err)
+		logutil.Println("WA21903", " Error ", err)
 		return
 	} else {
 		defer f.Close()
@@ -1646,6 +1677,7 @@ func SetValues(keyValues *map[string]string) {
 	}
 }
 func ToString() string {
+	GetConfig()
 	sb := stringutil.NewStringBuffer()
 	if prop == nil {
 		return ""
@@ -1680,6 +1712,7 @@ func SearchKey(keyPrefix string) *map[string]string {
 }
 
 func FilterPrefix(keyPrefix string) map[string]string {
+	GetConfig()
 	keyValues := make(map[string]string)
 	//php prefix whatap.
 	if conf.AppType == lang.APP_TYPE_PHP {
@@ -1701,7 +1734,7 @@ func FilterPrefix(keyPrefix string) map[string]string {
 func cutOut(val, delim string) string {
 	defer func() {
 		if r := recover(); r != nil {
-			logutil.Println("WA217", " Recover ", r)
+			logutil.Println("WA21904", " Recover ", r)
 		}
 	}()
 	if val == "" {
@@ -1724,7 +1757,7 @@ func toHashSet(key, def string) *hmap.IntSet {
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						logutil.Infoln("WA218", " Recover ", r)
+						logutil.Infoln("WA21905", " Recover ", r)
 					}
 				}()
 
@@ -1747,7 +1780,7 @@ func toStringSet(key, def string) *hmap.StringSet {
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						logutil.Infoln("WA219", " Recover ", r)
+						logutil.Infoln("WA21906", " Recover ", r)
 					}
 				}()
 				x = strings.TrimSpace(x)
@@ -1761,6 +1794,7 @@ func toStringSet(key, def string) *hmap.StringSet {
 }
 
 func IsIgnoreTrace(hash int32, service string) bool {
+	GetConfig()
 	if conf.TraceIgnoreUrlSet == nil {
 		return false
 	}

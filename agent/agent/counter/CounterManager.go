@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/go-api/agent/agent/counter/meter"
 	"github.com/whatap/go-api/agent/agent/data"
 	"github.com/whatap/go-api/agent/agent/kube"
 	"github.com/whatap/go-api/agent/agent/secure"
@@ -89,6 +90,19 @@ func StartCounterManager() {
 		lastSysTime := dateutil.SystemNow()
 		next := (dateutil.Now() / int64(INTERVAL) * int64(INTERVAL)) + int64(INTERVAL)
 		for {
+			// shutdown
+			if config.GetConfig().Shutdown {
+				logutil.Infoln("WA211-03", "Shutdown CounterManager and clear meter")
+				meter.GetInstanceConnPool().Clear()
+				meter.GetInstanceMeterActiveX().Clear()
+				meter.GetInstanceMeterHTTPC().Clear()
+				meter.GetInstanceMeterSelf().Clear()
+				meter.GetInstanceMeterService().Clear()
+				meter.GetInstanceMeterSQL().Clear()
+				meter.GetInstanceMeterUsers().Clear()
+				break
+			}
+
 			if conf.DebugCounterEnabled {
 				logutil.Infoln("[DEBUG]", "CounterManger go pcode=", secu.PCODE, ",oid=", secu.OID)
 			}
@@ -238,39 +252,39 @@ func sleepx(next, interval int64) {
 	}
 }
 
-func (this *CounterManager) Poll() {
-	secu := secure.GetSecurityMaster()
-	conf := config.GetConfig()
+// func (this *CounterManager) Poll() {
+// 	secu := secure.GetSecurityMaster()
+// 	conf := config.GetConfig()
 
-	var INTERVAL int32 = conf.CountInterval
-	if INTERVAL < 5000 {
-		INTERVAL = 5000
-	}
-	now := dateutil.Now() / int64(INTERVAL) * int64(INTERVAL)
+// 	var INTERVAL int32 = conf.CountInterval
+// 	if INTERVAL < 5000 {
+// 		INTERVAL = 5000
+// 	}
+// 	now := dateutil.Now() / int64(INTERVAL) * int64(INTERVAL)
 
-	if secu.PCODE == 0 || secu.OID == 0 {
-		return
-	}
-	p := pack.NewCounterPack1()
-	p.Pcode = secu.PCODE
-	p.Oid = secu.OID
-	p.Okind = conf.OKIND
-	p.Onode = conf.ONODE
-	p.Time = now
-	p.Duration = 5
-	// BSM APP Type
-	if conf.AppType == lang.APP_TYPE_BSM_PYTHON || config.AppType == lang.APP_TYPE_BSM_PHP {
-		p.ApType = lang.APP_TYPE_BSM
-	} else {
-		p.ApType = conf.AppType
-	}
+// 	if secu.PCODE == 0 || secu.OID == 0 {
+// 		return
+// 	}
+// 	p := pack.NewCounterPack1()
+// 	p.Pcode = secu.PCODE
+// 	p.Oid = secu.OID
+// 	p.Okind = conf.OKIND
+// 	p.Onode = conf.ONODE
+// 	p.Time = now
+// 	p.Duration = 5
+// 	// BSM APP Type
+// 	if conf.AppType == lang.APP_TYPE_BSM_PYTHON || config.AppType == lang.APP_TYPE_BSM_PHP {
+// 		p.ApType = lang.APP_TYPE_BSM
+// 	} else {
+// 		p.ApType = conf.AppType
+// 	}
 
-	if conf.CounterEnabled {
-		for i := 0; i < len(this.tasks); i++ {
-			this.tasks[i].process(p)
-		}
-	}
-	data.Send(p)
+// 	if conf.CounterEnabled {
+// 		for i := 0; i < len(this.tasks); i++ {
+// 			this.tasks[i].process(p)
+// 		}
+// 	}
+// 	data.Send(p)
 
-	secure.GetParamSecurity().Reload()
-}
+// 	secure.GetParamSecurity().Reload()
+// }

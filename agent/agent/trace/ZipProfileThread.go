@@ -6,6 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/go-api/agent/agent/data"
+	"github.com/whatap/go-api/agent/agent/secure"
+	langconf "github.com/whatap/go-api/agent/lang/conf"
+	wnet "github.com/whatap/go-api/agent/net"
+	"github.com/whatap/go-api/agent/util/logutil"
 	wio "github.com/whatap/golib/io"
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/util/ansi"
@@ -13,13 +19,6 @@ import (
 	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/golib/util/queue"
 	"github.com/whatap/golib/util/stringutil"
-
-	"github.com/whatap/go-api/agent/agent/config"
-	"github.com/whatap/go-api/agent/agent/data"
-	"github.com/whatap/go-api/agent/agent/secure"
-	langconf "github.com/whatap/go-api/agent/lang/conf"
-	wnet "github.com/whatap/go-api/agent/net"
-	"github.com/whatap/go-api/agent/util/logutil"
 )
 
 type ZipProfileThread struct {
@@ -86,6 +85,12 @@ func (this *ZipProfileThread) AddWait(p pack.Pack, waitTimeForFull int64) {
 
 func (this *ZipProfileThread) run() {
 	for {
+		// shutdown
+		if config.GetConfig().Shutdown {
+			logutil.Infoln("WA211-13", "Shutdown ZipProfileThread")
+			break
+		}
+
 		tmp := this.Queue.GetTimeout(this.conf.TraceZipMaxWaitTime)
 		func() {
 			defer func() {

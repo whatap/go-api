@@ -10,9 +10,9 @@ import (
 
 var LastHitMapVerEvent int64
 var LastHitMapHorizEvent int64
-var conf *config.Config = config.GetConfig()
 
 func HitMapVertical(percent int32, level byte) *pack.EventPack {
+	conf := config.GetConfig()
 	if dateutil.SystemNow() < LastHitMapVerEvent+int64(conf.HitMapVerEventInterval) {
 		return nil
 	}
@@ -27,6 +27,7 @@ func HitMapVertical(percent int32, level byte) *pack.EventPack {
 }
 
 func HitMapHorizontal(hitmapTime int) *pack.EventPack {
+	conf := config.GetConfig()
 	if dateutil.SystemNow() < LastHitMapHorizEvent+int64(conf.HitMapHorizEventInterval) {
 		return nil
 	}

@@ -5,12 +5,13 @@ import (
 	"sync"
 	//	"time"
 
+	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/golib/util/hmap"
-	"github.com/whatap/go-api/agent/agent/config"
+
 	//	"github.com/whatap/golib/util/keygen"
-	"github.com/whatap/golib/lang/value"
 	"github.com/whatap/go-api/agent/util/logutil"
+	"github.com/whatap/golib/lang/value"
 )
 
 type MeterSelf struct {
@@ -67,6 +68,16 @@ func GetInstanceMeterSelf() *MeterSelf {
 	meterSelf = newMeterSelf()
 
 	return meterSelf
+}
+
+func (this *MeterSelf) Clear() {
+	this.packetMap.Clear()
+	this.cpuMap.Clear()
+	this.memMap.Clear()
+
+	this.packetMaxMap.Clear()
+	this.cpuMaxMap.Clear()
+	this.memMaxMap.Clear()
 }
 
 // Call with packet length value when send Packet

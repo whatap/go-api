@@ -13,6 +13,10 @@ import (
 
 func Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if trace.DISABLE() {
+			c.Next()
+			return
+		}
 		conf := config.GetConfig()
 		if !conf.TransactionEnabled {
 			c.Next()

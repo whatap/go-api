@@ -91,6 +91,12 @@ func (this *WatchLogManager) run() {
 	this.watchEnabled = this.conf.WatchLogEnabled
 
 	for {
+		// shutdown
+		if config.GetConfig().Shutdown {
+			logutil.Infoln("WA211-14", "Shutdown WatchLogManager")
+			break
+		}
+
 		if this.watchEnabled == false {
 			time.Sleep(5 * time.Second)
 			continue

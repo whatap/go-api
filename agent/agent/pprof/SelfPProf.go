@@ -1,10 +1,6 @@
 package pprof
 
 import (
-	"github.com/whatap/golib/util/dateutil"
-	"github.com/whatap/go-api/agent/agent/config"
-	langconf "github.com/whatap/go-api/agent/lang/conf"
-	"github.com/whatap/go-api/agent/util/logutil"
 	"net/http"
 	httpPProf "net/http/pprof"
 	"os"
@@ -12,6 +8,11 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"time"
+
+	"github.com/whatap/go-api/agent/agent/config"
+	langconf "github.com/whatap/go-api/agent/lang/conf"
+	"github.com/whatap/go-api/agent/util/logutil"
+	"github.com/whatap/golib/util/dateutil"
 )
 
 type SelfPProf struct {
@@ -54,6 +55,14 @@ func (this *SelfPProf) run() {
 		logutil.Println("WAPPROF001", "Start SelfPProf")
 
 		for {
+			// shutdown
+			if config.GetConfig().Shutdown {
+				logutil.Infoln("WA211-07", "Shutdown SelfPProf")
+				this.StopCpuPProf()
+				this.StopHttpPProf()
+				break
+			}
+
 			// diable then stop goroutine
 			if !this.conf.PProfEnabled {
 				logutil.Println("WAPPROF002", "Stop SelfPProf")

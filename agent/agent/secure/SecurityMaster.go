@@ -113,6 +113,7 @@ func (this *SecurityMaster) update() {
 		this.resetLicense(conf.AccessKey)
 	}
 	this.MeterIP = GetLinuxProductUUID()
+	os.Setenv("whatap.linux_uuid", this.MeterIP)
 }
 
 func (this *SecurityMaster) DecideAgentOnameOid(myIp string) {

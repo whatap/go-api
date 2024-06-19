@@ -28,65 +28,37 @@ var senderStart bool = false
 
 //var senderLock = sync.Mutex{}
 
-var buffer chan TcpSend
 var TcpQueue *queue.RequestDoubleQueue
-var conf = config.GetConfig()
 
 func Send(f byte, p pack.Pack, flush bool) {
 	InitSender()
-	// DEBUG Queue
-	// conf 설정으로 하면 실행 중에 변경되는 설정에 따라가게 됨. queue_tcp_enabled는 무조건 재시작해야 함.
-	if buffer != nil {
-		buffer <- TcpSend{f, p, flush}
-	} else if TcpQueue != nil {
+	if TcpQueue != nil {
 		TcpQueue.Put1(TcpSend{f, p, flush})
 	}
 }
 func SendProfile(f byte, p pack.Pack, flush bool) {
 	InitSender()
-	// DEBUG Queue
-	if buffer != nil {
-		buffer <- TcpSend{f, p, flush}
-	} else if TcpQueue != nil {
+	if TcpQueue != nil {
 		// profile 우선순위 낮게 처리
 		TcpQueue.Put2(TcpSend{f, p, flush})
 	}
 }
 func InitSender() {
-	if conf.QueueTcpEnabled == false {
-		if buffer == nil {
-			lock.Lock()
-
-			buffer = make(chan TcpSend, conf.NetSendBufferSize)
-			if conf.QueueLogEnabled {
-				logutil.Println("WA10900-00", "Tcp Sender channel=", cap(buffer), ",conf.net_send_buffer_size=", conf.NetSendBufferSize, ",thread_count=", conf.QueueTcpSenderThreadCount)
-			}
-
-			// 기본 1개
-			for i := 0; i < int(conf.QueueTcpSenderThreadCount); i++ {
-				//				logutil.Infoln("InitSender", "go Run")
-				//				PrintMemUsage()
-				go runSend()
-			}
-
-			defer lock.Unlock()
+	conf := config.GetConfig()
+	if TcpQueue == nil {
+		lock.Lock()
+		TcpQueue = queue.NewRequestDoubleQueue(int(conf.NetSendQueue1Size), int(conf.NetSendQueue2Size))
+		if conf.QueueLogEnabled {
+			logutil.Println("WA10900-02", "Tcp Sender Queue=", TcpQueue.GetCapacity1(), ",", TcpQueue.GetCapacity2(), ",thread_count=", conf.QueueTcpSenderThreadCount)
 		}
-	} else {
-		if TcpQueue == nil {
-			lock.Lock()
-			TcpQueue = queue.NewRequestDoubleQueue(int(conf.NetSendQueue1Size), int(conf.NetSendQueue2Size))
-			if conf.QueueLogEnabled {
-				logutil.Println("WA10900-02", "Tcp Sender Queue=", TcpQueue.GetCapacity1(), ",", TcpQueue.GetCapacity2(), ",thread_count=", conf.QueueTcpSenderThreadCount)
-			}
-			// 기본 1개
-			for i := 0; i < int(conf.QueueTcpSenderThreadCount); i++ {
-				//				logutil.Infoln("InitSender", "go Run")
-				//				PrintMemUsage()
-				go runSend()
-			}
-
-			defer lock.Unlock()
+		// 기본 1개
+		for i := 0; i < int(conf.QueueTcpSenderThreadCount); i++ {
+			//				logutil.Infoln("InitSender", "go Run")
+			//				PrintMemUsage()
+			go runSend()
 		}
+
+		defer lock.Unlock()
 	}
 }
 
@@ -103,6 +75,8 @@ func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }
 func runSend() {
+	conf := config.GetConfig()
+
 	cypher_level := conf.CypherLevel
 	queue1Size := conf.NetSendQueue1Size
 	queue2Size := conf.NetSendQueue2Size
@@ -114,6 +88,12 @@ func runSend() {
 	//var cnt int64 = 0
 
 	for {
+		// shutdown
+		if config.GetConfig().Shutdown {
+			logutil.Infoln("WA211-16", "Shutdown net.Sender")
+			TcpQueue.Clear()
+			break
+		}
 		// DEBUG goroutine 로그 출력
 		//logutil.Println("Sender.runSend")
 
@@ -132,45 +112,31 @@ func runSend() {
 
 			var p TcpSend
 
-			// DEBUG Queue
-			if conf.QueueTcpEnabled == false {
-				if buffer != nil {
-					if conf.QueueLogEnabled {
-						logutil.Println("WA10901-01", "Tcp channel len=", len(buffer))
-					}
-					if len(buffer) == cap(buffer) {
-						logutil.Println("WA10901-02", "Tcp Channle Full", len(buffer))
-					}
-					p = <-buffer
-				} else {
-					logutil.Println("WA10901-08", "TcpQueue channel is nil")
+			if TcpQueue != nil {
+				// Change queue size dynamically
+				if queue1Size != conf.NetSendQueue1Size || queue2Size != conf.NetSendQueue2Size {
+					TcpQueue.SetCapacity(int(conf.NetSendQueue1Size), int(conf.NetSendQueue2Size))
 				}
+
+				if conf.QueueLogEnabled {
+					logutil.Println("WA10901-03", "Tcp queue len=", TcpQueue.Size1(), ",", TcpQueue.Size2())
+				}
+
+				if TcpQueue.Size1() == TcpQueue.GetCapacity1() {
+					logutil.Println("WA10901-04", "Tcp Queue1 Full", TcpQueue.Size1())
+				}
+				if TcpQueue.Size2() == TcpQueue.GetCapacity2() {
+					logutil.Println("WA10901-05", "Tcp Queue2 Full", TcpQueue.Size2())
+				}
+				v := TcpQueue.GetTimeout(5 * 1000)
+				if v == nil {
+					// logutil.Println("WA10901-06", "TcpQueue.Get is nil")
+					return
+				}
+				p = v.(TcpSend)
+
 			} else {
-				if TcpQueue != nil {
-					// Change queue size dynamically
-					if queue1Size != conf.NetSendQueue1Size || queue2Size != conf.NetSendQueue2Size {
-						TcpQueue.SetCapacity(int(conf.NetSendQueue1Size), int(conf.NetSendQueue2Size))
-					}
-
-					if conf.QueueLogEnabled {
-						logutil.Println("WA10901-03", "Tcp queue len=", TcpQueue.Size1(), ",", TcpQueue.Size2())
-					}
-
-					if TcpQueue.Size1() == TcpQueue.GetCapacity1() {
-						logutil.Println("WA10901-04", "Tcp Queue1 Full", TcpQueue.Size1())
-					}
-					if TcpQueue.Size2() == TcpQueue.GetCapacity2() {
-						logutil.Println("WA10901-05", "Tcp Queue2 Full", TcpQueue.Size2())
-					}
-					v := TcpQueue.Get()
-					if v == nil {
-						logutil.Println("WA10901-06", "TcpQueue.Get is nil")
-						return
-					}
-					p = v.(TcpSend)
-				} else {
-					logutil.Println("WA10901-07", "TcpQueue is nil")
-				}
+				logutil.Println("WA10901-07", "TcpQueue is nil")
 			}
 
 			//logutil.Println("isOpen")

@@ -27,45 +27,20 @@ import (
 	"github.com/whatap/golib/util/hexa32"
 	"github.com/whatap/golib/util/iputil"
 	"github.com/whatap/golib/util/keygen"
+	"github.com/whatap/golib/util/logo"
 	"github.com/whatap/golib/util/stringutil"
 	"github.com/whatap/golib/util/urlutil"
-)
-
-const (
-	PACKET_DB_MAX_SIZE           = 4 * 1024  // max size of sql
-	PACKET_SQL_MAX_SIZE          = 32 * 1024 // max size of sql
-	PACKET_HTTPC_MAX_SIZE        = 32 * 1024 // max size of sql
-	PACKET_MESSAGE_MAX_SIZE      = 32 * 1024 // max size of message
-	PACKET_METHOD_STACK_MAX_SIZE = 32 * 1024 // max size of message
-
-	COMPILE_FILE_MAX_SIZE = 2 * 1024 // max size of filename
-
-	HTTP_HOST_MAX_SIZE   = 2 * 1024 // max size of host
-	HTTP_URI_MAX_SIZE    = 2 * 1024 // max size of uri
-	HTTP_METHOD_MAX_SIZE = 256      // max size of method
-	HTTP_IP_MAX_SIZE     = 256      // max size of ip(request_addr)
-	HTTP_UA_MAX_SIZE     = 2 * 1024 // max size of user agent
-	HTTP_REF_MAX_SIZE    = 2 * 1024 // max size of referer
-	HTTP_USERID_MAX_SIZE = 2 * 1024 // max size of userid
-
-	HTTP_PARAM_MAX_COUNT      = 20
-	HTTP_PARAM_KEY_MAX_SIZE   = 255 // = 을 빼고 255 byte
-	HTTP_PARAM_VALUE_MAX_SIZE = 256
-
-	HTTP_HEADER_MAX_COUNT      = 20
-	HTTP_HEADER_KEY_MAX_SIZE   = 255 // = 을 빼고 255 byte
-	HTTP_HEADER_VALUE_MAX_SIZE = 256
-
-	SQL_PARAM_MAX_COUNT      = 20
-	SQL_PARAM_VALUE_MAX_SIZE = 256
-
-	STEP_ERROR_MESSAGE_MAX_SIZE = 4 * 1024
 )
 
 var (
 	WHATAP_COOKIE_NAME = "WHATAP"
 	traceLock          sync.Mutex
+	disable            bool = true
 )
+
+func DISABLE() bool {
+	return disable
+}
 
 type WrapResponseWriter struct {
 	http.ResponseWriter
@@ -78,8 +53,13 @@ func (l *WrapResponseWriter) WriteHeader(status int) {
 }
 
 func Init(m map[string]string) {
+	logo.Print2("golang", whatapboot.AGENT_VERSION)
+	// DISABLE = false
+	disable = false
+
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	if m != nil {
+		agentconfig.GetConfig()
 		agentconfig.SetValues(&m)
 	}
 	keygen.AddSeed(os.Getpid())
@@ -134,6 +114,9 @@ func NewTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
 }
 
 func Start(ctx context.Context, name string) (context.Context, error) {
+	if DISABLE() {
+		return ctx, nil
+	}
 	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return ctx, nil
@@ -154,6 +137,9 @@ func Start(ctx context.Context, name string) (context.Context, error) {
 }
 
 func StartWithRequest(r *http.Request) (context.Context, error) {
+	if DISABLE() {
+		return r.Context(), nil
+	}
 	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return r.Context(), nil
@@ -186,6 +172,9 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 }
 
 func StartWithContext(ctx context.Context, name string) (context.Context, error) {
+	if DISABLE() {
+		return ctx, nil
+	}
 	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return ctx, nil
@@ -219,6 +208,9 @@ func StartWithContext(ctx context.Context, name string) (context.Context, error)
 }
 
 func SetHeader(ctx context.Context, m map[string][]string) {
+	if DISABLE() {
+		return
+	}
 	conf := agentconfig.GetConfig()
 	if !conf.ProfileHttpHeaderEnabled {
 		return
@@ -235,6 +227,9 @@ func SetHeader(ctx context.Context, m map[string][]string) {
 	}
 }
 func SetParameter(ctx context.Context, m map[string][]string) {
+	if DISABLE() {
+		return
+	}
 	conf := agentconfig.GetConfig()
 	if !conf.ProfileHttpParameterEnabled {
 		return
@@ -253,6 +248,9 @@ func SetParameter(ctx context.Context, m map[string][]string) {
 	}
 }
 func GetClientId(r *http.Request, remoteIP string) string {
+	if DISABLE() {
+		return strings.TrimSpace(remoteIP)
+	}
 	conf := agentconfig.GetConfig()
 
 	if !conf.Enabled || !conf.TraceUserEnabled {
@@ -308,6 +306,9 @@ func SetWhatapCookie(w http.ResponseWriter, cookie *http.Cookie) {
 }
 
 func Step(ctx context.Context, title, message string, elapsed, value int) error {
+	if DISABLE() {
+		return nil
+	}
 	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return nil
@@ -321,6 +322,9 @@ func Step(ctx context.Context, title, message string, elapsed, value int) error 
 }
 
 func Error(ctx context.Context, err error) error {
+	if DISABLE() {
+		return nil
+	}
 	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return nil
@@ -345,6 +349,10 @@ func Error(ctx context.Context, err error) error {
 }
 
 func End(ctx context.Context, err error) error {
+	if DISABLE() {
+		return nil
+	}
+
 	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return nil
@@ -390,6 +398,9 @@ func UpdateMtraceWithContext(ctx context.Context, header http.Header) {
 	}
 }
 func GetMTrace(ctx context.Context) http.Header {
+	if DISABLE() {
+		return make(http.Header)
+	}
 	rt := make(http.Header)
 	conf := agentconfig.GetConfig()
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
@@ -418,6 +429,10 @@ func GetMTrace(ctx context.Context) http.Header {
 	return rt
 }
 func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
+	if DISABLE() {
+		return
+	}
+
 	conf := agentconfig.GetConfig()
 	if !conf.MtraceEnabled {
 		return
@@ -480,7 +495,7 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 			} else {
 				// parent id != whatap.stepid . don't use whatap header
 				if conf.Debug {
-					log.Printf("[WA-TX-08002] stepid(%s) is not equal traceparent stepid(%s), mtid=(%d), traceparent mtid=(%d)", traceCtx.MCallerStepId, stepId, mtid, traceCtx.MTid)
+					log.Printf("[WA-TX-08002] stepid(%d) is not equal traceparent stepid(%s), mtid=(%d), traceparent mtid=(%d)", traceCtx.MCallerStepId, stepId, mtid, traceCtx.MTid)
 				}
 				useWhatap = false
 			}
@@ -558,6 +573,11 @@ func HandlerFunc(handler func(http.ResponseWriter, *http.Request)) http.HandlerF
 // wrapping handler function, example : http.HandleFunc(func(http.ResponseWriter, *http.Request))
 func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if DISABLE() {
+			handler(w, r)
+			return
+		}
+
 		conf := agentconfig.GetConfig()
 		if !conf.TransactionEnabled {
 			handler(w, r)
@@ -638,6 +658,10 @@ func ParseParameter(m map[string][]string) string {
 }
 
 func ParseHeader(m map[string][]string) string {
+	if DISABLE() {
+		return ""
+	}
+
 	conf := agentconfig.GetConfig()
 	rt := ""
 	if m != nil && len(m) > 0 {
@@ -660,6 +684,10 @@ func ParseHeader(m map[string][]string) string {
 }
 
 func GetRemoteIP(remoteAddr string, header map[string][]string) string {
+	if DISABLE() {
+		return ""
+	}
+
 	conf := agentconfig.GetConfig()
 	if conf.TraceHttpClientIpHeaderKeyEnabled && header != nil {
 		var val []string

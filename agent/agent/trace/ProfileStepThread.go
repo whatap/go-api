@@ -73,6 +73,11 @@ func (this *ProfileStepThread) Add(t, txid int64, inx int, steps []step.Step) {
 
 func (this *ProfileStepThread) run() {
 	for {
+		// shutdown
+		if config.GetConfig().Shutdown {
+			logutil.Infoln("WA211-09", "Shutdown ProfileStepThread")
+			break
+		}
 		func() {
 			defer func() {
 				if r := recover(); r != nil {

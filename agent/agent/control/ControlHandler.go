@@ -2,12 +2,12 @@ package control
 
 import (
 	//"log"
-	"os"
-	"strings"
-
+	"context"
 	"math"
+	"os"
 	"regexp"
 	"runtime/debug"
+	"strings"
 
 	"github.com/magiconair/properties"
 	"github.com/whatap/go-api/agent/agent/active"
@@ -15,7 +15,9 @@ import (
 	"github.com/whatap/go-api/agent/agent/counter"
 	"github.com/whatap/go-api/agent/agent/counter/meter"
 	"github.com/whatap/go-api/agent/agent/data"
-	"github.com/whatap/go-api/agent/agent/secure"
+	langconf "github.com/whatap/go-api/agent/lang/conf"
+
+	// "github.com/whatap/go-api/agent/agent/secure"
 	"github.com/whatap/go-api/agent/agent/topology"
 
 	//"github.com/whatap/go-api/agent/dotnet"
@@ -23,6 +25,7 @@ import (
 	//"github.com/whatap/go-api/agent/extension"
 	"github.com/whatap/go-api/agent/net"
 	"github.com/whatap/go-api/agent/util/logutil"
+
 	"github.com/whatap/golib/lang"
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/lang/value"
@@ -30,10 +33,32 @@ import (
 )
 
 var start bool = false
+var cHandler = &ControlHandler{}
 
+type ControlHandler struct {
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+}
+
+func (this *ControlHandler) Run() {
+	if config.GetConfig().Shutdown {
+		this.shutdown()
+	}
+}
+func (this *ControlHandler) shutdown() {
+	if this.ctxCancel != nil {
+		this.ctxCancel()
+	}
+}
 func InitControlHandler() {
+	if config.GetConfig().Shutdown {
+		return
+	}
+
 	if start == false {
 		start = true
+		langconf.AddConfObserver("ControlHandler", cHandler)
+		cHandler.ctx, cHandler.ctxCancel = context.WithCancel(context.Background())
 		go runControl()
 	}
 }
@@ -43,18 +68,19 @@ func runControl() {
 	for {
 		// DEBUG goroutine log
 		//logutil.Println("ControlHandler runControl")
-
-		p := <-net.RecvBuffer
-
-		switch p.GetPackType() {
-		case pack.PACK_PARAMETER:
-			process(p.(*pack.ParamPack))
-		default:
+		select {
+		case <-cHandler.ctx.Done():
+			logutil.Infoln("WA211-02", "Shutdown ControlHandler ctx done.")
+			return
+		case p := <-net.RecvBuffer:
+			switch p.GetPackType() {
+			case pack.PACK_PARAMETER:
+				process(p.(*pack.ParamPack))
+			default:
+			}
 		}
 	}
 }
-
-var secuMaster = secure.GetSecurityMaster()
 
 func process(p *pack.ParamPack) {
 	// for 문이 종료 되지 않도록 Recover

@@ -305,6 +305,11 @@ func (wl *WatchLog) send(word string, wlog *WatchLog, line string) {
 	conf := config.GetConfig()
 	secu := secure.GetSecurityMaster()
 
+	p.SetOID(secu.OID)
+	p.SetPCODE(secu.PCODE)
+	p.SetOKIND(conf.OKIND)
+	p.SetONODE(conf.ONODE)
+
 	if secu.ONAME != "" {
 		p.Tags.PutString("oname", secu.ONAME)
 	}

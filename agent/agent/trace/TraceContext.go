@@ -217,6 +217,7 @@ var ctxPool = sync.Pool{
 }
 
 func NewTraceContext() *TraceContext {
+	conf := config.GetConfig()
 	p := new(TraceContext)
 	p.Profile = NewProfileCollector(conf.InternalTraceCollectingMode, p)
 	//p.PoolNewInstance = "new"
@@ -237,6 +238,8 @@ func CloseTraceContext(ctx *TraceContext) {
 	}
 }
 func (this *TraceContext) Clear() {
+	conf := config.GetConfig()
+
 	this.Txid = 0
 
 	// bool

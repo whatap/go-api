@@ -14,6 +14,10 @@ import (
 func Middleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			if trace.DISABLE() {
+				return next(c)
+			}
+
 			conf := config.GetConfig()
 			if !conf.TransactionEnabled {
 				return next(c)

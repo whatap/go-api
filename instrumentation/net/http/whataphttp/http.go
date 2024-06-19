@@ -29,13 +29,19 @@ type WrapRoundTrip struct {
 }
 
 func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err error) {
+	if this.transport == nil {
+		this.transport = http.DefaultTransport
+	}
+
+	if trace.DISABLE() {
+		return this.transport.RoundTrip(req)
+	}
+
 	conf := config.GetConfig()
 	if !conf.Enabled {
 		return this.transport.RoundTrip(req)
 	}
-	if this.transport == nil {
-		this.transport = http.DefaultTransport
-	}
+
 	ctx := req.Context()
 	wCtx := selectContext(ctx, this.ctx)
 	if conf.MtraceEnabled {
@@ -62,6 +68,10 @@ func NewRoundTrip(ctx context.Context, t http.RoundTripper) http.RoundTripper {
 }
 
 func HttpGet(ctx context.Context, url string) (*http.Response, error) {
+	if trace.DISABLE() {
+		return http.Get(url)
+	}
+
 	httpcCtx, _ := httpc.Start(ctx, url)
 	resp, err := http.Get(url)
 	if resp != nil {
@@ -73,6 +83,10 @@ func HttpGet(ctx context.Context, url string) (*http.Response, error) {
 }
 
 func HttpPost(ctx context.Context, url string, contentType string, body io.Reader) (*http.Response, error) {
+	if trace.DISABLE() {
+		return http.Post(url, contentType, body)
+	}
+
 	httpcCtx, _ := httpc.Start(ctx, url)
 	resp, err := http.Post(url, contentType, body)
 	if resp != nil {
@@ -84,6 +98,10 @@ func HttpPost(ctx context.Context, url string, contentType string, body io.Reade
 }
 
 func HttpPostForm(ctx context.Context, url string, data url.Values) (*http.Response, error) {
+	if trace.DISABLE() {
+		return http.PostForm(url, data)
+	}
+
 	httpcCtx, _ := httpc.Start(ctx, url)
 	resp, err := http.PostForm(url, data)
 	if resp != nil {

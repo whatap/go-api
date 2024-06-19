@@ -147,8 +147,12 @@ func (this *TaskSystemPerf) process(p *pack.CounterPack1) {
 
 	// 2023.11.17 In linux, metering information is based on product uuid instead of client.LocalAddr.
 	secu := secure.GetSecurityMaster()
-	if secu.MeterIP != "" {
-		p.HostIp = hash.HashStr(secu.MeterIP)
+	if conf.MeteringUseLinuxUUIDEnabled {
+		if secu.MeterIP != "" {
+			p.HostIp = hash.HashStr(secu.MeterIP)
+		} else {
+			p.HostIp = secu.IP
+		}
 	} else {
 		p.HostIp = secu.IP
 	}

@@ -26,7 +26,7 @@ func NewProfileCircularCollector() *ProfileCircularCollector {
 	//logutil.Infoln(">>>>", "New CircularCollector")
 	p := new(ProfileCircularCollector)
 	p.conf = config.GetConfig()
-	p.BUFFER_LEN = conf.TraceStepMaxCount
+	p.BUFFER_LEN = p.conf.TraceStepMaxCount
 
 	p.buffer = make([]step.Step, p.BUFFER_LEN)
 

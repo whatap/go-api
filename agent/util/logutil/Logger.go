@@ -21,6 +21,13 @@ import (
 	"github.com/whatap/golib/util/hmap"
 )
 
+const (
+	LOG_LEVEL_ERROR = 3
+	LOG_LEVEL_WARN  = 2
+	LOG_LEVEL_INFO  = 1
+	LOG_LEVEL_DEBUG = 0
+)
+
 type Logger struct {
 	Log              *log.Logger
 	lastLog          *hmap.StringLongLinkedMap
@@ -38,6 +45,9 @@ type Logger struct {
 	confLogKeepDays        int
 	//	static PrintWriter pw = null;
 	//	static File logfile = null;
+
+	Level    int
+	Shutdown bool
 }
 
 func NewLogger() *Logger {
@@ -46,6 +56,7 @@ func NewLogger() *Logger {
 	p.Log = log.New(os.Stdout, "", log.Ldate|log.Ltime)
 	p.lastLog = hmap.NewStringLongLinkedMap().SetMax(1000)
 	p.oname = "boot"
+	p.Shutdown = false
 
 	// BSM log 파일명을 환경변수로 먼저 읽어서 처리
 	aType := os.Getenv("WHATAP_APP_TYPE")
@@ -81,13 +92,12 @@ func NewLogger() *Logger {
 }
 
 var logger *Logger
-
-// 패키지 로드
-func init() {
-	logger = GetLogger()
-}
+var loggerLock sync.Mutex
 
 func GetLogger() *Logger {
+	loggerLock.Lock()
+	defer loggerLock.Unlock()
+
 	if logger != nil {
 		return logger
 	} else {
@@ -98,19 +108,23 @@ func GetLogger() *Logger {
 
 // config 에서 설정해 줄 함수
 func SetLogInterval(i int) {
+	GetLogger()
 	logger.confLogInterval = i
 }
 
 // config 에서 설정해 줄 함수
 func SetLogRotationEnabled(b bool) {
+	GetLogger()
 	logger.confLogRotationEnabled = b
 }
 
 // config 에서 설정해 줄 함수
 func SetLogKeepDays(i int) {
+	GetLogger()
 	logger.confLogKeepDays = i
 }
 func SetLogID(logID string) {
+	GetLogger()
 	logger.logID = logID
 }
 
@@ -119,10 +133,12 @@ func (this *Logger) Print(message string) {
 }
 
 func Info(id string, message string) {
+	GetLogger()
 	logger.info(id, message)
 }
 
 func Infoln(id string, v ...interface{}) {
+	GetLogger()
 	logger.info(id, fmt.Sprint(v...))
 }
 func Infof(id string, format string, v ...interface{}) {
@@ -138,6 +154,7 @@ func (this *Logger) info(id string, message string) {
 // 첫번째 인수는 무조건 String으로 ID 값을 넣어야 함( WA111 형식)
 // 해당 ID로 중복 확인.
 func Println(id string, v ...interface{}) {
+	GetLogger()
 	logger.println(id, fmt.Sprint(v...))
 }
 
@@ -145,6 +162,7 @@ func Println(id string, v ...interface{}) {
 // 첫번째 인수는 무조건 String으로 ID 값을 넣어야 함( WA111 형식)
 // 해당 ID로 중복 확인.
 func Printf(id string, format string, v ...interface{}) {
+	GetLogger()
 	logger.println(id, fmt.Sprintf(format, v...))
 }
 
@@ -157,6 +175,7 @@ func (this *Logger) println(id, message string) {
 }
 
 func PrintlnError(id, message string, t error) {
+	GetLogger()
 	logger.printlnError(id, message, t)
 }
 
@@ -169,10 +188,12 @@ func (this *Logger) printlnError(id, message string, t error) {
 }
 
 func Errorln(id string, v ...interface{}) {
-	logger.Print(ansi.Red(logger.build(id, fmt.Sprint(v...))))
+	GetLogger()
+	logger.Println(ansi.Red(logger.build(id, fmt.Sprint(v...))))
 }
 
 func Errorf(id string, format string, v ...interface{}) {
+	GetLogger()
 	logger.Print(ansi.Red(logger.build(id, fmt.Sprintf(format, v...))))
 }
 
@@ -184,6 +205,7 @@ func (this *Logger) build(id, message string) string {
 // TODO runtime/debug 에서 현재 시점의 스택 정보를 가져올 수 있지만
 // 인수로 맏는 error의 스택은 확인 못함
 func GetCallStack() string {
+	GetLogger()
 	return logger.getCallStack()
 }
 
@@ -214,6 +236,7 @@ func (this *Logger) checkOk(id string, sec int) bool {
 }
 
 func PrintlnStd(msg string, sysout bool) {
+	GetLogger()
 	logger.printlnStd(msg, sysout)
 }
 
@@ -231,6 +254,7 @@ func (this *Logger) printlnStd(msg string, sysout bool) {
 }
 
 func Update(oname string) {
+	GetLogger()
 	logger.update(oname)
 }
 func (this *Logger) update(oname string) {
@@ -252,7 +276,7 @@ func (this *Logger) update(oname string) {
 func (this *Logger) openFile() {
 	defer func() {
 		if r := recover(); r != nil {
-			Printf("WA10004", "openFile Recover %v", r)
+			this.Log.Println("WA10004", "openFile Recover ", r)
 		}
 	}()
 
@@ -304,6 +328,12 @@ func (this *Logger) run() {
 	this.lastFileRotation = this.confLogRotationEnabled
 
 	for {
+		// shutdown
+		if this.Shutdown {
+			this.info("WA211-19", "Shutdown logutil")
+			break
+		}
+
 		//DEBUG goroutine 로그
 		//log.Println("Logger Run")
 
@@ -311,20 +341,6 @@ func (this *Logger) run() {
 
 		time.Sleep(10000 * time.Millisecond)
 	}
-
-	//		public void run() {
-	//			while (logThread == Thread.currentThread()) {
-	//				try {
-	//					process();
-	//				} catch (Throwable t) {
-	//				}
-	//				try {
-	//					Thread.sleep(10000);
-	//				} catch (InterruptedException e) {
-	//				}
-	//			}
-	//		}
-
 }
 
 func (this *Logger) process() {
@@ -443,11 +459,70 @@ func (this *Logger) clearOldLog() {
 }
 
 func Sysout(message string) {
+	GetLogger()
 	logger.sysout(message)
 }
 
 func (this *Logger) sysout(message string) {
 	fmt.Println(message)
+}
+
+// golib/logger/Logger  interface
+// Set Level
+func (this *Logger) SetLevel(lv int) {
+	this.Level = lv
+}
+
+// Errorf logs an error message, patterned after log.Printf.
+func (this *Logger) Errorf(format string, args ...interface{}) {
+	Printf("ERROR", format, args...)
+}
+
+// Error logs an error message, patterned after log.Print.
+func (this *Logger) Error(args ...interface{}) {
+	Println("ERROR", args...)
+}
+
+// Warnf logs a warning message, patterned after log.Printf.
+func (this *Logger) Warnf(format string, args ...interface{}) {
+	Printf("WARN", format, args...)
+}
+
+// Warn logs a warning message, patterned after log.Print.
+func (this *Logger) Warn(args ...interface{}) {
+	Println("WARN", args...)
+}
+
+// Infof logs an information message, patterned after log.Printf.
+func (this *Logger) Infof(format string, args ...interface{}) {
+	Printf("INFO", format, args...)
+}
+
+// Info logs an information message, patterned after log.Print.
+func (this *Logger) Info(args ...interface{}) {
+	Println("INFO", args...)
+}
+func (this *Logger) Infoln(args ...interface{}) {
+	Println("INFO", args...)
+}
+
+// Debugf logs a debug message, patterned after log.Printf.
+func (this *Logger) Debugf(format string, args ...interface{}) {
+	Infof("DEBUG", format, args...)
+}
+
+// Debug logs a debug message, patterned after log.Print.
+func (this *Logger) Debug(args ...interface{}) {
+	Infoln("DEBUG", args...)
+
+}
+
+// whatap cache log
+func (this *Logger) Printf(id string, format string, args ...interface{}) {
+	Printf(id, format, args...)
+}
+func (this *Logger) Println(id string, args ...interface{}) {
+	Println(id, args...)
 }
 
 func (this *Logger) GetLogFiles() *value.MapValue {

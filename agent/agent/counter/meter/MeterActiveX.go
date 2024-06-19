@@ -1,10 +1,10 @@
 package meter
 
 import (
+	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/golib/lang"
 	"github.com/whatap/golib/lang/ref"
 	"github.com/whatap/golib/util/hmap"
-	"github.com/whatap/go-api/agent/agent/config"
 )
 
 type MeterActiveX struct {
@@ -20,7 +20,7 @@ type MeterActiveX struct {
 	conf    *config.Config
 }
 
-var meterActiveX *MeterActiveX = newMeterActiveX()
+var meterActiveX *MeterActiveX //= newMeterActiveX()
 
 func newMeterActiveX() *MeterActiveX {
 	p := new(MeterActiveX)
@@ -40,6 +40,10 @@ func GetInstanceMeterActiveX() *MeterActiveX {
 	} else {
 		return newMeterActiveX()
 	}
+}
+
+func (this *MeterActiveX) Clear() {
+	this.ReInit()
 }
 
 func (this *MeterActiveX) AddTx(callerPcode int64, callerOkind, callerOid int32) {

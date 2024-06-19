@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/golib/util/dateutil"
+
 	// import cycle not allowed
 	//"github.com/whatap/go-api/agent/agent/stat"
 	"github.com/whatap/go-api/agent/util/logutil"
@@ -45,6 +46,22 @@ func run() {
 	//fmt.Println("TimingSender Start=", lastUnit, ",now=", dateutil.Now())
 
 	for {
+		// shutdown
+		if config.GetConfig().Shutdown {
+			logutil.Infoln("WA211-08", "Shutdown TimingSender")
+			GetInstanceStatTranx().Clear()
+			GetInstanceStatTranxDomain().Clear()
+			GetInstanceStatTranxMtCaller().Clear()
+			GetInstanceStatTranxLogin().Clear()
+			GetInstanceStatTranxReferer().Clear()
+
+			GetInstanceStatSql().Clear()
+			GetInstanceStatHttpc().Clear()
+			GetInstanceStatError().Clear()
+			GetInstanceStatRemoteIp().Clear()
+			GetInstanceStatUserAgent().Clear()
+			break
+		}
 		// DEBUG goroutine 로그 출력
 		//logutil.Println("TimmingSender Run")
 

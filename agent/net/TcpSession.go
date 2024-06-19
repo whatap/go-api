@@ -8,6 +8,7 @@ import (
 	//"syscall"
 	"bufio"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/whatap/go-api/agent/agent/config"
@@ -17,6 +18,8 @@ import (
 	"github.com/whatap/golib/io"
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/util/dateutil"
+
+	"github.com/whatap/golib/util/iputil"
 	"github.com/whatap/golib/util/queue"
 	"github.com/whatap/golib/util/stringutil"
 )
@@ -55,12 +58,40 @@ func GetTcpSession() *TcpSession {
 	session.RetryQueue = queue.NewRequestQueue(256)
 	go func() {
 		for {
+			// shutdown
+			if config.GetConfig().Shutdown {
+				logutil.Infoln("WA211-17", "Shutdown net.TcpSession.open")
+				if session.wr != nil {
+					session.wr.Reset(nil)
+					session.wr = nil
+				}
+				return
+			}
+
 			for session.open() == false {
+				// shutdown
+				if config.GetConfig().Shutdown {
+					logutil.Infoln("WA211-17-01", "Shutdown net.TcpSession.open")
+					if session.wr != nil {
+						session.wr.Reset(nil)
+						session.wr = nil
+					}
+					return
+				}
 				time.Sleep(3000 * time.Millisecond)
 			}
 
 			//logutil.Println("isOpen")
 			for session.isOpen() {
+				// shutdown
+				if config.GetConfig().Shutdown {
+					logutil.Infoln("WA211-17-02", "Shutdown net.TcpSession.open")
+					if session.wr != nil {
+						session.wr.Reset(nil)
+						session.wr = nil
+					}
+					return
+				}
 				time.Sleep(5000 * time.Millisecond)
 			}
 		}
@@ -94,8 +125,13 @@ func (this *TcpSession) open() (ret bool) {
 	// DEBUG TEST
 	conf.ConfDebugTest.DebugCloseTcpFunc = this.Close
 
+	if strings.TrimSpace(conf.AccessKey) == "" {
+		logutil.Println("WA173-00", "accesskey is not set. value is ", conf.AccessKey)
+		return false
+	}
 	hosts := conf.WhatapHost
 	if hosts == nil || len(hosts) == 0 {
+		logutil.Println("WA173-01", "whatap.server.host is not set. value is ", conf.WhatapHost)
 		this.Close()
 		return false
 	}
@@ -109,10 +145,10 @@ func (this *TcpSession) open() (ret bool) {
 	var err error
 	if conf.FowarderEnabled {
 		// connect to proxy (temp, test)
-		logutil.Infoln("WA173-01", "Connect to fowarder ", fmt.Sprintf("%s:%d", conf.NetIPCHost, conf.NetIPCPort))
+		logutil.Println("WA173-02", "Connect to fowarder ", fmt.Sprintf("%s:%d", conf.NetIPCHost, conf.NetIPCPort))
 		client, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", conf.NetIPCHost, conf.NetIPCPort), time.Duration(conf.TcpConnectionTimeout)*time.Millisecond)
 		if err != nil {
-			logutil.Println("WA173", "Connection error. (invalid whatap.server.host key error.)", err)
+			logutil.Println("WA173-03", "Connection error. (invalid whatap.server.host key error.)", err)
 			if client != nil {
 				client.Close()
 			}
@@ -125,12 +161,22 @@ func (this *TcpSession) open() (ret bool) {
 		client.SetDeadline(time.Now().Add(time.Duration(conf.TcpSoTimeout) * time.Millisecond))
 		client.Write(this.keyResetToFowarder(fmt.Sprintf("%s:%d", hosts[this.dest], port)))
 		this.in = io.NewDataInputNet(client)
-		secure.GetSecurityMaster().UpdateLicense(this.readKeyResetFromFowarder(this.in))
+		pcode, myIP, data, err := this.readKeyResetFromFowarder(this.in)
+		if err != nil {
+			logutil.Println("WA173-04", "Connection error. (invalid whatap.server.host key error.)", err)
+			this.Close()
+			return false
+		}
+		logutil.Infoln(">>>>", "pcode=", pcode, ", myIP=", myIP)
+		// secure.GetSecurityMaster().UpdateLicense(this.readKeyResetFromFowarder(this.in))
+		secure.GetSecurityMaster().UpdateLicense(pcode, data)
 
 		if secure.GetSecurityMaster().PCODE == 0 {
 			this.Close()
 			return false
 		}
+		secure.GetSecurityMaster().DecideAgentOnameOid(stringutil.Tokenizer(myIP, ":")[0])
+
 	} else {
 		if secure.GetSecurityMaster().PCODE == 0 {
 			this.Close()
@@ -140,16 +186,17 @@ func (this *TcpSession) open() (ret bool) {
 		// connect to whatap
 		client, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", hosts[this.dest], port), time.Duration(conf.TcpConnectionTimeout)*time.Millisecond)
 		if err != nil {
-			logutil.Println("WA173", "Connection error. (invalid whatap.server.host key error.)", err)
+			logutil.Println("WA173-05", "Connection error. (invalid whatap.server.host key error.)", err)
 			if client != nil {
 				client.Close()
 			}
 			this.Close()
 			return false
 		}
+
+		secure.GetSecurityMaster().DecideAgentOnameOid(stringutil.Tokenizer(client.LocalAddr().String(), ":")[0])
 	}
 
-	secure.GetSecurityMaster().DecideAgentOnameOid(stringutil.Tokenizer(client.LocalAddr().String(), ":")[0])
 	client.SetDeadline(time.Now().Add(time.Duration(conf.TcpSoTimeout) * time.Millisecond))
 	client.Write(this.keyReset())
 	this.in = io.NewDataInputNet(client)
@@ -159,7 +206,7 @@ func (this *TcpSession) open() (ret bool) {
 
 	s := secure.GetSecurityMaster()
 	logutil.Infoln("WA171", "PCODE=", s.PCODE, " OID=", s.OID, " ONAME=", s.ONAME)
-	logutil.Infoln("WA174", "Net TCP: Connect to ", client.RemoteAddr().String())
+	logutil.Infoln("WA174", "Net TCP: Connected to ", client.RemoteAddr().String())
 	this.LastConnectedTime = dateutil.SystemNow()
 
 	if conf.NetFailoverRetrySendDataEnabled {
@@ -204,22 +251,42 @@ func (this *TcpSession) readKeyReset(in *io.DataInputX) []byte {
 	}
 }
 
-func (this *TcpSession) readKeyResetFromFowarder(in *io.DataInputX) (int64, []byte) {
+func (this *TcpSession) readKeyResetFromFowarder(in *io.DataInputX) (pcode int64, ip string, data []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			panic(fmt.Sprintln("invalid license key error. ", r))
+			// panic(fmt.Sprintln("invalid license key error. ", r))
+			if pcode == 0 {
+				err = fmt.Errorf("invalid license key error. pcode is not validated %d ", pcode)
+			}
+			if ip == "" {
+				err = fmt.Errorf("invalid license key error. local ip is not validated %s ", ip)
+			}
+			if data == nil || len(data) == 0 {
+				err = fmt.Errorf("invalid license key error. session is not validated")
+			}
+			return
 		}
 	}()
 	// NET_FOWARDER
 	_ = in.ReadByte() // netSrc := in.ReadByte()
 	// NET_RES_FOWARDER
-	_ = in.ReadByte() // netFlag := in.ReadByte()
-	msg := in.ReadIntBytesLimit(1024)
+	netFlag := in.ReadByte() // netFlag := in.ReadByte()
+	msg := in.ReadIntBytesLimit(2048)
 
 	din := io.NewDataInputX(msg)
-	pcode := din.ReadLong()
-	data := din.ReadIntBytesLimit(1024)
-	return pcode, data
+	pcode = din.ReadLong()
+	// forward keyreset. add ip info. NET_RES_FOWARDER_1
+	if netFlag == NET_RES_FOWARDER_1 {
+		ip = din.ReadText()
+	} else {
+		// set localaddress
+		ips := iputil.LocalAddresses()
+		if len(ips) > 0 {
+			ip = ips[0].String()
+		}
+	}
+	data = din.ReadIntBytesLimit(1024)
+	return pcode, ip, data, nil
 }
 func (this *TcpSession) keyReset() []byte {
 	defer func() {
@@ -271,6 +338,8 @@ func (this *TcpSession) keyResetToFowarder(addr string) []byte {
 			logutil.Println("WA175-01", "Recover ", err)
 		}
 	}()
+	conf := config.GetConfig()
+
 	// Fowader secu.Cypher 없이 진행
 	dout := io.NewDataOutputX()
 	dout.WriteText(addr)
@@ -443,8 +512,8 @@ func (this *TcpSession) Flush() (n int, err error) {
 	return n, nil
 }
 func (this *TcpSession) Close() {
-	logutil.Infoln("WA181", " Close TCP connection")
 	if this.client != nil {
+		logutil.Infoln("WA181", " Close TCP connection")
 		defer func() {
 			if r := recover(); r != nil {
 				logutil.Println("WA181-01", " Close Recover", string(debug.Stack()))
@@ -461,6 +530,14 @@ func (this *TcpSession) Close() {
 func (this *TcpSession) WaitForConnection() {
 	//logutil.Println("isOpen")
 	for this.isOpen() == false {
+		if config.GetConfig().Shutdown {
+			logutil.Infoln("WA211-17-03", "Shutdown net.TcpSession WaitForConnection")
+			if this.wr != nil {
+				this.wr.Reset(nil)
+				this.wr = nil
+			}
+			return
+		}
 		time.Sleep(1000 * time.Millisecond)
 	}
 }

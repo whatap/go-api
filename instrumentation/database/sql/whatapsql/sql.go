@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/go-api/trace"
 )
 
 var (
@@ -22,6 +23,10 @@ func OpenContext(ctx context.Context, driverName, dataSourceName string) (*sql.D
 }
 
 func OpenWithRegister(ctx context.Context, driverName, dataSourceName string) (*sql.DB, error) {
+	if trace.DISABLE() {
+		return sql.Open(driverName, dataSourceName)
+	}
+
 	conf := config.GetConfig()
 	if !conf.GoSqlProfileEnabled {
 		return sql.Open(driverName, dataSourceName)

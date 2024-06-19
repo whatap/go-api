@@ -2,6 +2,7 @@ package net
 
 import (
 	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/go-api/agent/agent/secure"
 	langconf "github.com/whatap/go-api/agent/lang/conf"
 )
 
@@ -27,14 +28,13 @@ func newTcpManager() *TcpManager {
 // config 로드후 실행, implemenets ConfObjserver.Runnable
 func (this *TcpManager) Run() {
 	conf := config.GetConfig()
-	if conf.QueueTcpEnabled {
-		if TcpQueue != nil {
-			TcpQueue.SetCapacity(int(conf.NetSendQueue1Size), int(conf.NetSendQueue2Size))
-		}
+	if TcpQueue != nil {
+		TcpQueue.SetCapacity(int(conf.NetSendQueue1Size), int(conf.NetSendQueue2Size))
 	}
 }
 
 func StartNet() {
+	secure.GetSecuritySession()
 	InitSender()
 	InitReceiver()
 	tcp := GetTcpSession()

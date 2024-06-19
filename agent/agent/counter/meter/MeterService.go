@@ -42,6 +42,11 @@ func GetInstanceMeterService() *MeterService {
 	}
 }
 
+func (this *MeterService) Clear() {
+	this.Bucket = NewHitBucket()
+	this.ResetStat()
+}
+
 func (this *MeterService) GetBucket() *HitBucket {
 	return this.Bucket
 }

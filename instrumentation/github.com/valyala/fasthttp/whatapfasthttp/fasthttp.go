@@ -27,6 +27,10 @@ import (
 
 func Func(handler func(ctx *fasthttp.RequestCtx)) func(*fasthttp.RequestCtx) {
 	return func(ctx *fasthttp.RequestCtx) {
+		if trace.DISABLE() {
+			handler(ctx)
+			return
+		}
 		conf := config.GetConfig()
 		if !conf.TransactionEnabled {
 			handler(ctx)
@@ -106,6 +110,10 @@ func HeaderToMap(header *fasthttp.RequestHeader) map[string][]string {
 }
 
 func StartWithFastHttpRequest(r *fasthttp.RequestCtx) (context.Context, error) {
+	if trace.DISABLE() {
+		return r, nil
+	}
+
 	conf := config.GetConfig()
 	if !conf.Enabled {
 		return r, nil
@@ -145,6 +153,10 @@ func SetFastHttpHeader(ctx context.Context, header *fasthttp.RequestHeader) {
 }
 
 func UpdateFastHttpMtrace(traceCtx *trace.TraceCtx, header fasthttp.RequestHeader) {
+	if trace.DISABLE() {
+		return
+	}
+
 	conf := config.GetConfig()
 	if !conf.MtraceEnabled {
 		return
@@ -162,6 +174,10 @@ func UpdateFastHttpMtrace(traceCtx *trace.TraceCtx, header fasthttp.RequestHeade
 }
 
 func GetClientId(ctx *fasthttp.RequestCtx, remoteIP string) string {
+	if trace.DISABLE() {
+		return remoteIP
+	}
+
 	r := ctx.Request
 	clientID := remoteIP
 	conf := config.GetConfig()

@@ -16,6 +16,11 @@ import (
 
 func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ interface{}, err error) {
+		if trace.DISABLE() {
+			// handler
+			return handler(ctx, req)
+		}
+
 		conf := config.GetConfig()
 		if !conf.GoGrpcProfileEnabled {
 			// handler
@@ -66,6 +71,10 @@ func (w *wrapServerStream) SendMsg(m interface{}) (err error) {
 }
 
 func (w *wrapServerStream) TraceStream(div string, callFunc func() error) (err error) {
+	if trace.DISABLE() {
+		return callFunc()
+	}
+
 	if !w.conf.GoGrpcProfileStreamServerEnabled {
 		return callFunc()
 	}
@@ -98,6 +107,10 @@ func newWrapServerStream(s grpc.ServerStream, ctx context.Context, method string
 
 func StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
+		if trace.DISABLE() {
+			return handler(srv, ss)
+		}
+
 		conf := config.GetConfig()
 		if config.InArray(info.FullMethod, conf.GoGrpcProfileStreamMethod) {
 			ctx, _ := StartWithGrpcServerStream(ss.Context(), "/Start", info.FullMethod)
@@ -119,6 +132,10 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 }
 
 func StartWithGrpcServerStream(ctx context.Context, div string, fullMethod string) (context.Context, error) {
+	if trace.DISABLE() {
+		return ctx, nil
+	}
+
 	conf := config.GetConfig()
 	ctx, traceCtx := trace.NewTraceContext(ctx)
 	md, ok := metadata.FromIncomingContext(ctx)

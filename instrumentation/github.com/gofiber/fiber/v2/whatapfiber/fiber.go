@@ -46,6 +46,10 @@ func traceParams(fiberCtx *fiber.Ctx, ctx context.Context) error {
 
 func Middleware() func(c *fiber.Ctx) error {
 	return func(fiberCtx *fiber.Ctx) error {
+		if trace.DISABLE() {
+			return fiberCtx.Next()
+		}
+
 		conf := config.GetConfig()
 		if !conf.TransactionEnabled {
 			return fiberCtx.Next()

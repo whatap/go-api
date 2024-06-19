@@ -6,6 +6,7 @@ import (
 
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/secure"
+	"github.com/whatap/go-api/agent/util/logutil"
 	"github.com/whatap/golib/lang"
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/util/dateutil"
@@ -20,6 +21,8 @@ func StartTagCounterManager() {
 	secu := secure.GetSecurityMaster()
 	conf := config.GetConfig()
 
+	tasks = append(tasks, NewTagTaskMetering())
+
 	if conf.AppType == lang.APP_TYPE_GO {
 		tasks = append(tasks, NewTagTaskGoRuntime())
 	}
@@ -31,6 +34,12 @@ func StartTagCounterManager() {
 
 	go func() {
 		for {
+			// shutdown
+			if config.GetConfig().Shutdown {
+				logutil.Infoln("WA211-04", "Shutdown TagCounterManager")
+				break
+			}
+
 			sleepx(int64(INTERVAL))
 			now := dateutil.Now() / int64(INTERVAL) * int64(INTERVAL)
 

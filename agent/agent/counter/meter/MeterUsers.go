@@ -5,16 +5,18 @@ import (
 	"sync"
 	//	"time"
 
+	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/go-api/agent/util/logutil"
 	"github.com/whatap/golib/util/dateutil"
 	"github.com/whatap/golib/util/hll"
 	"github.com/whatap/golib/util/hmap"
-	"github.com/whatap/go-api/agent/agent/config"
-	"github.com/whatap/go-api/agent/util/logutil"
 )
 
 const (
 	METER_USERS_MAX_USERS = 7000
 )
+
+var meterUsers *MeterUsers = NewMeterUsers()
 
 type MeterUsers struct {
 	users *hmap.LongLongLinkedMap
@@ -28,7 +30,16 @@ func NewMeterUsers() *MeterUsers {
 	return p
 }
 
-var meterUsers *MeterUsers = NewMeterUsers()
+func GetInstanceMeterUsers() *MeterUsers {
+	if meterUsers != nil {
+		return meterUsers
+	} else {
+		return NewMeterUsers()
+	}
+}
+func (this *MeterUsers) Clear() {
+	this.users.Clear()
+}
 
 func AddMeterUsers(wClientId int64) {
 	if wClientId != 0 && config.GetConfig().RealtimeUserEnabled {

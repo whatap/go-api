@@ -25,8 +25,6 @@ import (
 	_ "github.com/whatap/go-api/agent/logsink/watch"
 	_ "github.com/whatap/go-api/agent/logsink/zip"
 	_ "github.com/whatap/go-api/agent/net"
-	_ "github.com/whatap/go-api/agent/thirdparty"
-	_ "github.com/whatap/go-api/agent/thirdparty/nvidiasmi"
 	_ "github.com/whatap/go-api/agent/util/crypto"
 	_ "github.com/whatap/go-api/agent/util/logutil"
 	_ "github.com/whatap/go-api/agent/util/oidutil"

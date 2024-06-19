@@ -29,6 +29,10 @@ func GetInstanceConnPool() *MeterConnPool {
 	}
 }
 
+func (this *MeterConnPool) Clear() {
+	this.Bucket = NewConnPoolBucket()
+}
+
 func NewConnPoolBucket() *ConnPoolBucket {
 	p := new(ConnPoolBucket)
 	p.Active = hmap.NewIntIntMapDefault()

@@ -1,9 +1,9 @@
 package meter
 
 import (
-	"github.com/whatap/golib/util/hmap"
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/util/logutil"
+	"github.com/whatap/golib/util/hmap"
 )
 
 type SQLBucket struct {
@@ -42,6 +42,11 @@ func GetInstanceMeterSQL() *MeterSQL {
 	} else {
 		return newMeterSQL()
 	}
+}
+
+func (this *MeterSQL) Clear() {
+	this.Bucket = NewSQLBucket()
+	this.ResetStat()
 }
 
 func (this *MeterSQL) GetBucketReset() *SQLBucket {

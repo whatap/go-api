@@ -17,6 +17,10 @@ import (
 
 func UnaryClientInterceptor() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		if trace.DISABLE() {
+			return invoker(ctx, method, req, reply, cc, opts...)
+		}
+
 		conf := config.GetConfig()
 		if !conf.GoGrpcProfileEnabled {
 			return invoker(ctx, method, req, reply, cc, opts...)
@@ -75,6 +79,10 @@ func (w *wrapClientStream) SendMsg(m interface{}) (err error) {
 }
 
 func (w *wrapClientStream) TraceStream(div string, callFunc func() error) (err error) {
+	if trace.DISABLE() {
+		return callFunc()
+	}
+
 	if !w.conf.GoGrpcProfileStreamClientEnabled {
 		return callFunc()
 	}
@@ -107,7 +115,9 @@ func newWrapClientStream(s grpc.ClientStream, ctx context.Context, method, targe
 func StreamClientInterceptor() grpc.StreamClientInterceptor {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string,
 		streamer grpc.Streamer, opts ...grpc.CallOption) (s grpc.ClientStream, err error) {
-
+		if trace.DISABLE() {
+			return streamer(ctx, desc, cc, method, opts...)
+		}
 		conf := config.GetConfig()
 
 		div := "/Start"

@@ -13,10 +13,9 @@ import (
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/counter/meter"
 	"github.com/whatap/go-api/agent/agent/data"
-
 	"github.com/whatap/go-api/agent/agent/secure"
 	langconf "github.com/whatap/go-api/agent/lang/conf"
-	// "github.com/whatap/go-api/agent/util/logutil"
+	"github.com/whatap/go-api/agent/util/logutil"
 )
 
 type ChildTx struct {
@@ -98,7 +97,11 @@ func (this *ProfileVirtualTxThread) Add(curTime int64, childName string, childTx
 
 func (this *ProfileVirtualTxThread) run() {
 	for {
-
+		// shutdown
+		if config.GetConfig().Shutdown {
+			logutil.Infoln("WA211-10", "Shutdown ProfileVirtualTxThread")
+			break
+		}
 		func() {
 			defer func() {
 				if r := recover(); r != nil {

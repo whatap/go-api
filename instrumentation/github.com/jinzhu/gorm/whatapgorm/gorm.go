@@ -5,6 +5,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/whatap/go-api/sql"
+	"github.com/whatap/go-api/trace"
 )
 
 const (
@@ -36,6 +37,10 @@ func after(scope *gorm.Scope) {
 }
 
 func withCallback(db *gorm.DB, beforeFunc, afterFunc callbackFunc) *gorm.DB {
+	if trace.DISABLE() {
+		return db
+	}
+
 	cb := db.Callback()
 	cb.Create().Before("beforeCreate").Register("whatapBeforeCreate", beforeFunc)
 	cb.Update().Before("beforeUpdate").Register("whatapBeforeUpdate", beforeFunc)

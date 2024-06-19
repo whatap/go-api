@@ -22,6 +22,10 @@ type Interceptor struct {
 }
 
 func (in *Interceptor) OnSend(msg *sarama.ProducerMessage) {
+	if trace.DISABLE() {
+		return
+	}
+
 	name := fmt.Sprintf("produceTransaction/%s", msg.Topic)
 
 	var produceCtx context.Context
@@ -68,6 +72,10 @@ func (in *Interceptor) OnSend(msg *sarama.ProducerMessage) {
 }
 
 func (in *Interceptor) OnConsume(msg *sarama.ConsumerMessage) {
+	if trace.DISABLE() {
+		return
+	}
+
 	name := fmt.Sprintf("consumeTransaction/%s", msg.Topic)
 	ctx, _ := trace.Start(context.Background(), name)
 	defer trace.End(ctx, nil)
