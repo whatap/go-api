@@ -59,6 +59,7 @@ func run() {
 			GetInstanceStatHttpc().Clear()
 			GetInstanceStatError().Clear()
 			GetInstanceStatRemoteIp().Clear()
+			GetInstanceStatRemoteIPURL().Clear()
 			GetInstanceStatUserAgent().Clear()
 			break
 		}
@@ -106,6 +107,7 @@ func run() {
 				GetInstanceStatHttpc().Send(now)
 				GetInstanceStatError().Send(now)
 				GetInstanceStatRemoteIp().Send(now)
+				GetInstanceStatRemoteIPURL().Send(now)
 				GetInstanceStatUserAgent().Send(now)
 
 			} else {
@@ -120,6 +122,7 @@ func run() {
 				GetInstanceStatHttpc().Clear()
 				GetInstanceStatError().Clear()
 				GetInstanceStatRemoteIp().Clear()
+				GetInstanceStatRemoteIPURL().Clear()
 				GetInstanceStatUserAgent().Clear()
 			}
 		}()

@@ -15,6 +15,7 @@ import (
 	"github.com/whatap/go-api/agent/agent/secure"
 	"github.com/whatap/go-api/agent/agent/stat"
 	"github.com/whatap/go-api/agent/util/logutil"
+	"github.com/whatap/golib/lang"
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/lang/service"
 	"github.com/whatap/golib/util/bitutil"
@@ -222,12 +223,22 @@ func SendProfile(ctx *TraceContext, profile *pack.ProfilePack, rejected bool) {
 		}
 	}()
 
+	// DEBUG TxRecord
+	transaction := profile.Transaction
+
 	stat.GetInstanceStatRemoteIp().IncRemoteIp(ctx.RemoteIp)
 	stat.GetInstanceStatUserAgent().IncUserAgent(ctx.UserAgent)
 
-	// DEBUG TxRecord
-	//transaction := profile.Transaction.(*service.WasService)
-	transaction := profile.Transaction
+	if conf.StatIPURLEnabled && ctx.RemoteIp != 0 {
+		tc := stat.GetInstanceStatRemoteIPURL().GetService(ctx.RemoteIp, ctx.ServiceHash)
+		if tc != nil {
+			tc.Count++
+			if transaction.ErrorLevel >= lang.EVENT_LEVEL_WARNING {
+				tc.Error++
+			}
+			tc.Time += int64(transaction.Elapsed)
+		}
+	}
 
 	// DEBUG Login
 	if ctx.Login != "" {

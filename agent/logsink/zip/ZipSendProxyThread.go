@@ -53,7 +53,7 @@ func (this *ZipSendProxyThread) run() {
 			logutil.Infoln("WA211-20", "Shutdown ZipSendProxyThread")
 			break
 		}
-		if tmp := this.Queue.GetTimeout(int(ConfLogSink.MaxWaitTime)); tmp != nil {
+		if tmp := this.Queue.GetTimeout(int(ConfLogSink.LogSinkMaxWaitTime)); tmp != nil {
 			if log, ok := tmp.(*pack.LogSinkPack); ok {
 				this.Append(log)
 			}
@@ -79,11 +79,11 @@ func (this *ZipSendProxyThread) Append(p *pack.LogSinkPack) {
 
 	if this.firstTime == 0 {
 		this.firstTime = p.Time
-		if this.buffer.Len() >= int(ConfLogSink.MaxBufferSize) {
+		if this.buffer.Len() >= int(ConfLogSink.LogSinkMaxBufferSize) {
 			this.sendAndClear()
 		}
 	} else {
-		if this.buffer.Len() >= int(ConfLogSink.MaxBufferSize) || p.Time-this.firstTime >= int64(ConfLogSink.MaxWaitTime) {
+		if this.buffer.Len() >= int(ConfLogSink.LogSinkMaxBufferSize) || p.Time-this.firstTime >= int64(ConfLogSink.LogSinkMaxWaitTime) {
 			this.sendAndClear()
 		}
 	}

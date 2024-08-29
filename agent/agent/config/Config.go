@@ -53,6 +53,8 @@ type Config struct {
 	ONODE      int32
 	ONODE_NAME string
 
+	UseEnvFirst bool
+
 	License    string
 	AccessKey  string
 	WhatapHost []string // TODO: whatap.server.host to whatap_server_host
@@ -97,28 +99,6 @@ type Config struct {
 	NginxServerStatusUrl  string
 	FpmServerStatusUrl    string
 
-	StatDomainEnabled  bool
-	StatDomainMaxCount int32
-
-	StatMtraceEnabled  bool
-	StatMtraceMaxCount int32
-
-	StatLoginEnabled  bool
-	StatLoginMaxCount int32
-
-	StatRefererEnabled  bool
-	StatRefererMaxCount int32
-	// 0: full url, 1:domain(protocol+host), 2:uri, 3: domain + uri
-	StatRefererFormat int32
-
-	StatTxMaxCount        int32
-	StatSqlMaxCount       int32
-	StatHttpcMaxCount     int32
-	StatErrorMaxCount     int32
-	StatUseragentMaxCount int32
-
-	StatEnabled         bool
-	StatIpEnabled       bool
 	RealtimeUserEnabled bool
 
 	ActiveStackEnabled bool // TODO: activeStack 데이터 수집
@@ -536,6 +516,8 @@ type Config struct {
 	//	DebugLogSinkZipEnabled bool
 	//	LogSinkZipLibpath      string
 
+	ConfStat
+
 	ConfLogSink
 	ConfFailover
 
@@ -563,11 +545,17 @@ var AppType int16 = 8
 var envKeys = map[string]string{
 	"accesskey":             "WHATAP_ACCESSKEY",
 	"license":               "WHATAP_LICENSE",
+	"object_name":           "WHATAP_OBJECT_NAME",
+	"whatap.name":           "WHATAP_NAME",
+	"whatap.oname":          "WHATAP_ONAME",
+	"whatap.okind":          "WHATAP_OKIND",
+	"whatap.onode":          "WHATAP_ONODE",
 	"whatap.server.host":    "WHATAP_SERVER_HOST",
 	"whatap.server.port":    "WHATAP_SERVER_PORT",
 	"net_ipc_port":          "WHATAP_NET_IPC_PORT",
 	"net_udp_port":          "WHATAP_NET_UDP_PORT",
 	"otel_grpc_server_port": "WHATAP_OTEL_GRPC_SERVER_PORT",
+	"use_env_first":         "WHATAP_USE_ENV_FIRST",
 }
 
 func GetConfig() *Config {
@@ -754,6 +742,9 @@ func apply() {
 		}
 	}()
 	logutil.Println("WA216", "APP_TYPE", conf.AppType)
+	conf.UseEnvFirst = true
+	conf.UseEnvFirst = getBoolean("use_env_first", false)
+
 	conf.License = getValue("license")
 	conf.AccessKey = getValue("accesskey")
 	if strings.TrimSpace(conf.AccessKey) == "" && !(strings.TrimSpace(conf.License) == "") {
@@ -767,6 +758,7 @@ func apply() {
 		conf.WhatapHost = getStringArray("whatap.server.host", "/:,") // TODO: whatap.server.host to whatap_server_host
 		conf.WhatapPort = getInt("whatap.server.port", 6600)
 	}
+	whatapName := getValueDef("whatap.name", "")
 	if conf.AppType == lang.APP_TYPE_PHP {
 		conf.ObjectName = getValueDef("object_name", "{type}-{ip2}-{ip3}-{process}-{docker}-{ips}")
 	} else if conf.AppType == lang.APP_TYPE_BSM_PHP {
@@ -775,6 +767,9 @@ func apply() {
 		conf.ObjectName = getValueDef("object_name", "{type}-{ip2}-{ip3}-{cmd}-{cmd_full}")
 	} else {
 		conf.ObjectName = getValueDef("object_name", "{type}-{ip2}-{ip3}-{process}")
+	}
+	if strings.TrimSpace(whatapName) != "" {
+		conf.ObjectName = whatapName
 	}
 
 	//main에서 command-line-flag 처리
@@ -910,7 +905,12 @@ func apply() {
 				logutil.Println("WA217", " Recover ", r)
 			}
 		}()
-		conf.OKIND_NAME = getValueDef("whatap.okind", cutOut(conf.PodName, "-"))
+		podName := strings.TrimSpace(conf.EnvOKind)
+		if podName == "" {
+			podName = cutOut(conf.PodName, "-")
+		}
+		conf.OKIND_NAME = getValueDef("whatap.okind", podName)
+
 		if conf.OKIND_NAME == "" {
 			conf.OKIND = 0
 		} else {
@@ -930,13 +930,13 @@ func apply() {
 
 	conf.CountInterval = getInt("_counter_interval", 5000)
 
-	conf.TcpSoTimeout = getInt("tcp_so_timeout", 30000)
+	conf.TcpSoTimeout = getInt("tcp_so_timeout", 120000)
 	conf.TcpSoSendTimeout = getInt("tcp_so_send_timeout", 20000)
 	conf.TcpConnectionTimeout = getInt("tcp_connection_timeout", 5000)
 
 	conf.NetSendMaxBytes = getInt("net_send_max_bytes", 5*1024*1024)
 	conf.NetSendBufferSize = getInt("net_send_buffer_size", 1024)
-	conf.NetWriteBufferSize = getInt("net_write_buffer_size", 8*1024*1024)
+	conf.NetWriteBufferSize = getInt("net_write_buffer_size", 2*1024*1024)
 	conf.NetSendQueue1Size = getInt("net_send_queue1_size", 512)
 	conf.NetSendQueue2Size = getInt("net_send_queue2_size", 1024)
 
@@ -1031,7 +1031,7 @@ func apply() {
 	conf.ProfileHttpHostEnabled = getBoolean("profile_http_host_enabled", false)
 
 	conf.TraceUserEnabled = getBoolean("trace_user_enabled", true)
-	conf.TraceUserUsingIp = getBoolean("trace_user_using_ip", false)
+	conf.TraceUserUsingIp = getBoolean("trace_user_using_ip", true)
 	conf.TraceUserHeaderTicket = getValue("trace_user_header_ticket")
 	conf.TraceUserHeaderTicketEnabled = stringutil.IsNotEmpty(conf.TraceUserHeaderTicket)
 	conf.TraceUserSetCookie = getBoolean("trace_user_set_cookie", false)
@@ -1278,7 +1278,7 @@ func apply() {
 	conf.PerformanceCounterInterval = getInt("perfcounter.interval", 10)
 	conf.PerfCounterJsonPath = getValueDef("perfcounter_jason_path", filepath.Join(GetWhatapHome(), "perfcounter.json"))
 
-	conf.ServerProcessFDCheck = getBoolean("process.fdcheck", true)
+	conf.ServerProcessFDCheck = getBoolean("process.fdcheck", false)
 
 	// Apdex
 	conf.ApdexTime = getInt("apdex_time", 1200)
@@ -1372,6 +1372,9 @@ func apply() {
 
 	conf.MeteringUseLinuxUUIDEnabled = getBoolean("metering_use_linux_uuid_enabled", true)
 
+	// Stat
+	conf.ConfStat.Apply(conf)
+
 	// LogSink
 	conf.ConfLogSink.Apply(conf)
 
@@ -1403,9 +1406,14 @@ func getValue(key string) string {
 	if envVal == "" {
 		// 동일한 이름의 env 값이 없으면, 지정된 env key 이름으로 값을 가져옴.
 		if v, ok := envKeys[key]; ok {
-			envVal = os.Getenv(v)
+			envVal = strings.TrimSpace(os.Getenv(v))
 		}
 	}
+
+	if conf.UseEnvFirst && envVal != "" {
+		return envVal
+	}
+
 	//php prefix whatap.
 	if conf.AppType == lang.APP_TYPE_PHP {
 		if !strings.HasPrefix(key, "whatap.") {
@@ -1418,7 +1426,7 @@ func getValue(key string) string {
 	}
 
 	value, ok := prop.Get(key)
-	if ok == false {
+	if ok == false || strings.TrimSpace(value) == "" {
 		return strings.TrimSpace(envVal)
 	}
 

@@ -145,6 +145,7 @@ func runSend() {
 				//fmt.Println("Sender.runSend waiting for session to open")
 				time.Sleep(100 * time.Millisecond)
 			}
+
 			if cypher_level != conf.CypherLevel {
 				cypher_level = conf.CypherLevel
 				session.Close()

@@ -167,7 +167,7 @@ func (this *TcpSession) open() (ret bool) {
 			this.Close()
 			return false
 		}
-		logutil.Infoln(">>>>", "pcode=", pcode, ", myIP=", myIP)
+		// logutil.Infoln(">>>>", "pcode=", pcode, ", myIP=", myIP)
 		// secure.GetSecurityMaster().UpdateLicense(this.readKeyResetFromFowarder(this.in))
 		secure.GetSecurityMaster().UpdateLicense(pcode, data)
 
@@ -202,6 +202,7 @@ func (this *TcpSession) open() (ret bool) {
 	this.in = io.NewDataInputNet(client)
 	data := this.readKeyReset(this.in)
 	secure.UpdateNetCypherKey(data)
+	logutil.Infoln("WA173-06", "set write buffer ", conf.NetWriteBufferSize, ", bytes")
 	this.wr = bufio.NewWriterSize(client, int(conf.NetWriteBufferSize))
 
 	s := secure.GetSecurityMaster()
@@ -350,7 +351,7 @@ func (this *TcpSession) keyResetToFowarder(addr string) []byte {
 	// Netsrc NETSRC_AGENT_JAVA_EMBED
 	dout.WriteByte(1)
 	// NetFlag NET_REQ_FOWARDER
-	dout.WriteByte(0x90)
+	dout.WriteByte(NET_REQ_FOWARDER_1)
 	dout.WriteIntBytes(msg)
 
 	return dout.ToByteArray()

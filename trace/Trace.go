@@ -397,6 +397,11 @@ func UpdateMtraceWithContext(ctx context.Context, header http.Header) {
 		UpdateMtrace(traceCtx, header)
 	}
 }
+
+func GetMtrace(ctx context.Context) http.Header {
+	return GetMTrace(ctx)
+}
+
 func GetMTrace(ctx context.Context) http.Header {
 	if DISABLE() {
 		return make(http.Header)

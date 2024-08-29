@@ -47,7 +47,7 @@ func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err
 	if conf.MtraceEnabled {
 		headers := trace.GetMTrace(wCtx)
 		for key, _ := range headers {
-			req.Header.Add(key, headers.Get(key))
+			req.Header.Set(key, headers.Get(key))
 		}
 	}
 	httpcCtx, _ := httpc.Start(wCtx, req.URL.String())

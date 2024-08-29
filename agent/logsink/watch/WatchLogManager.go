@@ -1,9 +1,13 @@
 package watch
 
 import (
+	// "fmt"
 	"math"
+	// "os"
 	"path/filepath"
 	"regexp"
+
+	// "runtime"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -215,10 +219,13 @@ func (this *WatchLogManager) resetDogList(reset bool) {
 		}
 	}()
 	ids := make([]string, 0)
+
 	if len(this.conf.LogSinkFiles) > 0 {
 		for _, it := range this.conf.LogSinkFiles {
 			ids = append(ids, strings.TrimSpace(it))
 		}
+	}
+	if len(ids) > 0 {
 		sl := sort.StringSlice(ids)
 		sl.Sort()
 		for i := 0; i < len(sl); i++ {

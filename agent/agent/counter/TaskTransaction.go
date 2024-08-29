@@ -4,16 +4,18 @@ import (
 	//"log"
 	"runtime/debug"
 
+	"github.com/whatap/go-api/agent/agent/config"
+	"github.com/whatap/go-api/agent/agent/counter/meter"
+	"github.com/whatap/go-api/agent/agent/data"
+	"github.com/whatap/go-api/agent/agent/trace"
+	"github.com/whatap/go-api/agent/logsink/std"
+	"github.com/whatap/go-api/agent/util/logutil"
+
 	"github.com/whatap/golib/lang"
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/lang/ref"
 	"github.com/whatap/golib/util/hmap"
 	"github.com/whatap/golib/util/mathutil"
-	"github.com/whatap/go-api/agent/agent/config"
-	"github.com/whatap/go-api/agent/agent/counter/meter"
-	"github.com/whatap/go-api/agent/agent/data"
-	"github.com/whatap/go-api/agent/agent/trace"
-	"github.com/whatap/go-api/agent/util/logutil"
 )
 
 type TaskTransaction struct {
@@ -49,6 +51,7 @@ func (this *TaskTransaction) process(p *pack.CounterPack1) {
 			logutil.Println("WA391-02", "Start counter, tran x")
 		}
 	}
+
 	meterService := meter.GetInstanceMeterService()
 
 	//bk := meterService.GetBucket()
@@ -145,7 +148,14 @@ func (this *TaskTransaction) process(p *pack.CounterPack1) {
 
 	bk.Reset()
 
+	if conf.LogSinkStdOutEnabled {
+		std.GetInstanceStdOut()
+	}
+	if conf.LogSinkStdErrEnabled {
+		std.GetInstanceStdErr()
+	}
 }
+
 func (this *TaskTransaction) calc(p *pack.CounterPack1, tm int64) {
 	var t, r float64 = 0, 0
 	var c int = 0

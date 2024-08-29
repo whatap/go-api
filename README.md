@@ -10,7 +10,7 @@ WhaTap's Application Monitoring can monitor application in real time without rep
 
 * [document](https://docs.whatap.io/en/golang/introduction)
 
-![scrrenshot](https://docs.whatap.io/assets/images/golang_system-8da823abb548e3c11b54bfc48ec7d9bb.png)
+![scrrenshot](https://docs.whatap.io/img/golang_system.png)
 
 
 ##  Agent Installation

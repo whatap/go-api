@@ -4,6 +4,7 @@ type ConfTrace struct {
 	TraceZipEnabled       bool
 	TraceZipQueueSize     int
 	TraceZipMaxWaitTime   int
+	TraceZipMaxWait2Time  int
 	TraceZipMaxBufferSize int
 	TraceZipMinSize       int
 	TraceTxSplitQueueSize int
@@ -27,6 +28,7 @@ func (this *ConfTrace) Apply(conf *Config) {
 	this.TraceZipEnabled = GetBoolean("profile_zip_enabled", true)
 	this.TraceZipQueueSize = int(GetInt("profile_zip_queue_size", 1000))
 	this.TraceZipMaxWaitTime = int(GetInt("profile_zip_max_wait_time", 1000))
+	this.TraceZipMaxWait2Time = int(GetInt("profile_zip_max_wait2_time", 5000))
 	this.TraceZipMaxBufferSize = int(GetInt("profile_zip_max_buffer_size", 1024*1024))
 	this.TraceZipMinSize = int(GetInt("profile_zip_min_size", 100))
 	this.TraceTxSplitQueueSize = int(GetInt("trace_txsplit_queue_size", 1000))

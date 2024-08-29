@@ -9,6 +9,7 @@ import (
 	"github.com/whatap/go-api/agent/agent/data"
 	"github.com/whatap/go-api/agent/agent/kube"
 	"github.com/whatap/go-api/agent/agent/secure"
+	"github.com/whatap/go-api/agent/logsink/std"
 	"github.com/whatap/go-api/agent/util/logutil"
 	"github.com/whatap/golib/lang"
 	"github.com/whatap/golib/lang/pack"
@@ -84,6 +85,13 @@ func StartCounterManager() {
 
 	if conf.WhatapMicroEnabled {
 		kube.StartClient()
+	}
+
+	if conf.LogSinkStdOutEnabled {
+		std.GetInstanceStdOut()
+	}
+	if conf.LogSinkStdErrEnabled {
+		std.GetInstanceStdErr()
 	}
 
 	go func() {
