@@ -18,7 +18,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/stretchr/testify v1.9.0
 	github.com/valyala/fasthttp v1.40.0
-	github.com/whatap/golib v0.0.27
+	github.com/whatap/golib v0.0.29
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b
 	golang.org/x/text v0.7.0
 	google.golang.org/grpc v1.42.0

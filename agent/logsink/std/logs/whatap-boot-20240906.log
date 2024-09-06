@@ -1,0 +1,26 @@
+2024/09/06 00:15:47 
+2024/09/06 00:15:47 ## OPEN LOG FILE  boot  20240906 00:15:47.848 ##
+2024/09/06 00:15:47 
+2024/09/06 00:15:48 [WA216] APP_TYPE8
+2024/09/06 00:15:48 [Config] okind_name=, onode_name=
+2024/09/06 00:15:48 [WA212] Not found config file, pathwhatap.conf
+2024/09/06 00:15:48 [WA212-02] Create config file, path &{0xc00005c3c0}
+2024/09/06 00:15:49 [WATestCategory-002] TestCategory, Close io.Copy 11, <nil>
+2024/09/06 00:15:51 [Config] okind_name=, onode_name=
+2024/09/06 00:15:51 [WA214] Config: whatap.conf
+2024/09/06 01:11:55 
+2024/09/06 01:11:55 ## OPEN LOG FILE  boot  20240906 01:11:55.438 ##
+2024/09/06 01:11:55 
+2024/09/06 01:11:56 [WA216] APP_TYPE8
+2024/09/06 01:11:56 [Config] okind_name=, onode_name=
+2024/09/06 01:11:56 [Config] okind_name=, onode_name=
+2024/09/06 01:11:56 [WA214] Config: whatap.conf
+2024/09/06 01:11:57 [WATestCategory-002] TestCategory, Close io.Copy 11, read |0: file already closed
+2024/09/06 01:37:16 
+2024/09/06 01:37:16 ## OPEN LOG FILE  boot  20240906 01:37:16.61 ##
+2024/09/06 01:37:16 
+2024/09/06 01:37:17 [WA216] APP_TYPE8
+2024/09/06 01:37:17 [Config] okind_name=, onode_name=
+2024/09/06 01:37:17 [Config] okind_name=, onode_name=
+2024/09/06 01:37:17 [WA214] Config: whatap.conf
+2024/09/06 01:37:18 [WATestCategory-002] TestCategory, Close io.Copy 11, read |0: file already closed
