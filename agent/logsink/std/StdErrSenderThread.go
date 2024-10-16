@@ -2,6 +2,7 @@ package std
 
 import (
 	"context"
+	"io"
 	"os"
 	"sync"
 
@@ -20,7 +21,6 @@ type StdErrSenderThread struct {
 	queue       *queue.RequestQueue
 	logWaitTime int
 	stderr      *ProxyStream
-	origin      *os.File
 }
 
 var instanceStdErr *StdErrSenderThread
@@ -37,9 +37,9 @@ func GetInstanceStdErr() *StdErrSenderThread {
 
 	p.conf = config.GetConfig()
 	p.queue = queue.NewRequestQueue(int(p.conf.LogSinkQueueSize))
-	p.origin = os.Stderr
-	p.reset(p.conf.LogSinkStdErrEnabled)
 	langconf.AddConfObserver("StdErrSenterThread", p)
+	p.reset(p.conf.LogSinkStdErrEnabled)
+	go p.run()
 
 	instanceStdErr = p
 
@@ -54,11 +54,17 @@ func (this *StdErrSenderThread) Run() {
 	if this.conf.Shutdown {
 		logutil.Infoln("WALOG001-01", "Shutdown StdErrSenderThread")
 		this.reset(false)
+		if this.stderr != nil {
+			this.stderr.Shutdown()
+			this.stderr = nil
+			this.queue.Clear()
+		}
+		this.cancel()
 	}
 }
 
 func (this *StdErrSenderThread) run() {
-	// this.reset(this.conf.LogSinkStdErrEnabled)
+	this.reset(this.conf.LogSinkStdErrEnabled)
 	for {
 		select {
 		case <-this.ctx.Done():
@@ -86,10 +92,6 @@ func (this *StdErrSenderThread) reset(enabled bool) {
 	if enabled {
 		this.logWaitTime = 500
 		if this.stderr == nil {
-			// new context
-			this.ctx, this.cancel = context.WithCancel(context.Background())
-			go this.run()
-
 			this.stderr = NewProxyStream(this.conf.LogSinkCategoryStdErr, os.Stderr, this)
 			os.Stderr = this.stderr.GetWriter()
 		}
@@ -97,19 +99,20 @@ func (this *StdErrSenderThread) reset(enabled bool) {
 	} else {
 		this.logWaitTime = 30000
 		if this.stderr != nil {
-			os.Stderr = this.origin
-
 			this.stderr.SetEnabled(enabled)
-			this.stderr.Shutdown()
 		}
 		// flush for remained data
 		this.Flush()
-		this.stderr = nil
-		this.cancel()
-		this.queue.Clear()
 	}
 }
 
 func (this *StdErrSenderThread) Add(lineLog *logsink.LineLog) {
 	this.queue.Put(lineLog)
+}
+
+func (this *StdErrSenderThread) GetWriter() io.Writer {
+	if this.stderr != nil {
+		return this.stderr.GetWriter()
+	}
+	return nil
 }

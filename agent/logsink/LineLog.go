@@ -24,5 +24,5 @@ func NewLineLog() *LineLog {
 }
 
 func (this *LineLog) String() string {
-	return fmt.Sprint("LineLog [time=%d, category=%s, tags=%s, fields=%s, content=%s]", this.Time, this.Category, this.Tags, this.Fields, this.Content)
+	return fmt.Sprintf("LineLog [time=%d, category=%s, tags=%s, fields=%s, content=%s]", this.Time, this.Category, this.Tags, this.Fields, this.Content)
 }

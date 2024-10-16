@@ -1,0 +1,16 @@
+2024/10/16 00:16:05 
+2024/10/16 00:16:05 ## OPEN LOG FILE  boot  20241016 00:16:05.503 ##
+2024/10/16 00:16:05 
+2024/10/16 00:16:06 [WA216] APP_TYPE8
+2024/10/16 00:16:06 [Config] okind_name=, onode_name=
+2024/10/16 00:16:06 [Config] okind_name=, onode_name=
+2024/10/16 00:16:06 [WA214] Config: whatap.conf
+2024/10/16 00:16:07 [WATestCategory-002] TestCategory, Close io.Copy 11, read |0: file already closed
+2024/10/16 00:36:36 
+2024/10/16 00:36:36 ## OPEN LOG FILE  boot  20241016 00:36:36.209 ##
+2024/10/16 00:36:36 
+2024/10/16 00:36:37 [WA216] APP_TYPE8
+2024/10/16 00:36:37 [Config] okind_name=, onode_name=
+2024/10/16 00:36:37 [Config] okind_name=, onode_name=
+2024/10/16 00:36:37 [WA214] Config: whatap.conf
+2024/10/16 00:36:38 [WATestCategory-002] TestCategory, Close io.Copy 11, read |0: file already closed

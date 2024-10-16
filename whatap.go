@@ -22,6 +22,7 @@ import (
 	_ "github.com/whatap/go-api/agent/agent/trace/api"
 	_ "github.com/whatap/go-api/agent/alert"
 	_ "github.com/whatap/go-api/agent/lang/conf"
+	_ "github.com/whatap/go-api/agent/logsink/std"
 	_ "github.com/whatap/go-api/agent/logsink/watch"
 	_ "github.com/whatap/go-api/agent/logsink/zip"
 	_ "github.com/whatap/go-api/agent/net"
@@ -47,8 +48,10 @@ import (
 	_ "github.com/whatap/go-api/instrumentation/google.golang.org/grpc/whatapgrpc"
 	_ "github.com/whatap/go-api/instrumentation/k8s.io/client-go/kubernetes/whatapkubernetes"
 	_ "github.com/whatap/go-api/instrumentation/net/http/whataphttp"
+	_ "github.com/whatap/go-api/logsink"
 	_ "github.com/whatap/go-api/method"
 	_ "github.com/whatap/go-api/sql"
+
 	"github.com/whatap/go-api/trace"
 )
 

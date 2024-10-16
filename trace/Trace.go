@@ -19,6 +19,7 @@ import (
 	agentconfig "github.com/whatap/go-api/agent/agent/config"
 	agenttrace "github.com/whatap/go-api/agent/agent/trace"
 	agentapi "github.com/whatap/go-api/agent/agent/trace/api"
+	logsinkstd "github.com/whatap/go-api/agent/logsink/std"
 
 	"github.com/whatap/golib/io"
 	langvalue "github.com/whatap/golib/lang/value"
@@ -57,9 +58,12 @@ func Init(m map[string]string) {
 	// DISABLE = false
 	disable = false
 
+	agentconfig.GetConfig()
+	logsinkstd.GetInstanceStdOut()
+	logsinkstd.GetInstanceStdErr()
+
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 	if m != nil {
-		agentconfig.GetConfig()
 		agentconfig.SetValues(&m)
 	}
 	keygen.AddSeed(os.Getpid())
@@ -500,7 +504,7 @@ func UpdateMtrace(traceCtx *TraceCtx, header http.Header) {
 			} else {
 				// parent id != whatap.stepid . don't use whatap header
 				if conf.Debug {
-					log.Printf("[WA-TX-08002] stepid(%d) is not equal traceparent stepid(%s), mtid=(%d), traceparent mtid=(%d)", traceCtx.MCallerStepId, stepId, mtid, traceCtx.MTid)
+					log.Printf("[WA-TX-08002] stepid(%d) is not equal traceparent stepid(%d), mtid=(%d), traceparent mtid=(%d)", traceCtx.MCallerStepId, stepId, mtid, traceCtx.MTid)
 				}
 				useWhatap = false
 			}

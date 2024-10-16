@@ -6,6 +6,8 @@ import (
 	"os"
 
 	// "time"
+	"bufio"
+	"strings"
 
 	"github.com/whatap/go-api/agent/logsink"
 	"github.com/whatap/go-api/agent/util/logutil"
@@ -83,22 +85,27 @@ func (this *ProxyStream) IOCopy() {
 }
 
 func (this *ProxyStream) Write(data []byte) (n int, err error) {
-	fmt.Fprint(this.origin, string(data))
+	if this.origin != nil {
+		fmt.Fprint(this.origin, string(data))
+	}
 	if this.enabled {
-		lines := this.lineBuffer.AppendLine(string(data))
-		for _, content := range lines {
-			if content != "" && len(content) > 1 {
-				lineLog := logsink.NewLineLog()
-				lineLog.Category = this.category
-				logsink.CheckLogContent(lineLog, content)
+		scanner := bufio.NewScanner(strings.NewReader(string(data)))
+		for scanner.Scan() {
+			lines := this.lineBuffer.AppendLine(scanner.Text())
+			for _, content := range lines {
+				if content != "" && len(content) > 1 {
+					lineLog := logsink.NewLineLog()
+					lineLog.Category = this.category
+					logsink.CheckLogContent(lineLog, content)
 
-				// if lineLog.Content != "" {
-				// 	if this.conf.LogSinkTraceEnabled {
-				// 		this.AddTxTag(lineLog)
-				// 	}
-				// }
+					// if lineLog.Content != "" {
+					// 	if this.conf.LogSinkTraceEnabled {
+					// 		this.AddTxTag(lineLog)
+					// 	}
+					// }
 
-				this.sender.Add(lineLog)
+					this.sender.Add(lineLog)
+				}
 			}
 		}
 	}
