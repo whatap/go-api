@@ -46,15 +46,17 @@ func StartTagCounterManager() {
 			if secu.PCODE == 0 || secu.OID == 0 {
 				continue
 			}
-			p := pack.NewTagCountPack()
-			p.Pcode = secu.PCODE
-			p.Oid = secu.OID
-			p.Okind = conf.OKIND
-			p.Onode = conf.ONODE
-			p.Time = now
 
 			if conf.TagCounterEnabled {
 				for i := 0; i < len(tasks); i++ {
+					p := pack.NewTagCountPack()
+					p.Pcode = secu.PCODE
+					p.Oid = secu.OID
+					p.Okind = conf.OKIND
+					p.Onode = conf.ONODE
+					p.Time = now
+					p.PutTag("oname", secu.ONAME)
+
 					tasks[i].process(p)
 				}
 			}

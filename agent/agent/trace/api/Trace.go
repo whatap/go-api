@@ -58,6 +58,7 @@ func StartTx(ctx *agenttrace.TraceContext) {
 
 	if urlHash != ctx.ServiceHash {
 		agenttrace.AddMessage(ctx, 0, 0, "OriginURL", "", ctx.ServiceURL.Path, 0, false)
+		ctx.OriginURL = ctx.ServiceURL.Path
 	}
 
 	if stringutil.InArray(ctx.HttpMethod, conf.IgnoreHttpMethod) {
@@ -202,6 +203,9 @@ func EndTx(ctx *agenttrace.TraceContext) {
 	}
 
 	tx.Fields = ctx.ExtraFields()
+
+	// originalURL
+	tx.OriginUrl = ctx.OriginURL
 
 	// ctx를 보내고 싶지만, import cycle 오류 발생.
 	meter.GetInstanceMeterService().Add(tx, ctx.McallerPcode, ctx.McallerOkind, ctx.McallerOid)

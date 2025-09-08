@@ -1,0 +1,32 @@
+2025/09/08 02:54:14 
+2025/09/08 02:54:14 ## OPEN LOG FILE  boot  20250908 02:54:14.704 ##
+2025/09/08 02:54:14 
+2025/09/08 02:54:15 [WA216] APP_TYPE8
+2025/09/08 02:54:15 [Config] okind_name=, onode_name=
+2025/09/08 02:54:15 [Config] okind_name=, onode_name=
+2025/09/08 02:54:15 [WA214] Config: whatap.conf
+2025/09/08 02:54:16 [WATestCategory-002] TestCategory, Close io.Copy 11, read |0: file already closed
+2025/09/08 03:14:44 
+2025/09/08 03:14:44 ## OPEN LOG FILE  boot  20250908 03:14:44.64 ##
+2025/09/08 03:14:44 
+2025/09/08 03:14:45 [WA216] APP_TYPE8
+2025/09/08 03:14:45 [Config] okind_name=, onode_name=
+2025/09/08 03:14:45 [Config] okind_name=, onode_name=
+2025/09/08 03:14:45 [WA214] Config: whatap.conf
+2025/09/08 03:14:46 [WATestCategory-002] TestCategory, Close io.Copy 11, read |0: file already closed
+2025/09/08 05:21:54 
+2025/09/08 05:21:54 ## OPEN LOG FILE  boot  20250908 05:21:54.324 ##
+2025/09/08 05:21:54 
+2025/09/08 05:21:55 [WA216] APP_TYPE8
+2025/09/08 05:21:55 [Config] okind_name=, onode_name=
+2025/09/08 05:21:55 [Config] okind_name=, onode_name=
+2025/09/08 05:21:55 [WA214] Config: whatap.conf
+2025/09/08 05:21:56 [WATestCategory-002] TestCategory, Close io.Copy 11, read |0: file already closed
+2025/09/08 05:46:42 
+2025/09/08 05:46:42 ## OPEN LOG FILE  boot  20250908 05:46:42.796 ##
+2025/09/08 05:46:42 
+2025/09/08 05:46:43 [WA216] APP_TYPE8
+2025/09/08 05:46:43 [Config] okind_name=, onode_name=
+2025/09/08 05:46:43 [Config] okind_name=, onode_name=
+2025/09/08 05:46:43 [WA214] Config: whatap.conf
+2025/09/08 05:46:44 [WATestCategory-002] TestCategory, Close io.Copy 11, <nil>

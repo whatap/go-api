@@ -1,5 +1,11 @@
 package config
 
+import (
+	// "strings"
+
+	"github.com/whatap/golib/util/hmap"
+)
+
 type ConfTrace struct {
 	TraceZipEnabled       bool
 	TraceZipQueueSize     int
@@ -21,6 +27,29 @@ type ConfTrace struct {
 
 	DebugTraceZipEnabled  bool
 	DebugTraceZipInterval int
+
+	TxTextTxnameEnabled bool
+	TxTextErrorEnabled  bool
+	TxTextErrorLength   int
+
+	TraceStatusErrorEnable bool
+	TraceStatusErrorMode   int32
+	StatusIgnore           *hmap.IntSet
+	StatusIgnoreSet        *hmap.IntKeyLinkedMap
+	StatusAlertIgnore      *hmap.IntSet
+	StatusAlertIgnoreSet   *hmap.IntKeyLinkedMap
+
+	HttpStatusErrorEnabled bool
+	HttpStatusErrorMode    int32
+	HttpcStatusIgnore      *hmap.IntSet
+	HttpcStatusAlertIgnore *hmap.IntSet
+
+	HttpcStatusURLIgnoreSet         *hmap.IntKeyLinkedMap
+	HasHttpcStatusURLIgnoreSet      bool
+	HttpcStatusURLAlertIgnoreSet    *hmap.IntKeyLinkedMap
+	HasHttpcStatusURLAlertIgnoreSet bool
+	HttpcStatusHostIgnoreSet        *hmap.IntKeyLinkedMap
+	HasHttpcStatusHostIgnoreSet     bool
 }
 
 func (this *ConfTrace) Apply(conf *Config) {
@@ -61,4 +90,45 @@ func (this *ConfTrace) Apply(conf *Config) {
 	} else {
 		this.InternalTraceCollectingMode = 1 // normal profile
 	}
+
+	this.TxTextTxnameEnabled = getBoolean("txtext_txname_enabled", true)
+	this.TxTextErrorEnabled = getBoolean("txtext_error_enabled", true)
+	this.TxTextErrorLength = int(getInt("txtext_error_length", 128))
+	if this.TxTextErrorLength < 1 {
+		this.TxTextErrorEnabled = false
+	}
+
+	this.TraceStatusErrorEnable = getBoolean("transaction_status_error_enable", false)
+	// mode1 := getValue("transaction_status_mode", "")
+	// if "info" == strings.ToLower(mode1) || "2" == strings.ToLower(mode1) {
+	// 	this.transaction_status_error_mode = StatusErrorMode.TX_STATUS_INFO
+	// } else {
+	// 	this.transaction_status_error_mode = StatusErrorMode.TX_STATUS_NORMAL
+	// }
+
+	this.StatusIgnore = GetIntSet("status_ignore", "", ",")
+	// this.StatusIgnoreSet = GetIntSet("status_ignore_set", "", ",") //load_status_ignore_set("status_ignore_set", this.status_ignore_set)
+	// this.StatusAlertIgnore = GetIntSet("status_alert_ignore", "", ",")
+	// this.StatusAlertIgnoreSet = GetIntSet("status_alert_ignore", "", ",") //load_status_ignore_set("status_alert_ignore_set", this.status_alert_ignore_set);
+
+	// this.HttpStatusErrorEnabled = getBoolean("httpc_status_error_enable", true)
+	// mode2: = getValue("httpc_status_mode", "");
+	// if "info" == strings.ToLower(mode2)|| "1" == strings.ToLower(mode2)  {
+	// 	this.httpc_status_error_mode = HttpCallStatusErrorMode.HTTPC_STATUS_INFO;
+	// } else {
+	// 	this.httpc_status_error_mode = HttpCallStatusErrorMode.HTTPC_STATUS_NORMAL;
+	// }
+
+	// this.HttpcStatusIgnore = getIntSet("httpc_status_ignore", "", ",")
+	// this.HttpcStatusAlertIgnore = getIntSet("httpc_status_alert_ignore", "", ",")
+
+	// this.HttpcStatusURLIgnoreSet = load_status_ignore_set("httpc_status_url_ignore_set", this.httpc_status_url_ignore_set)
+	// this._has_httpc_status_url_ignore_set = this.httpc_status_url_ignore_set.size() > 0;
+
+	// this.httpc_status_url_alert_ignore_set = load_status_ignore_set("httpc_status_url_alert_ignore_set", this.httpc_status_url_alert_ignore_set);
+	// this._has_httpc_status_url_alert_ignore_set = this.httpc_status_url_alert_ignore_set.size() > 0;
+
+	// this.httpc_status_host_ignore_set = load_status_ignore_set("httpc_status_host_ignore_set", this.httpc_status_host_ignore_set);
+	// this._has_httpc_status_host_ignore_set = this.httpc_status_host_ignore_set.size() > 0;
+
 }

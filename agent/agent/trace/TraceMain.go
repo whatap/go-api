@@ -129,7 +129,19 @@ func process() {
 	tx.EndTime = ctx.EndTime
 	tx.Elapsed = ctx.Elapsed
 	tx.Service = ctx.ServiceHash
-
+	if conf.TxTextTxnameEnabled {
+		tx.TxName = ctx.ServiceURL.Path
+	}
+	if conf.TxTextErrorEnabled {
+		tx.ErrorClass = ctx.Thr.ErrorClassName
+		if ctx.Thr.ErrorMessage != "" {
+			if len(ctx.Thr.ErrorMessage) > conf.TxTextErrorLength {
+				tx.ErrorMessage = ctx.Thr.ErrorMessage[0:int(conf.TxTextErrorLength)]
+			} else {
+				tx.ErrorMessage = ctx.Thr.ErrorMessage
+			}
+		}
+	}
 	tx.IpAddr = ctx.RemoteIp
 	tx.WClientId = ctx.WClientId
 	tx.UserAgent = ctx.UserAgent

@@ -538,6 +538,7 @@ type Config struct {
 
 var conf *Config = nil
 var mutex = sync.Mutex{}
+var writeLock = sync.Mutex{}
 var prop *properties.Properties = nil
 var AppType int16 = 8
 
@@ -671,12 +672,12 @@ func reload() {
 	if os.IsNotExist(err) {
 		if last_file_time == -1 {
 			logutil.Println("WA212", "Not found config file, path", path)
-			if f, err := os.Create(path); err != nil {
-				logutil.Println("WA212-01", "Create config file, error ", err)
-				return
-			} else {
-				logutil.Println("WA212-02", "Create config file, path ", f)
-			}
+			// if f, err := os.Create(path); err != nil {
+			// 	logutil.Println("WA212-01", "Create config file, error ", err)
+			// 	return
+			// } else {
+			// 	logutil.Println("WA212-02", "Create config file, path ", f)
+			// }
 			return
 		} else if last_file_time == 0 {
 			logutil.Println("WA212-03", "The config file has been deleted. Fail to load config file")
@@ -1370,7 +1371,7 @@ func apply() {
 	//
 	conf.IgnoreHttpMethod = getStringArrayDef("ignore_http_method", ",", "PATCH, OPTIONS, HEAD, TRACE")
 
-	conf.MeteringUseLinuxUUIDEnabled = getBoolean("metering_use_linux_uuid_enabled", true)
+	conf.MeteringUseLinuxUUIDEnabled = getBoolean("metering_use_linux_uuid_enabled", false)
 
 	// Stat
 	conf.ConfStat.Apply(conf)
@@ -1587,11 +1588,13 @@ func getFloat(key string, def float32) float32 {
 }
 
 func SetValues(keyValues *map[string]string) {
+	//writeLock.Lock()
 	// 종료 되지 않도록  Recover (Must 관련 함수는 내부에서 log.Fatal(err) 발생
 	defer func() {
 		if r := recover(); r != nil {
 			logutil.Println("WA215-01 Recover", r) //, string(debug.Stack()))
 		}
+		//writeLock.Unlock()
 	}()
 
 	GetConfig()
@@ -1631,6 +1634,7 @@ func SetValues(keyValues *map[string]string) {
 		old_keys := map[string]bool{}
 		for {
 			data, _, err := r.ReadLine()
+			// EOF
 			if err != nil { // new key
 				for _, key := range new_keys {
 					if old_keys[key] {
@@ -1650,7 +1654,6 @@ func SetValues(keyValues *map[string]string) {
 			}
 			if strings.Index(string(data), "=") == -1 {
 				line += fmt.Sprintf("%s\n", string(data))
-				//io.WriteString(f, line)
 			} else {
 				datas := strings.Split(string(data), "=")
 				key := strings.Trim(datas[0], " ")
@@ -1659,16 +1662,20 @@ func SetValues(keyValues *map[string]string) {
 
 				match, _ := regexp.MatchString("^\\w", key)
 				if match {
-					value, _ = props.Get(key)
+					// If the key to save and the key in whatap.conf are the same,
+					// change the value in whatap.conf to the value of the key to save.
+					// It only changes if the key to be stored has a value.
+					tmp, _ := props.Get(key)
+					if strings.TrimSpace(tmp) != "" {
+						value = tmp
+					}
 				}
 				// value 가 없는 경우 항목 추가 안함(삭제)
 				if strings.TrimSpace(value) != "" {
 					tmp := strings.Replace(value, "\\\\", "\\", -1)
 					tmp = strings.Replace(tmp, "\\", "\\\\", -1)
-
 					line += fmt.Sprintf("%s=%s\n", key, tmp)
 				}
-				//io.WriteString(f, line)
 			}
 		}
 	}
@@ -1679,7 +1686,6 @@ func SetValues(keyValues *map[string]string) {
 	} else {
 		defer f.Close()
 		io.WriteString(f, line)
-
 		// flush
 		f.Sync()
 	}

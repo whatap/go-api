@@ -208,6 +208,7 @@ type TraceContext struct {
 	Fields *value.MapValue
 
 	//PoolNewInstance string
+	OriginURL string
 }
 
 var ctxPool = sync.Pool{
