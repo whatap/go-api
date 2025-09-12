@@ -5,8 +5,8 @@ import (
 	//"time"
 	//"log"
 	//"runtime"
+	"runtime/debug"
 	"sync"
-	//"runtime/debug"
 	"time"
 
 	//	"github.com/whatap/go-api/agent/agent/counter/meter"
@@ -94,10 +94,10 @@ func process() {
 	defer func() {
 		traceMainLock.Unlock()
 		if r := recover(); r != nil {
-			logutil.Println("WA551", " Recover ", r) //, string(debug.Stack()))
+			logutil.Println("WA551", " Recover ", r, string(debug.Stack()))
 			_, ok := r.(error)
 			if !ok {
-				logutil.Println("WA551", "pkg: ", r) //, string(debug.Stack()))
+				logutil.Println("WA551", "pkg: ", r, string(debug.Stack()))
 			}
 		}
 	}()
@@ -133,12 +133,14 @@ func process() {
 		tx.TxName = ctx.ServiceURL.Path
 	}
 	if conf.TxTextErrorEnabled {
-		tx.ErrorClass = ctx.Thr.ErrorClassName
-		if ctx.Thr.ErrorMessage != "" {
-			if len(ctx.Thr.ErrorMessage) > conf.TxTextErrorLength {
-				tx.ErrorMessage = ctx.Thr.ErrorMessage[0:int(conf.TxTextErrorLength)]
-			} else {
-				tx.ErrorMessage = ctx.Thr.ErrorMessage
+		if ctx.Thr != nil {
+			tx.ErrorClass = ctx.Thr.ErrorClassName
+			if ctx.Thr.ErrorMessage != "" {
+				if len(ctx.Thr.ErrorMessage) > conf.TxTextErrorLength {
+					tx.ErrorMessage = ctx.Thr.ErrorMessage[0:int(conf.TxTextErrorLength)]
+				} else {
+					tx.ErrorMessage = ctx.Thr.ErrorMessage
+				}
 			}
 		}
 	}

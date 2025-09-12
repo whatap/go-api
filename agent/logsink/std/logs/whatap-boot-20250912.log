@@ -1,0 +1,8 @@
+2025/09/12 05:37:48 
+2025/09/12 05:37:48 ## OPEN LOG FILE  boot  20250912 05:37:48.288 ##
+2025/09/12 05:37:48 
+2025/09/12 05:37:49 [WA216] APP_TYPE8
+2025/09/12 05:37:49 [Config] okind_name=, onode_name=
+2025/09/12 05:37:49 [Config] okind_name=, onode_name=
+2025/09/12 05:37:49 [WA214] Config: whatap.conf
+2025/09/12 05:37:50 [WATestCategory-002] TestCategory, Close io.Copy 11, <nil>

@@ -91,8 +91,8 @@ func (this *ConfTrace) Apply(conf *Config) {
 		this.InternalTraceCollectingMode = 1 // normal profile
 	}
 
-	this.TxTextTxnameEnabled = getBoolean("txtext_txname_enabled", true)
-	this.TxTextErrorEnabled = getBoolean("txtext_error_enabled", true)
+	this.TxTextTxnameEnabled = getBoolean("txtext_txname_enabled", false)
+	this.TxTextErrorEnabled = getBoolean("txtext_error_enabled", false)
 	this.TxTextErrorLength = int(getInt("txtext_error_length", 128))
 	if this.TxTextErrorLength < 1 {
 		this.TxTextErrorEnabled = false
