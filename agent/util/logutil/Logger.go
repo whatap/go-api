@@ -2,6 +2,7 @@ package logutil
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -43,6 +44,7 @@ type Logger struct {
 	confLogInterval        int
 	confLogRotationEnabled bool
 	confLogKeepDays        int
+	confLogStdoutEnabled   bool
 	//	static PrintWriter pw = null;
 	//	static File logfile = null;
 
@@ -127,6 +129,19 @@ func SetLogID(logID string) {
 	GetLogger()
 	logger.logID = logID
 }
+func SetLogStdoutEnabled(b bool) {
+	GetLogger()
+	if logger.confLogStdoutEnabled != b {
+		logger.confLogStdoutEnabled = b
+		if logger.confLogStdoutEnabled {
+			// if logger.logfile != nil {
+			logger.Log.SetOutput(io.MultiWriter(logger.logfile, os.Stdout))
+			// }
+		} else {
+			logger.Log.SetOutput(io.MultiWriter(logger.logfile))
+		}
+	}
+}
 
 func (this *Logger) Print(message string) {
 	this.Log.Println(message)
@@ -142,6 +157,18 @@ func Infoln(id string, v ...interface{}) {
 	logger.info(id, fmt.Sprint(v...))
 }
 func Infof(id string, format string, v ...interface{}) {
+	logger.info(id, fmt.Sprintf(format, v...))
+}
+
+func Debug(id string, v ...interface{}) {
+	GetLogger()
+	logger.info(id, fmt.Sprint(v...))
+}
+func Debugln(id string, v ...interface{}) {
+	GetLogger()
+	logger.info(id, fmt.Sprint(v...))
+}
+func Debugf(id string, format string, v ...interface{}) {
 	logger.info(id, fmt.Sprintf(format, v...))
 }
 
@@ -297,20 +324,39 @@ func (this *Logger) openFile() {
 		var err error
 		if this.confLogRotationEnabled {
 			file, err = os.OpenFile(filepath.Join(home, "logs", fmt.Sprintf("%s-%s-%s.log", this.logID, this.oname, dateutil.YYYYMMDD(dateutil.Now()))), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-			if err != nil {
-				panic(err)
-			}
 		} else {
 			file, err = os.OpenFile(filepath.Join(home, "logs", fmt.Sprintf("%s-%s.log", this.logID, this.oname)), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-			if err != nil {
-				panic(err)
-			}
 		}
-		this.logfile = file
+		if err != nil {
+			this.logfile = nil
+		} else {
+			this.logfile = file
+		}
+
 		//fmt.Println("Logger open file", this.logfile)
 
 		// 표준로거를 파일로그로 변경
-		this.Log.SetOutput(this.logfile)
+
+		// getenv stdout option
+		if v, err := strconv.ParseBool(os.Getenv("log_stdout_enabled")); err == nil {
+			this.confLogStdoutEnabled = v
+		}
+
+		if this.confLogStdoutEnabled {
+			if this.logfile == nil {
+				this.Log.Println("WA1000401", "Logger is set up by stdout")
+				this.Log.SetOutput(os.Stdout)
+			} else {
+				this.Log.Println("WA1000402", "Logger is set up by multiwriter have file and stdout")
+				multi := io.MultiWriter(this.logfile, os.Stdout)
+				this.Log.SetOutput(multi)
+			}
+		} else {
+			if this.logfile == nil {
+				panic(err)
+			}
+			this.Log.SetOutput(this.logfile)
+		}
 		this.Log.SetFlags(log.Ldate | log.Ltime)
 
 		this.Log.Println("")

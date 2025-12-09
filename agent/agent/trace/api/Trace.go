@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"github.com/whatap/go-api/agent/agent/appctx"
 	agentconfig "github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/counter/meter"
 	"github.com/whatap/go-api/agent/agent/data"
@@ -53,6 +54,10 @@ func StartTx(ctx *agenttrace.TraceContext) {
 	}
 	ctx.ServiceHash = hash.HashStr(ctx.ServiceName)
 	normalizeServiceName := ctx.ServiceName
+
+	if ctx.ServiceName != "" && conf.AppContextEnabled {
+		ctx.AppCtx = appctx.GetContextPath(uint32(hash.HashStr(ctx.ServiceURL.Path)), ctx.ServiceURL.Path)
+	}
 
 	data.SendHashText(pack.TEXT_SERVICE, ctx.ServiceHash, ctx.ServiceName)
 
@@ -122,6 +127,7 @@ func EndTx(ctx *agenttrace.TraceContext) {
 	if ctx == nil {
 		return
 	}
+	conf := agentconfig.GetConfig()
 
 	agenttrace.RemoveContext(ctx.Txid)
 	ctx.Elapsed = int32(dateutil.SystemNow() - ctx.StartTime)
@@ -209,7 +215,17 @@ func EndTx(ctx *agenttrace.TraceContext) {
 
 	// ctx를 보내고 싶지만, import cycle 오류 발생.
 	meter.GetInstanceMeterService().Add(tx, ctx.McallerPcode, ctx.McallerOkind, ctx.McallerOid)
+	if conf.TxStatusMeterEnabled {
+		meter.GetInstanceMeterStatus().Add(ctx.Status, ctx.Elapsed)
+	}
+	if conf.StatTxStatusEnabled {
+		stat.GetInstanceStatTranxStatus().Add(ctx.Status, ctx.ServiceHash, ctx.Elapsed, ctx.Error)
+	}
 
+	if conf.AppContextEnabled {
+		appctx.GetIntanceAppCtxStatCollector().EndTx(ctx.AppCtx, tx)
+		tx.AppCtx = ctx.AppCtx
+	}
 	agenttrace.SendTransaction(ctx)
 }
 

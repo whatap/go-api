@@ -258,6 +258,8 @@ type Config struct {
 	LogKeepDays        int
 	// Log 중복 체크 기간 옵션  (내부 사용, 단위 초), Default 10초
 	LogInterval int
+	// Log stdout 출력 여부
+	LogStdoutEnabled bool
 
 	// Hook ~ TODO: java참고
 	HookSignature int32
@@ -487,34 +489,11 @@ type Config struct {
 
 	MeteringUseLinuxUUIDEnabled bool
 
-	//	// LogSink
-	//	WatchLogEnabled       bool
-	//	WatchLogCheckInterval int32
-	//
-	//	WatchLogReadCount  int32
-	//	WatchLogBufferSize int32
-	//	WatchLogLineSize   int32
-	//	WatchLogSendCount  int32
-	//
-	//	//	public static boolean logsink_stdout_enabled = logsink_enabled;
-	//	//	public static boolean logsink_stderr_enabled = logsink_enabled;
-	//	//	public static boolean logsink_logback_enabled = logsink_enabled;
-	//	//	public static boolean logsink_tomcat_enabled = logsink_enabled;
-	//	//	public static boolean logsink_custom_enabled= logsink_enabled;
-	//
-	//	LogSinkEnabled bool
-	//
-	//	LogSinkQueueSize      int32
-	//	DebugLogSinkEnabled   bool
-	//	LogSinkLineSize       int32
-	//	DebugLogSinkLineLimit int32
-	//	LogSinkZipEnabled     bool
-	//
-	//	//	public static int max_buffer_size=1024 * 64;
-	//	//	public static int max_wait_time = 2000;
-	//	LogSinkZipMinSize      int32
-	//	DebugLogSinkZipEnabled bool
-	//	LogSinkZipLibpath      string
+	AppContextEnabled     bool   // AppCtx 기능 활성화 여부
+	AppContextParser      string // 파서 타입 (default, prefix, match 등)
+	AppContextParserReset int32  // 파서 리셋 플래그
+	AppContextPathDepth   int32  // URL 경로 추출 깊이 (1 또는 2)
+	AppContextPathSet     string // 추적할 경로 목록 (쉼표 구분)
 
 	ConfStat
 
@@ -1097,6 +1076,9 @@ func apply() {
 	// logutil conf 사용 변수 값 설정.
 	logutil.SetLogInterval(conf.LogInterval)
 
+	conf.LogStdoutEnabled = getBoolean("log_stdout_enabled", false)
+	logutil.SetLogStdoutEnabled(conf.LogStdoutEnabled)
+
 	// Hook ~ TODO: java참고
 	conf.HookSignature = getInt("hook_signature", 1)
 
@@ -1372,6 +1354,12 @@ func apply() {
 	conf.IgnoreHttpMethod = getStringArrayDef("ignore_http_method", ",", "PATCH, OPTIONS, HEAD, TRACE")
 
 	conf.MeteringUseLinuxUUIDEnabled = getBoolean("metering_use_linux_uuid_enabled", false)
+
+	conf.AppContextEnabled = getBoolean("app_context_enabled", false)
+	conf.AppContextParser = getValueDef("app_context_parser", "default")
+	conf.AppContextParserReset = getInt("app_context_parser_reset", 0)
+	conf.AppContextPathDepth = getInt("app_context_path_depth", 1)
+	conf.AppContextPathSet = getValue("app_context_path_set")
 
 	// Stat
 	conf.ConfStat.Apply(conf)

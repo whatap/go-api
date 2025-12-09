@@ -68,7 +68,9 @@ func MakeOname(pattern string) string {
 	oname := pattern
 	for _, key := range keyList {
 		var value string
-		if strings.HasPrefix("env.", key) && len(key) > 4 {
+		if key == "pid" {
+			value = strconv.Itoa(os.Getpid())
+		} else if strings.HasPrefix(key, "env.") && len(key) > 4 {
 			value = os.Getenv(key[4:])
 		} else {
 			value = oidParam[key]

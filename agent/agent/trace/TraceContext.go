@@ -209,6 +209,9 @@ type TraceContext struct {
 
 	//PoolNewInstance string
 	OriginURL string
+
+	// AppCtx
+	AppCtx string
 }
 
 var ctxPool = sync.Pool{

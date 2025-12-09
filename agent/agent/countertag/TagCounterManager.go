@@ -22,6 +22,7 @@ func StartTagCounterManager() {
 	conf := config.GetConfig()
 
 	tasks = append(tasks, NewTagTaskMetering())
+	tasks = append(tasks, NewTagTaskTxStatus())
 
 	if conf.AppType == lang.APP_TYPE_GO {
 		tasks = append(tasks, NewTagTaskGoRuntime())

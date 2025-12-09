@@ -28,6 +28,10 @@ type ConfStat struct {
 	StatHttpcMaxCount     int32
 	StatErrorMaxCount     int32
 	StatUseragentMaxCount int32
+
+	TxStatusMeterEnabled bool
+	StatTxStatusEnabled  bool
+	StatTxStatusMaxCount int32
 }
 
 func (this *ConfStat) Apply(conf *Config) {
@@ -58,5 +62,9 @@ func (this *ConfStat) Apply(conf *Config) {
 	this.StatHttpcMaxCount = GetInt("stat_httpc_max_count", 5000)
 	this.StatErrorMaxCount = GetInt("stat_error_max_count", 1000)
 	this.StatUseragentMaxCount = GetInt("stat_useragent_max_count", 500)
+
+	this.TxStatusMeterEnabled = GetBoolean("tx_status_meter_enabled", true)
+	this.StatTxStatusEnabled = GetBoolean("stat_txstatus_enabled", true)
+	this.StatTxStatusMaxCount = GetInt("stat_txstatus_max_count", 10000)
 
 }

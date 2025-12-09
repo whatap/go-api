@@ -13,12 +13,14 @@ import (
 
 	//	"log"
 
+	"github.com/whatap/go-api/agent/agent/appctx"
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/counter/meter"
 	"github.com/whatap/go-api/agent/agent/data"
 	"github.com/whatap/go-api/agent/agent/secure"
 	"github.com/whatap/go-api/agent/agent/stat"
 	"github.com/whatap/go-api/agent/util/logutil"
+
 	"github.com/whatap/golib/io"
 	"github.com/whatap/golib/lang"
 	"github.com/whatap/golib/lang/pack"
@@ -220,6 +222,10 @@ func startTx(p *udp.UdpTxStartPack) {
 	}
 	ctx.ServiceHash = hash.HashStr(ctx.ServiceName)
 	normalizeServiceName := ctx.ServiceName
+
+	if ctx.ServiceName != "" && conf.AppContextEnabled {
+		ctx.AppCtx = appctx.GetContextPath(uint32(hash.HashStr(p.ServiceURL.Path)), p.ServiceURL.Path)
+	}
 
 	// host, query string 추가 전 서비스 해시도 등록, mtrace_spec1에서 caller url 이 해시로 변경되면 추가.
 	data.SendHashText(pack.TEXT_SERVICE, ctx.ServiceHash, ctx.ServiceName)
@@ -436,6 +442,11 @@ func endTx(p *udp.UdpTxEndPack) {
 
 	// ctx를 보내고 싶지만, import cycle 오류 발생.
 	meter.GetInstanceMeterService().Add(tx, ctx.McallerPcode, ctx.McallerOkind, ctx.McallerOid)
+
+	if conf.AppContextEnabled {
+		appctx.GetIntanceAppCtxStatCollector().EndTx(ctx.AppCtx, tx)
+		tx.AppCtx = ctx.AppCtx
+	}
 
 	SendTransaction(ctx)
 

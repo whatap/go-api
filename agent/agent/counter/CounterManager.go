@@ -78,6 +78,8 @@ func StartCounterManager() {
 		//tasks = append(tasks, NewTaskActiveStatsForPython())
 	}
 
+	tasks = append(tasks, NewTaskAppCtxStat())
+
 	var INTERVAL int32 = conf.CountInterval
 	if INTERVAL < 5000 {
 		INTERVAL = 5000

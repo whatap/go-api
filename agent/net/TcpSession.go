@@ -16,6 +16,7 @@ import (
 	"github.com/whatap/go-api/agent/agent/secure"
 	"github.com/whatap/go-api/agent/util/logutil"
 	"github.com/whatap/golib/io"
+	"github.com/whatap/golib/lang"
 	"github.com/whatap/golib/lang/pack"
 	"github.com/whatap/golib/util/dateutil"
 
@@ -624,12 +625,17 @@ func (this *TcpSession) getEncryptData(p *TcpSend) (n int, b []byte, err error) 
 		}
 	}
 	if n > int(conf.NetSendMaxBytes) {
-		p := pack.NewEventPack()
-		p.Level = pack.FATAL
-		p.Title = "NEW_OVERFLOW"
-		p.Message = fmt.Sprintf("Too big data: %d", p.GetPackType())
-		logutil.Println("WA185", p.Title, ",", p.Message)
-		err = fmt.Errorf("%s", p.Message)
+		p := pack.NewLogSinkPack()
+		p.Category = "#WhatapSys"
+		p.Pcode = conf.PCODE
+		p.Oid = int32(conf.OID)
+		// p.okind = conf.OKIND
+		// p.onode = conf.ONODE
+		p.Time = dateutil.Now()
+		p.Content = fmt.Sprintf("Too big data: %d", p.GetPackType())
+		p.Tags.PutString("title", "NEW_OVERFLOW")
+		p.Tags.PutLong("level", int64(lang.EVENT_LEVEL_CRITICAL))
+		p.Tags.PutLong("status", int64(lang.EVENT_STATUS_ON))
 		Send(NET_SECURE_CYPHER, p, true)
 		return n, b, err
 	} else {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -21,6 +22,10 @@ import (
 
 var NodeAgentHost string
 var NodeAgentPort uint16
+
+const (
+	FILE_CONF_CONTAINER = "container.conf"
+)
 
 func StartClient() {
 
@@ -41,6 +46,9 @@ func StartClient() {
 			}
 
 			process(conf.PodName)
+			if containerKey == 0 {
+				loadContainerConf()
+			}
 			time.Sleep(3 * time.Second)
 		}
 
@@ -200,12 +208,88 @@ var (
 	containerId  string
 )
 
+func getContainerConfPath() string {
+	// WHATAP_CONTAINER_CONF_PATH 환경변수에서 먼저 가져오기
+	containerConfPath := os.Getenv("WHATAP_CONTAINER_CONF_PATH")
+	if containerConfPath == "" {
+		// WHATAP_CONTAINER_CONF_PATH가 없으면 WHATAP_HOME 사용
+		whatapHome := os.Getenv("WHATAP_HOME")
+		if whatapHome == "" {
+			whatapHome = "."
+		}
+		containerConfPath = whatapHome
+	}
+	return containerConfPath
+}
+
+func containerConfExists() bool {
+	containerConfPath := getContainerConfPath()
+	fullPath := filepath.Join(containerConfPath, FILE_CONF_CONTAINER)
+	if _, err := os.Stat(fullPath); err == nil {
+		return true
+	}
+	return false
+}
+
+// loadContainerConf loads container ID from container.conf file
+func loadContainerConf() {
+	if !containerConfExists() {
+		return
+	}
+
+	containerConfPath := getContainerConfPath()
+	fullPath := filepath.Join(containerConfPath, FILE_CONF_CONTAINER)
+
+	file, err := os.Open(fullPath)
+	if err != nil {
+		logutil.Printf("WA211-21", "Failed to open container.conf: %v", err)
+		return
+	}
+	defer file.Close()
+
+	// Parse container.conf file (simple key=value format)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		if (key == "containerId" || key == "containerid" || key == "container_id") && len(value) > 5 {
+			containerId = value
+			containerKey = hash.HashStr(containerId)
+
+			logutil.Printf("WA211-22", "Loaded containerId from container.conf: %s, containerKey: %d", containerId, containerKey)
+			return
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		logutil.Printf("WA211-23", "Error reading container.conf: %v", err)
+	}
+
+	containerKey = 0
+	containerId = ""
+	return
+}
+
 func loadContainerId() (err error) {
 	if containerKey != 0 {
 		return
 	}
 
-	loadFromCGroup()
+	loadContainerConf()
+	if containerKey == 0 {
+		loadFromCGroup()
+	}
 	if containerKey == 0 {
 		loadFromMountinfo()
 	}
@@ -224,7 +308,6 @@ func loadFromCGroup() (err error) {
 	}
 	defer file.Close()
 
-	//pattern, _ := regexp.Compile(`(\.scope)+$`)
 	pattern, _ := regexp.Compile(`(\.scope)+$`)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -283,4 +366,33 @@ func GetContainerInfo(h2 func(int32, string)) {
 	if containerKey != 0 {
 		h2(containerKey, containerId)
 	}
+}
+
+func CreateContainerConf(containerID string) error {
+	// WHATAP_CONTAINER_CONF_PATH 환경변수에서 직접 경로 가져오기
+	containerConfPath := os.Getenv("WHATAP_CONTAINER_CONF_PATH")
+	if containerConfPath == "" {
+		// WHATAP_HOME 환경변수에서 경로 가져오기
+		whatapHome := os.Getenv("WHATAP_HOME")
+		if whatapHome == "" {
+			whatapHome = "."
+		}
+		containerConfPath = whatapHome
+	}
+
+	// 디렉토리 존재 여부 확인 및 생성
+	if err := os.MkdirAll(containerConfPath, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", containerConfPath, err)
+	}
+
+	confPath := filepath.Join(containerConfPath, "container.conf")
+	content := fmt.Sprintf("container_id=%s\n", containerID)
+
+	// 파일 쓰기 (기존 파일이 있으면 덮어쓰기)
+	err := os.WriteFile(confPath, []byte(content), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write container.conf: %w", err)
+	}
+
+	return nil
 }
