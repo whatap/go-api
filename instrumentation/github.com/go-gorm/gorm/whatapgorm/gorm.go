@@ -3,7 +3,7 @@ package whatapgorm
 import (
 	"context"
 
-	"github.com/whatap/go-api/sql"
+	whatapsql "github.com/whatap/go-api/sql"
 	"github.com/whatap/go-api/trace"
 	"gorm.io/gorm"
 )
@@ -21,7 +21,7 @@ func before(db *gorm.DB) {
 	}
 	ctx := GetContext(db)
 	if db.Statement != nil {
-		sqlCtx, _ := sql.StartWithParamArray(ctx, db.Name(), db.Statement.SQL.String(), db.Statement.Vars)
+		sqlCtx, _ := whatapsql.StartWithParamArray(ctx, db.Name(), db.Statement.SQL.String(), db.Statement.Vars)
 		db.Set(gormSQLContextStart, sqlCtx)
 	}
 }
@@ -32,8 +32,8 @@ func after(db *gorm.DB) {
 	}
 	v, ok := db.Get(gormSQLContextStart)
 	if ok {
-		sqlCtx := v.(*sql.SqlCtx)
-		sql.End(sqlCtx, nil)
+		sqlCtx := v.(*whatapsql.SqlCtx)
+		whatapsql.End(sqlCtx, nil)
 	}
 }
 
@@ -59,7 +59,11 @@ func withCallback(db *gorm.DB, beforeFunc, afterFunc callbackFunc) *gorm.DB {
 }
 
 func Open(dialector gorm.Dialector, cfg *gorm.Config) (*gorm.DB, error) {
+	// DB 연결 추적 (context.Background() 사용)
+	sqlCtx, _ := whatapsql.StartOpen(context.Background(), dialector.Name())
 	db, err := gorm.Open(dialector, cfg)
+	whatapsql.End(sqlCtx, err)
+
 	if err != nil {
 		return db, err
 	}
@@ -67,7 +71,11 @@ func Open(dialector gorm.Dialector, cfg *gorm.Config) (*gorm.DB, error) {
 }
 
 func OpenWithContext(dialector gorm.Dialector, cfg *gorm.Config, ctx context.Context) (*gorm.DB, error) {
+	// DB 연결 추적
+	sqlCtx, _ := whatapsql.StartOpen(ctx, dialector.Name())
 	db, err := gorm.Open(dialector, cfg)
+	whatapsql.End(sqlCtx, err)
+
 	if err != nil {
 		return db, err
 	}

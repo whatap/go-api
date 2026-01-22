@@ -50,6 +50,7 @@ type ConfLogSink struct {
 
 	LogSinkStdOutEnabled bool
 	LogSinkStdErrEnabled bool
+	LogSinkFmtEnabled    bool
 
 	LogSinkCategoryStdErr string
 	LogSinkCategoryStdOut string
@@ -123,6 +124,7 @@ func (this *ConfLogSink) Apply(conf *Config) {
 
 	this.LogSinkStdOutEnabled = this.LogSinkEnabled && GetBoolean("logsink_stdout_enabled", false)
 	this.LogSinkStdErrEnabled = this.LogSinkEnabled && GetBoolean("logsink_stderr_enabled", false)
+	this.LogSinkFmtEnabled = this.LogSinkEnabled && GetBoolean("logsink_fmt_enabled", false)
 
 	this.LogSinkCategoryStdOut = GetValueDef("logsink_category_stdout", "AppStdOut")
 	this.LogSinkCategoryStdErr = GetValueDef("logsink_category_stderr", "AppStdErr")
@@ -150,17 +152,7 @@ func (this *ConfLogSink) Apply(conf *Config) {
 	this.LogSinkTraceLoginEnabled = GetBoolean("logsink_trace_login_enabled", false)
 	this.LogSinkTraceHttpHostEnabled = GetBoolean("logsink_trace_httphost_enabled", false)
 
-	if GetBoolean("logtag_txid_enabled", false) {
-		this.LogSinkTraceEnabled = GetBoolean("logsink_trace_enabled", true)
-	} else {
-		this.LogSinkTraceEnabled = GetBoolean("logsink_trace_enabled", false)
-	}
-
-	if GetBoolean("logtag_mtid_enabled", false) {
-		this.LogSinkTraceEnabled = GetBoolean("logsink_trace_enabled", true)
-	} else {
-		this.LogSinkTraceEnabled = GetBoolean("logsink_trace_enabled", false)
-	}
+	this.LogSinkTraceEnabled = GetBoolean("logsink_trace_enabled", true)
 
 	this.LogSinkHighSecureEnabled = GetBoolean("logsink_high_secure_enabled", false)
 }

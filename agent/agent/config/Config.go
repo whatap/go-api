@@ -264,7 +264,8 @@ type Config struct {
 	// Hook ~ TODO: java참고
 	HookSignature int32
 
-	ActiveStackSecond int32
+	ActiveStackSecond     int32
+	ActiveStackZipEnabled bool
 
 	CounterProcfdEnabled  bool // TODO: file descript count
 	CounterNetstatEnabled bool // TODO: setstat status count
@@ -1083,6 +1084,7 @@ func apply() {
 	conf.HookSignature = getInt("hook_signature", 1)
 
 	conf.ActiveStackSecond = getInt("active_stack_second", 10)
+	conf.ActiveStackZipEnabled = getBoolean("active_stack_zip_enabled", true)
 
 	conf.CounterProcfdEnabled = getBoolean("counter_procfd_enabled", false)
 	conf.CounterNetstatEnabled = getBoolean("counter_netstat_enabled", false)
@@ -1388,7 +1390,7 @@ func GetValue(key string) string { return getValue(key) }
 func getValue(key string) string {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("getvalue recover ", r, ", \n", string(debug.Stack()))
+			logutil.Println("WA216", "getValue recover", r)
 		}
 	}()
 	envVal := os.Getenv(key)

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gomodule/redigo/redis"
-	"github.com/whatap/go-api/sql"
+	whatapsql "github.com/whatap/go-api/sql"
 	"github.com/whatap/go-api/trace"
 )
 
@@ -18,22 +18,36 @@ func wrappingConn(c redis.Conn, connection string, ctx context.Context) Conn {
 }
 
 func Dial(network, address string, options ...redis.DialOption) (Conn, error) {
+	connection := fmt.Sprintf("%s@%s", network, address)
+	// Redis 연결 추적
+	sqlCtx, _ := whatapsql.StartOpen(context.Background(), connection)
 	c, err := redis.Dial(network, address, options...)
-	return wrappingConn(c, fmt.Sprintf("%s@%s", network, address), nil), err
+	whatapsql.End(sqlCtx, err)
+	return wrappingConn(c, connection, nil), err
 }
 
 func DialContext(ctx context.Context, network, address string, options ...redis.DialOption) (Conn, error) {
+	connection := fmt.Sprintf("%s@%s", network, address)
+	// Redis 연결 추적
+	sqlCtx, _ := whatapsql.StartOpen(ctx, connection)
 	c, err := redis.DialContext(ctx, network, address, options...)
-	return wrappingConn(c, fmt.Sprintf("%s@%s", network, address), ctx), err
+	whatapsql.End(sqlCtx, err)
+	return wrappingConn(c, connection, ctx), err
 }
 
 func DialURL(rawurl string, options ...redis.DialOption) (Conn, error) {
+	// Redis 연결 추적
+	sqlCtx, _ := whatapsql.StartOpen(context.Background(), rawurl)
 	c, err := redis.DialURL(rawurl, options...)
+	whatapsql.End(sqlCtx, err)
 	return wrappingConn(c, rawurl, nil), err
 }
 
 func DialURLContext(ctx context.Context, rawurl string, options ...redis.DialOption) (Conn, error) {
+	// Redis 연결 추적
+	sqlCtx, _ := whatapsql.StartOpen(ctx, rawurl)
 	c, err := redis.DialURL(rawurl, options...)
+	whatapsql.End(sqlCtx, err)
 	return wrappingConn(c, rawurl, ctx), err
 }
 
@@ -113,9 +127,9 @@ func DoRun(ctx context.Context, conn redis.Conn, connection, commandName string,
 		defer trace.End(ctx, nil)
 	}
 
-	sqlCtx, _ := sql.StartWithParam(ctx, connection, cmd, args...)
+	sqlCtx, _ := whatapsql.StartWithParam(ctx, connection, cmd, args...)
 	ret, err := conn.Do(commandName, args...)
-	sql.End(sqlCtx, nil)
+	whatapsql.End(sqlCtx, nil)
 	return ret, err
 }
 
@@ -130,8 +144,8 @@ func SendRun(ctx context.Context, conn redis.Conn, connection, commandName strin
 		defer trace.End(ctx, nil)
 	}
 
-	sqlCtx, _ := sql.StartWithParam(ctx, connection, cmd, args...)
+	sqlCtx, _ := whatapsql.StartWithParam(ctx, connection, cmd, args...)
 	err := conn.Send(commandName, args...)
-	sql.End(sqlCtx, nil)
+	whatapsql.End(sqlCtx, nil)
 	return err
 }

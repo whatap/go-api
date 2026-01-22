@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strings"
 
 	"github.com/Shopify/sarama"
@@ -29,32 +28,16 @@ func (in *Interceptor) OnSend(msg *sarama.ProducerMessage) {
 	name := fmt.Sprintf("produceTransaction/%s", msg.Topic)
 
 	var produceCtx context.Context
-	var ok bool
 	metadata := msg.Metadata
 
-	if metadata != nil {
-		switch reflect.TypeOf(metadata).String() {
-		case "http.Header":
-			header, ok := metadata.(http.Header)
-			if ok != true {
-				fmt.Println("http.Header Covert Error!")
-			}
-
-			produceCtx, _ = trace.Start(context.Background(), name)
-			defer trace.End(produceCtx, nil)
-
-			trace.UpdateMtraceWithContext(produceCtx, header)
-
-		case "*context.emptyCtx":
-			produceCtx, ok = metadata.(context.Context)
-			if ok != true {
-				fmt.Println("context Covert Error!")
-			}
-		default:
-			produceCtx, _ = trace.Start(context.Background(), name)
-			defer trace.End(produceCtx, nil)
-		}
-	} else {
+	switch v := metadata.(type) {
+	case http.Header:
+		produceCtx, _ = trace.Start(context.Background(), name)
+		defer trace.End(produceCtx, nil)
+		trace.UpdateMtraceWithContext(produceCtx, v)
+	case context.Context:
+		produceCtx = v
+	default:
 		produceCtx, _ = trace.Start(context.Background(), name)
 		defer trace.End(produceCtx, nil)
 	}
@@ -79,7 +62,7 @@ func (in *Interceptor) OnConsume(msg *sarama.ConsumerMessage) {
 	name := fmt.Sprintf("consumeTransaction/%s", msg.Topic)
 	ctx, _ := trace.Start(context.Background(), name)
 	defer trace.End(ctx, nil)
-	text := fmt.Sprintf("Topic : %s, Key : %s, Vaslue : %s, Offset : %d, Time : %s", msg.Topic, string(msg.Key), string(msg.Value), msg.Offset, msg.Timestamp.String())
+	text := fmt.Sprintf("Topic : %s, Key : %s, Value : %s, Offset : %d, Time : %s", msg.Topic, string(msg.Key), string(msg.Value), msg.Offset, msg.Timestamp.String())
 
 	h := make(http.Header)
 

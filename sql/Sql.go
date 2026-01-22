@@ -105,10 +105,10 @@ func StartWithParam(ctx context.Context, dbhost, sql string, param ...interface{
 	sqlCtx.Dbc = hidePwd(dbhost)
 	sqlCtx.Sql = sql
 	if conf.ProfileSqlParamEnabled {
-		sqlCtx.Type = SQL_TYPE_SQL
-	} else {
 		sqlCtx.Type = SQL_TYPE_SQL_PARAM
 		sqlCtx.Param = paramsToString(param...)
+	} else {
+		sqlCtx.Type = SQL_TYPE_SQL
 	}
 
 	sqlCtx.step = agentapi.StartSql(wCtx, sqlCtx.StartTime, sqlCtx.Dbc, sqlCtx.Sql, sqlCtx.Param)
@@ -156,7 +156,7 @@ func End(sqlCtx *SqlCtx, err error) error {
 				agentapi.EndSql(wCtx, st, elapsed, sqlCtx.Cpu, sqlCtx.Mem, err)
 			}
 			if conf.Debug {
-				log.Println("[WA-SQL-04003] Sql txid: ", sqlCtx.Txid, ", uri: ", sqlCtx.ServiceName, "\n dbhost: ", sqlCtx.Dbc, "\n sql: ", sqlCtx.Sql, "\n time: ", elapsed, "ms ", "\n error: ", err)
+				log.Println("[WA-SQL-04003] Sql txid: ", sqlCtx.Txid, ", uri: ", sqlCtx.ServiceName, "\n dbhost: ", sqlCtx.Dbc, "\n sql: ", sqlCtx.Sql, "\n param: ", sqlCtx.Param, "\n time: ", elapsed, "ms ", "\n error: ", err)
 			}
 		}
 

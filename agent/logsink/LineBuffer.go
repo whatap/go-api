@@ -47,12 +47,12 @@ func (this *LineBuffer) Append(line string) []string {
 		}
 		this.isMulti = false
 		if this.out.Len() > 0 {
-			old := this.out.String()
+			this.out.WriteString(line) // 버퍼에 현재 라인 추가
+			result := this.out.String() // 합친 결과
 			this.out.Reset()
-			return []string{old, line}
+			return []string{result} // 하나의 로그로 반환
 		} else {
 			return []string{line}
-
 		}
 	} else if this.out.Len() >= int(conf.LogSinkLineSize) {
 		old := this.out.String()

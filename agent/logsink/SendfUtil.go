@@ -90,6 +90,6 @@ func Send(alog *LineLog) {
 		if !strings.HasSuffix(alog.Content, "\n") {
 			sb.Append("\n")
 		}
-		logutil.Infoln(sb.ToString())
+		logutil.Infoln("WA-LOGSINK", sb.ToString())
 	}
 }

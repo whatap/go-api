@@ -2,11 +2,10 @@ package whataphttp
 
 import (
 	"context"
-	//	"fmt"
 	"io"
-	//	"log"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/httpc"
@@ -67,13 +66,30 @@ func NewRoundTrip(ctx context.Context, t http.RoundTripper) http.RoundTripper {
 	return &WrapRoundTrip{ctx, t}
 }
 
-func HttpGet(ctx context.Context, url string) (*http.Response, error) {
+func HttpGet(ctx context.Context, urlStr string) (*http.Response, error) {
 	if trace.DISABLE() {
-		return http.Get(url)
+		return http.Get(urlStr)
 	}
 
-	httpcCtx, _ := httpc.Start(ctx, url)
-	resp, err := http.Get(url)
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
+
+	// Create request with mtrace headers for distributed tracing
+	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
+	if err != nil {
+		httpc.End(httpcCtx, -1, "", err)
+		return nil, err
+	}
+
+	// Set mtrace headers (same pattern as WrapRoundTrip)
+	conf := config.GetConfig()
+	if conf.MtraceEnabled {
+		headers := trace.GetMTrace(ctx)
+		for key := range headers {
+			req.Header.Set(key, headers.Get(key))
+		}
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if resp != nil {
 		httpc.End(httpcCtx, resp.StatusCode, "", err)
 	} else {
@@ -82,13 +98,31 @@ func HttpGet(ctx context.Context, url string) (*http.Response, error) {
 	return resp, err
 }
 
-func HttpPost(ctx context.Context, url string, contentType string, body io.Reader) (*http.Response, error) {
+func HttpPost(ctx context.Context, urlStr string, contentType string, body io.Reader) (*http.Response, error) {
 	if trace.DISABLE() {
-		return http.Post(url, contentType, body)
+		return http.Post(urlStr, contentType, body)
 	}
 
-	httpcCtx, _ := httpc.Start(ctx, url)
-	resp, err := http.Post(url, contentType, body)
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
+
+	// Create request with mtrace headers for distributed tracing
+	req, err := http.NewRequestWithContext(ctx, "POST", urlStr, body)
+	if err != nil {
+		httpc.End(httpcCtx, -1, "", err)
+		return nil, err
+	}
+	req.Header.Set("Content-Type", contentType)
+
+	// Set mtrace headers (same pattern as WrapRoundTrip)
+	conf := config.GetConfig()
+	if conf.MtraceEnabled {
+		headers := trace.GetMTrace(ctx)
+		for key := range headers {
+			req.Header.Set(key, headers.Get(key))
+		}
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if resp != nil {
 		httpc.End(httpcCtx, resp.StatusCode, "", err)
 	} else {
@@ -97,19 +131,152 @@ func HttpPost(ctx context.Context, url string, contentType string, body io.Reade
 	return resp, err
 }
 
-func HttpPostForm(ctx context.Context, url string, data url.Values) (*http.Response, error) {
+func HttpPostForm(ctx context.Context, urlStr string, data url.Values) (*http.Response, error) {
 	if trace.DISABLE() {
-		return http.PostForm(url, data)
+		return http.PostForm(urlStr, data)
 	}
 
-	httpcCtx, _ := httpc.Start(ctx, url)
-	resp, err := http.PostForm(url, data)
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
+
+	// Create request with mtrace headers for distributed tracing
+	req, err := http.NewRequestWithContext(ctx, "POST", urlStr, strings.NewReader(data.Encode()))
+	if err != nil {
+		httpc.End(httpcCtx, -1, "", err)
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	// Set mtrace headers (same pattern as WrapRoundTrip)
+	conf := config.GetConfig()
+	if conf.MtraceEnabled {
+		headers := trace.GetMTrace(ctx)
+		for key := range headers {
+			req.Header.Set(key, headers.Get(key))
+		}
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if resp != nil {
 		httpc.End(httpcCtx, resp.StatusCode, "", err)
 	} else {
 		httpc.End(httpcCtx, -1, "", err)
 	}
 	return resp, err
+}
+
+// DefaultClientGet wraps http.DefaultClient.Get() for instrumentation.
+// This marker function indicates the original code used http.DefaultClient.Get()
+// instead of http.Get(), allowing perfect restoration on removal.
+func DefaultClientGet(ctx context.Context, urlStr string) (*http.Response, error) {
+	if trace.DISABLE() {
+		return http.DefaultClient.Get(urlStr)
+	}
+
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
+
+	// Create request with mtrace headers for distributed tracing
+	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
+	if err != nil {
+		httpc.End(httpcCtx, -1, "", err)
+		return nil, err
+	}
+
+	// Set mtrace headers (same pattern as WrapRoundTrip)
+	conf := config.GetConfig()
+	if conf.MtraceEnabled {
+		headers := trace.GetMTrace(ctx)
+		for key := range headers {
+			req.Header.Set(key, headers.Get(key))
+		}
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if resp != nil {
+		httpc.End(httpcCtx, resp.StatusCode, "", err)
+	} else {
+		httpc.End(httpcCtx, -1, "", err)
+	}
+	return resp, err
+}
+
+// DefaultClientPost wraps http.DefaultClient.Post() for instrumentation.
+// This marker function indicates the original code used http.DefaultClient.Post()
+// instead of http.Post(), allowing perfect restoration on removal.
+func DefaultClientPost(ctx context.Context, urlStr string, contentType string, body io.Reader) (*http.Response, error) {
+	if trace.DISABLE() {
+		return http.DefaultClient.Post(urlStr, contentType, body)
+	}
+
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
+
+	// Create request with mtrace headers for distributed tracing
+	req, err := http.NewRequestWithContext(ctx, "POST", urlStr, body)
+	if err != nil {
+		httpc.End(httpcCtx, -1, "", err)
+		return nil, err
+	}
+	req.Header.Set("Content-Type", contentType)
+
+	// Set mtrace headers (same pattern as WrapRoundTrip)
+	conf := config.GetConfig()
+	if conf.MtraceEnabled {
+		headers := trace.GetMTrace(ctx)
+		for key := range headers {
+			req.Header.Set(key, headers.Get(key))
+		}
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if resp != nil {
+		httpc.End(httpcCtx, resp.StatusCode, "", err)
+	} else {
+		httpc.End(httpcCtx, -1, "", err)
+	}
+	return resp, err
+}
+
+// DefaultClientPostForm wraps http.DefaultClient.PostForm() for instrumentation.
+// This marker function indicates the original code used http.DefaultClient.PostForm()
+// instead of http.PostForm(), allowing perfect restoration on removal.
+func DefaultClientPostForm(ctx context.Context, urlStr string, data url.Values) (*http.Response, error) {
+	if trace.DISABLE() {
+		return http.DefaultClient.PostForm(urlStr, data)
+	}
+
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
+
+	// Create request with mtrace headers for distributed tracing
+	req, err := http.NewRequestWithContext(ctx, "POST", urlStr, strings.NewReader(data.Encode()))
+	if err != nil {
+		httpc.End(httpcCtx, -1, "", err)
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	// Set mtrace headers (same pattern as WrapRoundTrip)
+	conf := config.GetConfig()
+	if conf.MtraceEnabled {
+		headers := trace.GetMTrace(ctx)
+		for key := range headers {
+			req.Header.Set(key, headers.Get(key))
+		}
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if resp != nil {
+		httpc.End(httpcCtx, resp.StatusCode, "", err)
+	} else {
+		httpc.End(httpcCtx, -1, "", err)
+	}
+	return resp, err
+}
+
+// NewRoundTripWithEmptyTransport creates a RoundTripper wrapper for an http.Client
+// that originally had no Transport field (empty http.Client{}).
+// This marker function allows perfect restoration on removal by indicating
+// the Transport field should be removed entirely rather than restored to http.DefaultTransport.
+func NewRoundTripWithEmptyTransport(ctx context.Context) http.RoundTripper {
+	return &WrapRoundTrip{ctx, http.DefaultTransport}
 }
 
 func selectContext(contexts ...context.Context) (ctx context.Context) {

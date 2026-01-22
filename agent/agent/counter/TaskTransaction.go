@@ -4,6 +4,7 @@ import (
 	//"log"
 	"runtime/debug"
 
+	"github.com/whatap/go-api/agent/agent/active"
 	"github.com/whatap/go-api/agent/agent/config"
 	"github.com/whatap/go-api/agent/agent/counter/meter"
 	"github.com/whatap/go-api/agent/agent/data"
@@ -25,6 +26,9 @@ type TaskTransaction struct {
 func NewTaskTransaction() *TaskTransaction {
 	p := new(TaskTransaction)
 	p.avg30 = hmap.NewLongKeyLinkedMapDefault().SetMax(6)
+
+	// Initialize Active Stack dump (goroutine starts automatically)
+	active.GetActiveStackDumpGo()
 
 	return p
 }

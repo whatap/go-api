@@ -25,5 +25,5 @@ func (this *ConfGo) Apply(conf *Config) {
 	this.GoCounterTimeout = GetInt("go.counter_interval", 5000)
 	this.GoRecoverEnabled = GetBoolean("go.recover_enabled", false)
 
-	this.GoUseGoroutineIDEnabled = conf.Enabled && GetBoolean("go.use_goroutine_id_enabled", false)
+	this.GoUseGoroutineIDEnabled = conf.Enabled && GetBoolean("go.use_goroutine_id_enabled", true)
 }

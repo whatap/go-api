@@ -2,15 +2,12 @@
 package trace
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
 	"os"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,6 +17,7 @@ import (
 	agenttrace "github.com/whatap/go-api/agent/agent/trace"
 	agentapi "github.com/whatap/go-api/agent/agent/trace/api"
 	logsinkstd "github.com/whatap/go-api/agent/logsink/std"
+	"github.com/whatap/go-api/trace/gid"
 
 	"github.com/whatap/golib/io"
 	langvalue "github.com/whatap/golib/lang/value"
@@ -76,15 +74,18 @@ func Shutdown() {
 }
 
 func GetTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
-	if ctx == nil {
-		return ctx, nil
-	}
-	if v := ctx.Value("whatap"); v != nil {
-		return ctx, v.(*TraceCtx)
+	// context에서 먼저 찾기
+	if ctx != nil {
+		if v := ctx.Value("whatap"); v != nil {
+			return ctx, v.(*TraceCtx)
+		}
 	}
 
-	// TO-DO goroutine id
-	if v := GetGIDTraceCtx(GetGID()); v != nil {
+	// goroutine id로 찾기 (ctx가 nil이어도 동작)
+	if v := GetGIDTraceCtx(gid.GetGID()); v != nil {
+		if ctx == nil {
+			ctx = context.Background()
+		}
 		return ctx, v
 	}
 
@@ -104,15 +105,15 @@ func NewTraceContext(ctx context.Context) (context.Context, *TraceCtx) {
 	}
 	var traceCtx *TraceCtx
 	traceCtx = PoolTraceContext()
-	traceCtx.GID = GetGID()
+	traceCtx.GID = gid.GetGID()
 	traceCtx.Ctx = agenttrace.PoolTraceContext()
 
 	wCtx := traceCtx.Ctx
 	wCtx.Txid = keygen.Next()
+	wCtx.ThreadId = traceCtx.GID // Set goroutine ID for Active Stack
 	traceCtx.Txid = wCtx.Txid
 
 	ctx = context.WithValue(ctx, "whatap", traceCtx)
-	// TO-DO goroutine id
 	AddGIDTraceCtx(traceCtx.GID, traceCtx)
 	return ctx, traceCtx
 }
@@ -157,7 +158,7 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 
 	wCtx := traceCtx.Ctx
 	wCtx.StartTime = traceCtx.StartTime
-	wCtx.ServiceURL = urlutil.NewURL(filepath.Join(r.Host, "/", r.RequestURI))
+	wCtx.ServiceURL = urlutil.NewURL(r.Host + r.RequestURI)
 	ipaddr := GetRemoteIP(r.RemoteAddr, r.Header)
 	wCtx.RemoteIp = io.ToInt(iputil.ToBytes(ipaddr), 0)
 	wCtx.HttpMethod = r.Method
@@ -642,14 +643,7 @@ func GetTxid(ctx context.Context) int64 {
 	return 0
 }
 
-func GetGID() int64 {
-	b := make([]byte, 64)
-	b = b[:runtime.Stack(b, false)]
-	b = bytes.TrimPrefix(b, []byte("goroutine "))
-	b = b[:bytes.IndexByte(b, ' ')]
-	n, _ := strconv.ParseUint(string(b), 10, 64)
-	return int64(n)
-}
+// GetGID is now defined in gid.go with provider selection.
 func ParseParameter(m map[string][]string) string {
 	rt := ""
 	if m != nil && len(m) > 0 {

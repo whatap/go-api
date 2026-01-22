@@ -6,8 +6,6 @@ import (
 	"log"
 
 	"net/http"
-	"path/filepath"
-
 	"strings"
 
 	"github.com/valyala/fasthttp"
@@ -130,7 +128,7 @@ func StartWithFastHttpRequest(r *fasthttp.RequestCtx) (context.Context, error) {
 
 	wCtx := traceCtx.Ctx
 	wCtx.StartTime = traceCtx.StartTime
-	wCtx.ServiceURL = urlutil.NewURL(filepath.Join(string(r.Host()), "/", string(r.RequestURI())))
+	wCtx.ServiceURL = urlutil.NewURL(string(r.Host()) + string(r.RequestURI()))
 
 	ipaddr := trace.GetRemoteIP(r.RemoteAddr().String(), HeaderToMap(&r.Request.Header))
 	wCtx.RemoteIp = io.ToInt(iputil.ToBytes(ipaddr), 0)
