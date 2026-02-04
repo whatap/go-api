@@ -71,6 +71,11 @@ func HttpGet(ctx context.Context, urlStr string) (*http.Response, error) {
 		return http.Get(urlStr)
 	}
 
+	// Handle nil context gracefully (go-api-inst may pass nil when no handler context available)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	httpcCtx, _ := httpc.Start(ctx, urlStr)
 
 	// Create request with mtrace headers for distributed tracing
@@ -101,6 +106,11 @@ func HttpGet(ctx context.Context, urlStr string) (*http.Response, error) {
 func HttpPost(ctx context.Context, urlStr string, contentType string, body io.Reader) (*http.Response, error) {
 	if trace.DISABLE() {
 		return http.Post(urlStr, contentType, body)
+	}
+
+	// Handle nil context gracefully (go-api-inst may pass nil when no handler context available)
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	httpcCtx, _ := httpc.Start(ctx, urlStr)
@@ -134,6 +144,11 @@ func HttpPost(ctx context.Context, urlStr string, contentType string, body io.Re
 func HttpPostForm(ctx context.Context, urlStr string, data url.Values) (*http.Response, error) {
 	if trace.DISABLE() {
 		return http.PostForm(urlStr, data)
+	}
+
+	// Handle nil context gracefully (go-api-inst may pass nil when no handler context available)
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	httpcCtx, _ := httpc.Start(ctx, urlStr)
@@ -172,6 +187,11 @@ func DefaultClientGet(ctx context.Context, urlStr string) (*http.Response, error
 		return http.DefaultClient.Get(urlStr)
 	}
 
+	// Handle nil context gracefully (go-api-inst may pass nil when no handler context available)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	httpcCtx, _ := httpc.Start(ctx, urlStr)
 
 	// Create request with mtrace headers for distributed tracing
@@ -205,6 +225,11 @@ func DefaultClientGet(ctx context.Context, urlStr string) (*http.Response, error
 func DefaultClientPost(ctx context.Context, urlStr string, contentType string, body io.Reader) (*http.Response, error) {
 	if trace.DISABLE() {
 		return http.DefaultClient.Post(urlStr, contentType, body)
+	}
+
+	// Handle nil context gracefully (go-api-inst may pass nil when no handler context available)
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	httpcCtx, _ := httpc.Start(ctx, urlStr)
@@ -241,6 +266,11 @@ func DefaultClientPost(ctx context.Context, urlStr string, contentType string, b
 func DefaultClientPostForm(ctx context.Context, urlStr string, data url.Values) (*http.Response, error) {
 	if trace.DISABLE() {
 		return http.DefaultClient.PostForm(urlStr, data)
+	}
+
+	// Handle nil context gracefully (go-api-inst may pass nil when no handler context available)
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	httpcCtx, _ := httpc.Start(ctx, urlStr)
