@@ -31,8 +31,8 @@ import (
 )
 
 var (
-	AGENT_VERSION string = "0.5.0"
-	BUILDNO       string = "20260116"
+	AGENT_VERSION string = "0.5.4"
+	BUILDNO       string = "20260225"
 )
 
 func Boot() {

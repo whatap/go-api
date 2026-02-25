@@ -11,6 +11,15 @@ import (
 	"github.com/whatap/go-api/trace"
 )
 
+// WrapEcho adds WhaTap middleware to an echo.Echo and returns it.
+// Use this to instrument echo.Echo created in any context (struct fields, return values, etc).
+func WrapEcho(e *echo.Echo) *echo.Echo {
+	if e != nil {
+		e.Use(Middleware())
+	}
+	return e
+}
+
 func Middleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {

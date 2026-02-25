@@ -22,6 +22,15 @@ func Func(handler func(http.ResponseWriter, *http.Request)) func(http.ResponseWr
 	return trace.Func(handler)
 }
 
+// WrapHandler wraps an http.Handler to start a WhaTap transaction for each request.
+// Used for http.Server{Handler: handler} pattern.
+func WrapHandler(handler http.Handler) http.Handler {
+	if handler == nil {
+		return nil
+	}
+	return HandlerFunc(handler.ServeHTTP)
+}
+
 type WrapRoundTrip struct {
 	ctx       context.Context
 	transport http.RoundTripper

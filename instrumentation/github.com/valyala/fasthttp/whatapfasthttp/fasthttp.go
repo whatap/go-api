@@ -23,6 +23,15 @@ import (
 	"github.com/whatap/golib/util/urlutil"
 )
 
+// WrapHandler wraps a fasthttp.RequestHandler with WhaTap transaction monitoring.
+// Used for fasthttp.Server{Handler: handler} pattern instrumentation.
+func WrapHandler(handler fasthttp.RequestHandler) fasthttp.RequestHandler {
+	if handler == nil {
+		return nil
+	}
+	return Func(handler)
+}
+
 func Func(handler func(ctx *fasthttp.RequestCtx)) func(*fasthttp.RequestCtx) {
 	return func(ctx *fasthttp.RequestCtx) {
 		if trace.DISABLE() {

@@ -11,7 +11,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/gofiber/fiber/v2 v2.39.0
 	github.com/gomodule/redigo v1.8.9
-	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/mux v1.8.1
 	github.com/jinzhu/gorm v1.9.16
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/labstack/echo v3.3.10+incompatible
@@ -22,7 +22,8 @@ require (
 	github.com/petermattis/goid v0.0.0-20251121121749-a11dd1a45f9a
 	github.com/redis/go-redis/v9 v9.5.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
-	github.com/stretchr/testify v1.9.0
+	github.com/sirupsen/logrus v1.9.4
+	github.com/stretchr/testify v1.10.0
 	github.com/valyala/fasthttp v1.40.0
 	github.com/whatap/golib v0.0.38
 	go.mongodb.org/mongo-driver v1.13.0

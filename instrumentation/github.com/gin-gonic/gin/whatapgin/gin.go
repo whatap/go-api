@@ -11,6 +11,15 @@ import (
 	"github.com/whatap/go-api/trace"
 )
 
+// WrapEngine adds WhaTap middleware to a gin.Engine and returns it.
+// Use this to instrument gin.Engine created in any context (struct fields, return values, etc).
+func WrapEngine(e *gin.Engine) *gin.Engine {
+	if e != nil {
+		e.Use(Middleware())
+	}
+	return e
+}
+
 func Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if trace.DISABLE() {

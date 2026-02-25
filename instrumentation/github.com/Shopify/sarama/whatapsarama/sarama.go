@@ -16,6 +16,17 @@ const (
 	saramaTraceCtx = "whatapTraceCtx"
 )
 
+// WrapConfig adds WhaTap interceptors to a sarama.Config and returns it.
+// Use this to instrument sarama.Config created in any context (struct fields, return values, etc).
+func WrapConfig(config *sarama.Config) *sarama.Config {
+	if config != nil {
+		interceptor := &Interceptor{}
+		config.Producer.Interceptors = []sarama.ProducerInterceptor{interceptor}
+		config.Consumer.Interceptors = []sarama.ConsumerInterceptor{interceptor}
+	}
+	return config
+}
+
 type Interceptor struct {
 	Brokers []string
 }

@@ -44,6 +44,15 @@ func traceParams(fiberCtx *fiber.Ctx, ctx context.Context) error {
 	return nil
 }
 
+// WrapApp adds WhaTap middleware to a fiber.App and returns it.
+// Use this to instrument fiber.App created in any context (struct fields, return values, etc).
+func WrapApp(app *fiber.App) *fiber.App {
+	if app != nil {
+		app.Use(Middleware())
+	}
+	return app
+}
+
 func Middleware() func(c *fiber.Ctx) error {
 	return func(fiberCtx *fiber.Ctx) error {
 		if trace.DISABLE() {

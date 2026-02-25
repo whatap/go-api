@@ -5,3 +5,9 @@ trace/go.sum
 method/go.sum
 sql/go.sum
 *.exe
+*.log
+agent/agent/secure/whatap.conf
+
+# Claude temp files
+tmpclaude-*
+nul

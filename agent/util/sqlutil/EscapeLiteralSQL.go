@@ -267,7 +267,7 @@ func (this *EscapeLiteralSQL) _qutation() {
 	//logutil.Printf("_qutation = %s, status =%d", string(this.sql[this.pos]), this.status)
 	switch this.status {
 	case NORMAL:
-		if len(this.param.String()) > 0 {
+		if this.param.Len() > 0 {
 			this.param.WriteByte(byte(','))
 		}
 		this.param.WriteByte(this.sql[this.pos])
@@ -313,7 +313,7 @@ func (this *EscapeLiteralSQL) _dqutation() {
 	//logutil.Printf("_qutation = %s, status =%d", string(this.sql[this.pos]), this.status)
 	switch this.status {
 	case NORMAL:
-		if len(this.param.String()) > 0 {
+		if this.param.Len() > 0 {
 			this.param.WriteByte(byte(','))
 		}
 		this.param.WriteByte(this.sql[this.pos])
@@ -475,7 +475,7 @@ func (this *EscapeLiteralSQL) _dot() {
 func (this *EscapeLiteralSQL) _number() {
 	switch this.status {
 	case NORMAL:
-		if len(this.param.String()) > 0 {
+		if this.param.Len() > 0 {
 			this.param.WriteByte(byte(','))
 		}
 		this.param.WriteByte(this.sql[this.pos])

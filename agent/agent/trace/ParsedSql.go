@@ -41,12 +41,25 @@ func resetSqlText() {
 	nonLiteSql.Clear()
 }
 
+// maxSqlNormalizeLength is the maximum SQL length for normalization.
+// SQL queries larger than this are hashed directly without parsing to avoid
+// blocking the caller (EscapeLiteralSQL.Process is O(n) per character).
+const maxSqlNormalizeLength = 32 * 1024
+
 func EscapeLiteral(sql string) *ParsedSql {
 	conf := config.GetConfig()
 	if !conf.TraceSqlNormalizeEnabled {
 		hash := hash.HashStr(sql)
 		data.SendHashText(pack.TEXT_SQL, hash, sql)
 		return NewParsedSql('*', hash, "")
+	}
+
+	// Skip normalization for very large SQL to prevent blocking
+	if len(sql) > maxSqlNormalizeLength {
+		truncated := sql[:maxSqlNormalizeLength]
+		h := hash.HashStr(truncated)
+		data.SendHashText(pack.TEXT_SQL, h, truncated)
+		return NewParsedSql('*', h, "")
 	}
 
 	sqlHash := int32(stringutil.HashCode(sql))

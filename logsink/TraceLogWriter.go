@@ -96,7 +96,7 @@ func (w *TraceLogWriter) sendLine(content string) {
 //	log.SetOutput(logsink.GetTraceLogWriter(os.Stderr))
 func GetTraceLogWriter(w io.Writer) io.Writer {
 	if trace.DISABLE() {
-		return nil
+		return w
 	}
 	return NewTraceLogWriter(w, "AppLog")
 }
@@ -108,7 +108,7 @@ func GetTraceLogWriter(w io.Writer) io.Writer {
 //	log.SetOutput(logsink.GetTraceLogWriterWithCategory(os.Stderr, "MyApp"))
 func GetTraceLogWriterWithCategory(w io.Writer, category string) io.Writer {
 	if trace.DISABLE() {
-		return nil
+		return w
 	}
 	return NewTraceLogWriter(w, category)
 }
