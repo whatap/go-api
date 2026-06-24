@@ -1,5 +1,13 @@
 # Go API Release Notes
 
+## Go agent v0.6.1
+
+June 24, 2026
+
+- [Change] Version bump to stay in lockstep with go-api-inst v0.6.1 (the auto-instrumentation tool pins `go-api` to its own version). No functional changes to the SDK.
+
+---
+
 ## Go agent v0.6.0
 
 June 24, 2026
