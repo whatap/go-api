@@ -101,3 +101,32 @@ func TestDefaultClientPostFormNilContext(t *testing.T) {
 		t.Errorf("DefaultClientPostForm(nil, ...) returned nil Context error: %v", err)
 	}
 }
+
+// §254 Step 5 — NewLLMRoundTrip wrapper carries llmMark flag.
+//
+// Verifies the wrapper struct has llmMark=true when constructed via
+// NewLLMRoundTrip and llmMark=false via NewRoundTrip. The runtime behaviour
+// (Driver="LLM API" on the HTTPC step) is exercised in the Docker
+// integration test (testapps/basic/sashabaranov-app /chat /chat-stream
+// /embed) since it requires a full agent + trace context.
+func TestNewLLMRoundTrip_SetsLLMMark(t *testing.T) {
+	wrap := NewLLMRoundTrip(nil, nil)
+	w, ok := wrap.(*WrapRoundTrip)
+	if !ok {
+		t.Fatalf("NewLLMRoundTrip must return *WrapRoundTrip, got %T", wrap)
+	}
+	if !w.llmMark {
+		t.Fatalf("NewLLMRoundTrip must set llmMark=true")
+	}
+}
+
+func TestNewRoundTrip_DefaultsToNonLLM(t *testing.T) {
+	wrap := NewRoundTrip(nil, nil)
+	w, ok := wrap.(*WrapRoundTrip)
+	if !ok {
+		t.Fatalf("NewRoundTrip must return *WrapRoundTrip, got %T", wrap)
+	}
+	if w.llmMark {
+		t.Fatalf("NewRoundTrip must NOT set llmMark (general HTTP path)")
+	}
+}

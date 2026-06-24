@@ -2,10 +2,13 @@
 package trace
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -14,6 +17,7 @@ import (
 
 	whatapboot "github.com/whatap/go-api/agent/agent/boot"
 	agentconfig "github.com/whatap/go-api/agent/agent/config"
+	agentllm "github.com/whatap/go-api/agent/agent/llm"
 	agenttrace "github.com/whatap/go-api/agent/agent/trace"
 	agentapi "github.com/whatap/go-api/agent/agent/trace/api"
 	logsinkstd "github.com/whatap/go-api/agent/logsink/std"
@@ -41,14 +45,84 @@ func DISABLE() bool {
 	return disable
 }
 
+// WrapResponseWriter wraps an http.ResponseWriter to capture the response status
+// code for transaction tracking. It also delegates the optional http.Flusher,
+// http.Hijacker, and http.CloseNotifier interfaces to the embedded writer so that
+// SSE/WebSocket/long-poll handlers continue to work when wrapped.
+//
+// §221: Write() must be overridden because net/http's internal response.Write()
+// calls its own WriteHeader(200) directly on the concrete type when no header was
+// set — bypassing embedded-interface dispatch. Without this override, handlers that
+// just call w.Write() (no explicit WriteHeader) report Status=0 instead of 200.
+//
+// Optional-interface delegation note: every option method below answers true to
+// `w.(http.Flusher)` and similar type assertions even if the underlying writer does
+// not actually implement that interface (e.g. httptest.ResponseRecorder). In that
+// case the call becomes a no-op for Flush, an explicit error for Hijack, and a
+// fake never-firing channel for CloseNotify. Real production servers (`*http.response`
+// and HTTP/2 writers) implement all of these, so the silent path only triggers in
+// test or custom-writer scenarios.
 type WrapResponseWriter struct {
 	http.ResponseWriter
-	Status int
+	Status      int
+	wroteHeader bool
 }
 
+// WriteHeader records the status code on first call and forwards every call to the
+// underlying writer (matching the pre-existing behavior where net/http itself logs
+// "superfluous response.WriteHeader" on duplicate calls).
 func (l *WrapResponseWriter) WriteHeader(status int) {
-	l.Status = status
+	if !l.wroteHeader {
+		l.Status = status
+		l.wroteHeader = true
+	}
 	l.ResponseWriter.WriteHeader(status)
+}
+
+// Write defaults Status to 200 if WriteHeader was never called — matching Go's
+// implicit http.StatusOK behavior when the handler only calls Write.
+func (l *WrapResponseWriter) Write(b []byte) (int, error) {
+	if !l.wroteHeader {
+		l.Status = http.StatusOK
+		l.wroteHeader = true
+	}
+	return l.ResponseWriter.Write(b)
+}
+
+// Flush delegates to the underlying writer if it supports http.Flusher.
+// Required by SSE/streaming handlers that call `w.(http.Flusher)`.
+func (l *WrapResponseWriter) Flush() {
+	if f, ok := l.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Hijack delegates to the underlying writer if it supports http.Hijacker.
+// Required by WebSocket upgrade and other custom protocols.
+//
+// Once a handler hijacks the connection, the wrapper can no longer observe further
+// writes — Status reflects only what was written before Hijack.
+func (l *WrapResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := l.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, errors.New("trace.WrapResponseWriter: underlying ResponseWriter does not support Hijacker")
+}
+
+// CloseNotify delegates to the underlying writer if it supports the deprecated
+// http.CloseNotifier. Modern handlers should use r.Context().Done() instead.
+//
+// When the underlying writer does not implement CloseNotifier, a never-firing
+// channel is returned so the caller does not deadlock on a nil receive — matching
+// httpsnoop's behavior. Note that this loses cancellation signal; affected handlers
+// should migrate to context-based cancellation.
+//
+//nolint:staticcheck // http.CloseNotifier is deprecated but still in use by older handlers
+func (l *WrapResponseWriter) CloseNotify() <-chan bool {
+	if c, ok := l.ResponseWriter.(http.CloseNotifier); ok {
+		return c.CloseNotify()
+	}
+	return make(chan bool, 1)
 }
 
 func Init(m map[string]string) {
@@ -127,6 +201,14 @@ func Start(ctx context.Context, name string) (context.Context, error) {
 		return ctx, nil
 	}
 
+	// 기존 활성 트랜잭션이 있으면 중복 생성하지 않음
+	if ctx, existing := GetTraceContext(ctx); existing != nil && existing.Txid != 0 {
+		if conf.Debug {
+			log.Println("[WA-TX-01002] Start: skip duplicate, existing txid=", existing.Txid)
+		}
+		return ctx, nil
+	}
+
 	ctx, traceCtx := NewTraceContext(ctx)
 	traceCtx.Name = name
 	traceCtx.StartTime = dateutil.SystemNow()
@@ -148,6 +230,14 @@ func StartWithRequest(r *http.Request) (context.Context, error) {
 	conf := agentconfig.GetConfig()
 	if !conf.Enabled {
 		return r.Context(), nil
+	}
+
+	// 기존 활성 트랜잭션이 있으면 중복 생성하지 않음
+	if ctx, existing := GetTraceContext(r.Context()); existing != nil && existing.Txid != 0 {
+		if conf.Debug {
+			log.Println("[WA-TX-02002] StartWithRequest: skip duplicate, existing txid=", existing.Txid)
+		}
+		return ctx, nil
 	}
 
 	ctx, traceCtx := NewTraceContext(r.Context())
@@ -222,7 +312,7 @@ func SetHeader(ctx context.Context, m map[string][]string) {
 	}
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
 		// http.Header -> map[string][]string
-		if strings.HasPrefix(traceCtx.Name, conf.ProfileHttpHeaderUrlPrefix) {
+		if traceCtx.Ctx != nil && strings.HasPrefix(traceCtx.Name, conf.ProfileHttpHeaderUrlPrefix) {
 			parsedHeader := ParseHeader(m)
 			agentapi.ProfileMsg(traceCtx.Ctx, "HTTP_HEADERS", parsedHeader, 0, 0)
 			if conf.Debug {
@@ -243,7 +333,7 @@ func SetParameter(ctx context.Context, m map[string][]string) {
 		return
 	}
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
-		if strings.HasPrefix(traceCtx.Name, conf.ProfileHttpParameterUrlPrefix) {
+		if traceCtx.Ctx != nil && strings.HasPrefix(traceCtx.Name, conf.ProfileHttpParameterUrlPrefix) {
 			parsedParam := ParseParameter(m)
 			agentapi.ProfileSecureMsg(traceCtx.Ctx, "HTTP-PARAMS", parsedParam, 0, 0)
 			if conf.Debug {
@@ -319,6 +409,9 @@ func Step(ctx context.Context, title, message string, elapsed, value int) error 
 		return nil
 	}
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
+		if traceCtx.Ctx == nil {
+			return nil
+		}
 		agentapi.ProfileMsg(traceCtx.Ctx, title, message, int32(elapsed), int32(value))
 		return nil
 	}
@@ -339,7 +432,9 @@ func Error(ctx context.Context, err error) error {
 		var serviceName string
 
 		if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
-			agentapi.ProfileError(traceCtx.Ctx, err)
+			if traceCtx.Ctx != nil {
+				agentapi.ProfileError(traceCtx.Ctx, err)
+			}
 			txid = traceCtx.Txid
 			serviceName = traceCtx.Name
 		} else {
@@ -365,6 +460,10 @@ func End(ctx context.Context, err error) error {
 	Error(ctx, err)
 	if _, traceCtx := GetTraceContext(ctx); traceCtx != nil {
 		wCtx := traceCtx.Ctx
+		if wCtx == nil {
+			RemoveGIDTraceCtx(traceCtx.GID)
+			return nil
+		}
 		wCtx.Mtid = traceCtx.MTid
 		wCtx.Mdepth = traceCtx.MDepth
 		wCtx.McallerTxid = traceCtx.MCallerTxid
@@ -385,7 +484,17 @@ func End(ctx context.Context, err error) error {
 			wCtx.SetExtraField("x-parent-id", langvalue.NewDecimalValue(wCtx.McallerStepId))
 		}
 
+		// §261 — mark transaction as LLM if any LLM step was published in it.
+		// Phase 2 (golib update) will additionally set UdpTxEndPack.IsLlm directly.
+		if traceCtx.IsLlm != 0 {
+			wCtx.SetExtraFieldString("is-llm", "1")
+		}
+
 		agentapi.EndTx(wCtx)
+
+		// §251 — publish accumulated LLM tx_status, if any.
+		agentllm.DispatchTraceTxStatus(traceCtx.Txid, traceCtx.LLMTx)
+
 		// TO-DO goroutine id
 		RemoveGIDTraceCtx(traceCtx.GID)
 		CloseTraceContext(traceCtx)

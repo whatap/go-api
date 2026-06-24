@@ -40,12 +40,28 @@ func Connect(ctx context.Context, opts ...*options.ClientOptions) (*mongo.Client
 	return client, err
 }
 
-// NewClient creates a traced MongoDB client.
-// Deprecated: mongo.NewClient is deprecated since v1.12.
-// This function internally uses mongo.Connect for compatibility with all mongo-driver versions.
+// NewClient creates a traced MongoDB client without connecting.
+// Wraps the deprecated mongo.NewClient — adds CommandMonitor for query tracing
+// but does NOT call Connect. The caller is expected to call client.Connect() separately.
+//
+// Deprecated: Use Connect instead for mongo-driver v1.12+.
 func NewClient(opts ...*options.ClientOptions) (*mongo.Client, error) {
-	// Delegate to Connect to avoid using deprecated mongo.NewClient
-	return Connect(context.Background(), opts...)
+	mergedOpts := options.MergeClientOptions(opts...)
+
+	// Extract URI for tracing
+	uri := extractURI(mergedOpts)
+
+	// Add tracing monitor
+	monitor := NewMonitor(uri)
+
+	// Merge existing monitor if present
+	if mergedOpts.Monitor != nil {
+		monitor = mergeMonitors(mergedOpts.Monitor, monitor)
+	}
+	mergedOpts.SetMonitor(monitor)
+
+	//nolint:staticcheck // deprecated but required for old-pattern compatibility (§207)
+	return mongo.NewClient(mergedOpts)
 }
 
 // extractURI extracts the connection URI from client options.

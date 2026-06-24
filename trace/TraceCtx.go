@@ -70,6 +70,16 @@ type TraceCtx struct {
 	TraceMtraceSpecValue        string
 	TraceMtraceMcallee          int64
 	TraceMtraceTraceparentValue string
+
+	// §251 — agent/agent/llm.LlmTxStatus (interface{} avoids cycle with agent/agent/llm).
+	// Populated lazily on the first llm.Start (or auto-attach in httpc.Start) within
+	// this transaction. Drained sync at trace.End by agentllm.DispatchTraceTxStatus.
+	LLMTx interface{}
+
+	// §261 — set to 1 by agentllm.HandleHttpcEnd when the first LLM step in this
+	// transaction is published. Copied to UdpTxEndPack.IsLlm at trace.End so the
+	// server can identify the transaction as an LLM transaction.
+	IsLlm int32
 }
 
 var ctxPool = sync.Pool{
@@ -133,4 +143,7 @@ func (this *TraceCtx) Clear() {
 	this.TraceMtraceSpecValue = ""
 	this.TraceMtraceMcallee = 0
 	this.TraceMtraceTraceparentValue = ""
+
+	this.LLMTx = nil
+	this.IsLlm = 0
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/IBM/sarama"
+	"github.com/whatap/go-api/httpc"
 	"github.com/whatap/go-api/trace"
 )
 
@@ -63,6 +64,14 @@ func (in *Interceptor) OnSend(msg *sarama.ProducerMessage) {
 	text := fmt.Sprintf("Topic : %s, Key : %s, Value : %s, Brokers : %s", msg.Topic, msg.Key, msg.Value, strings.Join(in.Brokers, " "))
 
 	trace.Step(produceCtx, "Producer Interceptor Message", text, 1, 1)
+
+	// Record as external call for httpc statistics
+	host := strings.Join(in.Brokers, ",")
+	if len(in.Brokers) > 0 {
+		host = in.Brokers[0]
+	}
+	url := fmt.Sprintf("kafka://%s/%s", host, msg.Topic)
+	httpc.Trace(produceCtx, host, 9092, url, 0, 0, "", nil)
 }
 
 func (in *Interceptor) OnConsume(msg *sarama.ConsumerMessage) {
@@ -88,5 +97,4 @@ func (in *Interceptor) OnConsume(msg *sarama.ConsumerMessage) {
 	}
 
 	trace.Step(ctx, "Consumer Interceptor Message", text, 1, 1)
-
 }

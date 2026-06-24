@@ -31,9 +31,15 @@ func WrapHandler(handler http.Handler) http.Handler {
 	return HandlerFunc(handler.ServeHTTP)
 }
 
+// WrapRoundTrip — http.RoundTripper wrapper used by both general HTTP client
+// instrumentation and LLM SDK adapters. The llmMark flag distinguishes the
+// two: when true, every call is forced into LLM mode (§254 Step 5) so the
+// HTTPC step's Driver is set to "LLM API" and LLM metrics are emitted, even
+// when the URL doesn't match a known LLM provider (mock servers, etc).
 type WrapRoundTrip struct {
 	ctx       context.Context
 	transport http.RoundTripper
+	llmMark   bool
 }
 
 func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err error) {
@@ -58,7 +64,12 @@ func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err
 			req.Header.Set(key, headers.Get(key))
 		}
 	}
-	httpcCtx, _ := httpc.Start(wCtx, req.URL.String())
+	var httpcCtx *httpc.HttpcCtx
+	if this.llmMark {
+		httpcCtx, _ = httpc.StartLLM(wCtx, req.URL.String())
+	} else {
+		httpcCtx, _ = httpc.Start(wCtx, req.URL.String())
+	}
 	res, err = this.transport.RoundTrip(req)
 	if res != nil {
 		httpc.End(httpcCtx, res.StatusCode, "", err)
@@ -68,11 +79,22 @@ func (this *WrapRoundTrip) RoundTrip(req *http.Request) (res *http.Response, err
 	return res, err
 }
 func NewWrapRoundTrip(ctx context.Context, t http.RoundTripper) *WrapRoundTrip {
-	return &WrapRoundTrip{ctx, t}
+	return &WrapRoundTrip{ctx: ctx, transport: t}
 }
 
 func NewRoundTrip(ctx context.Context, t http.RoundTripper) http.RoundTripper {
-	return &WrapRoundTrip{ctx, t}
+	return &WrapRoundTrip{ctx: ctx, transport: t}
+}
+
+// NewLLMRoundTrip — like NewRoundTrip but marks every call through the
+// resulting RoundTripper as an LLM API call regardless of URL host. Used by
+// the auto-injected LLM SDK adapter transports (whatapopenai / whatapeino) so
+// adapter-owned HTTP traffic is always classified as LLM. Honours
+// whatap.conf::llm_enabled — when off, behaves identically to NewRoundTrip.
+//
+// §254 Step 5.
+func NewLLMRoundTrip(ctx context.Context, t http.RoundTripper) http.RoundTripper {
+	return &WrapRoundTrip{ctx: ctx, transport: t, llmMark: true}
 }
 
 func HttpGet(ctx context.Context, urlStr string) (*http.Response, error) {
@@ -85,16 +107,13 @@ func HttpGet(ctx context.Context, urlStr string) (*http.Response, error) {
 		ctx = context.Background()
 	}
 
-	httpcCtx, _ := httpc.Start(ctx, urlStr)
-
-	// Create request with mtrace headers for distributed tracing
+	// Create request first, then GetMTrace before httpc.Start
+	// so that httpc.Start reads the MStepId that GetMTrace just generated (§220 fix)
 	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
 	if err != nil {
-		httpc.End(httpcCtx, -1, "", err)
 		return nil, err
 	}
 
-	// Set mtrace headers (same pattern as WrapRoundTrip)
 	conf := config.GetConfig()
 	if conf.MtraceEnabled {
 		headers := trace.GetMTrace(ctx)
@@ -103,6 +122,7 @@ func HttpGet(ctx context.Context, urlStr string) (*http.Response, error) {
 		}
 	}
 
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
 	resp, err := http.DefaultClient.Do(req)
 	if resp != nil {
 		httpc.End(httpcCtx, resp.StatusCode, "", err)
@@ -122,17 +142,12 @@ func HttpPost(ctx context.Context, urlStr string, contentType string, body io.Re
 		ctx = context.Background()
 	}
 
-	httpcCtx, _ := httpc.Start(ctx, urlStr)
-
-	// Create request with mtrace headers for distributed tracing
 	req, err := http.NewRequestWithContext(ctx, "POST", urlStr, body)
 	if err != nil {
-		httpc.End(httpcCtx, -1, "", err)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", contentType)
 
-	// Set mtrace headers (same pattern as WrapRoundTrip)
 	conf := config.GetConfig()
 	if conf.MtraceEnabled {
 		headers := trace.GetMTrace(ctx)
@@ -141,6 +156,7 @@ func HttpPost(ctx context.Context, urlStr string, contentType string, body io.Re
 		}
 	}
 
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
 	resp, err := http.DefaultClient.Do(req)
 	if resp != nil {
 		httpc.End(httpcCtx, resp.StatusCode, "", err)
@@ -160,17 +176,12 @@ func HttpPostForm(ctx context.Context, urlStr string, data url.Values) (*http.Re
 		ctx = context.Background()
 	}
 
-	httpcCtx, _ := httpc.Start(ctx, urlStr)
-
-	// Create request with mtrace headers for distributed tracing
 	req, err := http.NewRequestWithContext(ctx, "POST", urlStr, strings.NewReader(data.Encode()))
 	if err != nil {
-		httpc.End(httpcCtx, -1, "", err)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	// Set mtrace headers (same pattern as WrapRoundTrip)
 	conf := config.GetConfig()
 	if conf.MtraceEnabled {
 		headers := trace.GetMTrace(ctx)
@@ -179,6 +190,7 @@ func HttpPostForm(ctx context.Context, urlStr string, data url.Values) (*http.Re
 		}
 	}
 
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
 	resp, err := http.DefaultClient.Do(req)
 	if resp != nil {
 		httpc.End(httpcCtx, resp.StatusCode, "", err)
@@ -201,16 +213,11 @@ func DefaultClientGet(ctx context.Context, urlStr string) (*http.Response, error
 		ctx = context.Background()
 	}
 
-	httpcCtx, _ := httpc.Start(ctx, urlStr)
-
-	// Create request with mtrace headers for distributed tracing
 	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
 	if err != nil {
-		httpc.End(httpcCtx, -1, "", err)
 		return nil, err
 	}
 
-	// Set mtrace headers (same pattern as WrapRoundTrip)
 	conf := config.GetConfig()
 	if conf.MtraceEnabled {
 		headers := trace.GetMTrace(ctx)
@@ -219,6 +226,7 @@ func DefaultClientGet(ctx context.Context, urlStr string) (*http.Response, error
 		}
 	}
 
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
 	resp, err := http.DefaultClient.Do(req)
 	if resp != nil {
 		httpc.End(httpcCtx, resp.StatusCode, "", err)
@@ -236,22 +244,16 @@ func DefaultClientPost(ctx context.Context, urlStr string, contentType string, b
 		return http.DefaultClient.Post(urlStr, contentType, body)
 	}
 
-	// Handle nil context gracefully (go-api-inst may pass nil when no handler context available)
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	httpcCtx, _ := httpc.Start(ctx, urlStr)
-
-	// Create request with mtrace headers for distributed tracing
 	req, err := http.NewRequestWithContext(ctx, "POST", urlStr, body)
 	if err != nil {
-		httpc.End(httpcCtx, -1, "", err)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", contentType)
 
-	// Set mtrace headers (same pattern as WrapRoundTrip)
 	conf := config.GetConfig()
 	if conf.MtraceEnabled {
 		headers := trace.GetMTrace(ctx)
@@ -260,6 +262,7 @@ func DefaultClientPost(ctx context.Context, urlStr string, contentType string, b
 		}
 	}
 
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
 	resp, err := http.DefaultClient.Do(req)
 	if resp != nil {
 		httpc.End(httpcCtx, resp.StatusCode, "", err)
@@ -277,22 +280,16 @@ func DefaultClientPostForm(ctx context.Context, urlStr string, data url.Values) 
 		return http.DefaultClient.PostForm(urlStr, data)
 	}
 
-	// Handle nil context gracefully (go-api-inst may pass nil when no handler context available)
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	httpcCtx, _ := httpc.Start(ctx, urlStr)
-
-	// Create request with mtrace headers for distributed tracing
 	req, err := http.NewRequestWithContext(ctx, "POST", urlStr, strings.NewReader(data.Encode()))
 	if err != nil {
-		httpc.End(httpcCtx, -1, "", err)
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	// Set mtrace headers (same pattern as WrapRoundTrip)
 	conf := config.GetConfig()
 	if conf.MtraceEnabled {
 		headers := trace.GetMTrace(ctx)
@@ -301,6 +298,7 @@ func DefaultClientPostForm(ctx context.Context, urlStr string, data url.Values) 
 		}
 	}
 
+	httpcCtx, _ := httpc.Start(ctx, urlStr)
 	resp, err := http.DefaultClient.Do(req)
 	if resp != nil {
 		httpc.End(httpcCtx, resp.StatusCode, "", err)
@@ -315,7 +313,7 @@ func DefaultClientPostForm(ctx context.Context, urlStr string, data url.Values) 
 // This marker function allows perfect restoration on removal by indicating
 // the Transport field should be removed entirely rather than restored to http.DefaultTransport.
 func NewRoundTripWithEmptyTransport(ctx context.Context) http.RoundTripper {
-	return &WrapRoundTrip{ctx, http.DefaultTransport}
+	return &WrapRoundTrip{ctx: ctx, transport: http.DefaultTransport}
 }
 
 func selectContext(contexts ...context.Context) (ctx context.Context) {

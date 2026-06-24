@@ -36,8 +36,8 @@ go-api (임베디드 라이브러리)
    - apm-go-agent 전용: 다국어 지원, Forwarder, OTLP 서버
    - go-api 전용: Go 프레임워크 계측
 3. **버전 관리**:
-   - apm-go-agent: v1.0.0
-   - go-api: v0.5.4 (go-api-inst와 동일 버전)
+   - go-api / go-api-inst / apm-go-agent(데이터 중계 에이전트) / `instrumentation/llm` nested 모듈 — **모두 동일 버전·동일 릴리즈 사이클** (lockstep)
+   - 다음 배포 버전은 루트 `whatap-go-sdk/CLAUDE.md` "다음 배포 버전" 기준 (현재 0.6.0)
 
 핵심 에이전트 로직은 import 경로만 다르고 95% 이상 동일합니다.
 
@@ -52,7 +52,7 @@ go-api (임베디드 라이브러리)
 `go-api/ReleaseNote.md`에 **영문**으로 작성 (apm-go-agent/ReleaseNote.md 표준):
 
 ```markdown
-## Go agent v0.5.x
+## Go agent v0.6.x
 
 Month DD, YYYY
 

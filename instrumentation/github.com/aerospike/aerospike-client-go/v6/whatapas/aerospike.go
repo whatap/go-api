@@ -33,6 +33,30 @@ func GetDbhost(client *aerospike.Client) string {
 	return fmt.Sprintf("aerospike://%s:%d", h.Name, h.Port)
 }
 
+// DbhostFromHosts builds a dbhost string for the variadic host arguments
+// passed to aerospike.NewClientWithPolicyAndHost. The auto-instrumentation
+// Rule cannot know how many hosts the user supplies, so the helper handles
+// any cardinality (zero, one, many) and returns a stable string.
+//
+// Format: "aerospike://h1:p1,h2:p2,..." (comma-separated when multiple hosts).
+// Returns "aerospike" when hosts is empty or all entries are nil.
+func DbhostFromHosts(hosts ...*aerospike.Host) string {
+	if len(hosts) == 0 {
+		return "aerospike"
+	}
+	parts := make([]string, 0, len(hosts))
+	for _, h := range hosts {
+		if h == nil {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s:%d", h.Name, h.Port))
+	}
+	if len(parts) == 0 {
+		return "aerospike"
+	}
+	return "aerospike://" + strings.Join(parts, ",")
+}
+
 // FormatSQL formats the SQL-like string for Aerospike operations.
 // Format: "METHOD namespace.set.userKey [bin1,bin2,...]"
 // Example: "Put test.demo.key1 [name,age,email]"

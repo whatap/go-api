@@ -60,6 +60,8 @@ type Config struct {
 	WhatapHost []string // TODO: whatap.server.host to whatap_server_host
 	WhatapPort int32
 
+	ConfLLM
+
 	ObjectName string
 	AppType    int16 // private
 	// Was container name  ex) Apache, Django 등
@@ -537,6 +539,10 @@ var envKeys = map[string]string{
 	"net_udp_port":          "WHATAP_NET_UDP_PORT",
 	"otel_grpc_server_port": "WHATAP_OTEL_GRPC_SERVER_PORT",
 	"use_env_first":         "WHATAP_USE_ENV_FIRST",
+	"llm_enabled":            "WHATAP_LLM_ENABLED",
+	"llm_accesskey":          "WHATAP_LLM_ACCESSKEY",
+	"llm_license":            "WHATAP_LLM_LICENSE",
+	"llm.whatap.server.host": "WHATAP_LLM_SERVER_HOST",
 }
 
 func GetConfig() *Config {
@@ -739,6 +745,9 @@ func apply() {
 		conf.WhatapHost = getStringArray("whatap.server.host", "/:,") // TODO: whatap.server.host to whatap_server_host
 		conf.WhatapPort = getInt("whatap.server.port", 6600)
 	}
+
+	conf.ConfLLM.Apply(conf)
+
 	whatapName := getValueDef("whatap.name", "")
 	if conf.AppType == lang.APP_TYPE_PHP {
 		conf.ObjectName = getValueDef("object_name", "{type}-{ip2}-{ip3}-{process}-{docker}-{ips}")

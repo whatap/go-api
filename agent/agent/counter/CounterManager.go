@@ -80,6 +80,10 @@ func StartCounterManager() {
 
 	tasks = append(tasks, NewTaskAppCtxStat())
 
+	if conf.LLMMode {
+		tasks = append(tasks, NewTaskLLM())
+	}
+
 	var INTERVAL int32 = conf.CountInterval
 	if INTERVAL < 5000 {
 		INTERVAL = 5000

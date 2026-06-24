@@ -45,6 +45,21 @@ func  main(){
 
 ```
 
+#### `ctx` parameter is optional (GID fallback)
+
+APIs that accept a `ctx context.Context` parameter — `httpc.Start(ctx, url)`, `sql.StartWithParam(ctx, ...)`, `method.Start(ctx, name)`, `whataphttp.NewRoundTrip(ctx, t)` — internally call `trace.GetTraceContext(ctx)`, which falls back to a goroutine-ID lookup when `ctx` is nil or carries no trace context. As a result, **passing `nil` is safe within the same goroutine** after `trace.Start(...)` has run:
+
+```go
+trace.Start(r.Context(), "tx")
+defer trace.End(...)
+
+// All of these still see the active transaction via GID fallback:
+sqlCtx, _ := sql.StartWithParam(nil, dbc, query, params...)
+httpcCtx, _ := httpc.Start(nil, url)
+```
+
+**However**, you must pass the `ctx` explicitly when crossing goroutine boundaries (`go func() { ... }()`) — the new goroutine has a different GID, so the only way to inherit the parent trace is through `ctx.Value("whatap")`. The `ctx` parameter therefore stays in the API surface for goroutine safety; it is optional only within synchronous, same-goroutine call chains.
+
 ###  Download agent
 
 An agent must be installed on the same server to forward data from the monitored application server through TCP communication and to transfer the data to the WhaTap collection server. The agent can be installed using the package.
@@ -120,29 +135,42 @@ $ tar -xvzf whatap-agent.tar.gz -C /
 
 #### Dockerfile
 
-```
+Using [whatap-go-inst](https://github.com/whatap/go-api-inst) for automatic instrumentation:
 
-FROM golang:1.20
+```dockerfile
+# Stage 1: Build with instrumentation
+FROM golang:1.21-alpine AS builder
 
-# install whatap-agent (x64)
-RUN wget https://s3.ap-northeast-2.amazonaws.com/repo.whatap.io/alpine/x86_64/whatap-agent.tar.gz
-RUN tar -xvzf whatap-agent.tar.gz -C /
+# Install whatap-go-inst
+RUN wget -qO- https://github.com/whatap/go-api-inst/releases/latest/download/whatap-go-inst_linux_amd64.tar.gz | tar xz -C /usr/local/bin/
 
-# Create whatap.conf. You can copy it or attach it as a volume.
-RUN echo "accesskey=aaasd-23432-123-" >> /app/whatap.conf
-RUN echo "whatap.server.host=1.1.1.1/2.2.2.2" >> /app/whatap.conf
-
-# Whatap/go-api library must be imported into the user application.
 WORKDIR /app
-ENV WHATAP_HOME /app
-RUN go mod tidy
-RUN go mod download -x
-RUN go build -o ./app app.go
+COPY . .
 
-# Run whatap-agent and the user application together with the Docker execution command.
-CMD ['sh', '-c', '/usr/whatap/agent/whatap-agent start && /app/app']
+# Build with instrumentation
+RUN whatap-go-inst go build -o /app/server .
 
+# Stage 2: Run with WhaTap agent
+FROM alpine:latest
+
+# Install WhaTap agent
+RUN wget -qO- https://s3.ap-northeast-2.amazonaws.com/repo.whatap.io/alpine/x86_64/whatap-agent.tar.gz | tar xz -C /
+
+WORKDIR /app
+COPY --from=builder /app/server .
+
+# Create WhaTap config file
+RUN echo "license=your-license-key" > whatap.conf && \
+    echo "whatap.server.host=13.124.11.223" >> whatap.conf && \
+    echo "app_name=myapp" >> whatap.conf
+
+ENV WHATAP_HOME=/app
+
+EXPOSE 8080
+CMD ["/bin/sh", "-c", "/usr/whatap/agent/whatap-agent start && ./server"]
 ```
+
+> **Note**: Get `license` and `whatap.server.host` from [WhaTap Console](https://service.whatap.io) after creating a project.
 
 ### Agent setting
 

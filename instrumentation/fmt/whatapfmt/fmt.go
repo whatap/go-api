@@ -32,8 +32,13 @@ var lineBuffer = agentlogsink.NewLineBuffer()
 // Print formats using the default formats for its operands and writes to standard output.
 // It returns the number of bytes written and any write error encountered.
 // Buffers partial lines until a newline is received.
+//
+// §235: early return before fmt.Sprint to skip the extra formatting pass when
+// logsink is disabled. Original fmt.Print path is always preserved.
 func Print(a ...any) (n int, err error) {
-	appendToLogsink(fmt.Sprint(a...))
+	if conf := logsinkActiveConf(); conf != nil {
+		appendToLogsink(conf, fmt.Sprint(a...))
+	}
 	return fmt.Print(a...)
 }
 
@@ -41,7 +46,9 @@ func Print(a ...any) (n int, err error) {
 // It returns the number of bytes written and any write error encountered.
 // Buffers partial lines until a newline is received.
 func Printf(format string, a ...any) (n int, err error) {
-	appendToLogsink(fmt.Sprintf(format, a...))
+	if conf := logsinkActiveConf(); conf != nil {
+		appendToLogsink(conf, fmt.Sprintf(format, a...))
+	}
 	return fmt.Printf(format, a...)
 }
 
@@ -49,23 +56,31 @@ func Printf(format string, a ...any) (n int, err error) {
 // Spaces are always added between operands and a newline is appended.
 // It returns the number of bytes written and any write error encountered.
 func Println(a ...any) (n int, err error) {
-	appendToLogsink(fmt.Sprintln(a...))
+	if conf := logsinkActiveConf(); conf != nil {
+		appendToLogsink(conf, fmt.Sprintln(a...))
+	}
 	return fmt.Println(a...)
 }
 
-// appendToLogsink buffers content and sends complete lines to logsink.
-func appendToLogsink(content string) {
+// logsinkActiveConf returns the config when logsink+fmt capture is active,
+// and nil otherwise. Callers must perform the cheap nil check before invoking
+// fmt.Sprint*/Sprintf/Sprintln to avoid the double-format cost when logsink
+// is disabled (§235).
+func logsinkActiveConf() *config.Config {
 	conf := config.GetConfig()
-
-	// 1. 로그 수집 비활성화 시 스킵
-	if !conf.LogSinkEnabled || !conf.LogSinkFmtEnabled {
-		return
+	if conf == nil || !conf.LogSinkEnabled || !conf.LogSinkFmtEnabled {
+		return nil
 	}
+	return conf
+}
 
-	// 2. LineBuffer.Append()로 버퍼링 (줄바꿈 있으면 flush)
+// appendToLogsink buffers content and sends complete lines to logsink.
+// Callers must have already verified logsink is active via logsinkActiveConf.
+func appendToLogsink(conf *config.Config, content string) {
+	// LineBuffer.Append()로 버퍼링 (줄바꿈 있으면 flush)
 	lines := lineBuffer.Append(content)
 
-	// 3. flush된 라인들 전송
+	// flush된 라인들 전송
 	for _, line := range lines {
 		if line == "" {
 			continue

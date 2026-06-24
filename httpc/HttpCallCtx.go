@@ -32,6 +32,10 @@ type HttpcCtx struct {
 	TraceMtracePoidValue        string
 	TraceMtraceSpecValue        string
 	TraceMtraceMcallee          int64
+
+	// §251 — opaque slot for downstream handlers (e.g. agent/agent/llm.LLMState).
+	// Type assertion lives in the handler package to keep httpc free of LLM types.
+	Extra interface{}
 }
 
 func NewHttpcCtx() *HttpcCtx {
@@ -69,4 +73,6 @@ func (this *HttpcCtx) Clear() {
 	this.TraceMtracePoidValue = ""
 	this.TraceMtraceSpecValue = ""
 	this.TraceMtraceMcallee = 0
+
+	this.Extra = nil
 }
